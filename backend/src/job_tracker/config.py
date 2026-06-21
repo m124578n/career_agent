@@ -35,11 +35,15 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-4-8"
 
-    # CORS（前端開發伺服器）
-    cors_origins: list[str] = ["http://localhost:5173"]
+    # CORS：逗號分隔的允許來源（部署時加上前端正式網域）
+    allowed_origins: str = "http://localhost:5173"
 
     # Logging
     log_level: str = "INFO"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
 
 @lru_cache

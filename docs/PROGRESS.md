@@ -98,11 +98,18 @@
 - ⚠️ 部署到 Zeabur 時：Atlas 要把 Zeabur 出口 IP 加進 Network Access 白名單
   （或暫用 0.0.0.0/0 + 強密碼），否則連不上
 
+### 部署設定 ✅ 已備好（待實際上線）
+- 後端 `backend/Dockerfile`（uv + Python 3.14，無 Playwright，~510MB）+ `.dockerignore`
+  - 本機 `docker build` + run 驗證過：`/health` ok、綁 `PORT`、啟動日誌正常
+- CORS 改 `ALLOWED_ORIGINS` 環境變數（逗號分隔）
+- 前端 `VITE_API_BASE_URL` 環境變數控制 API 網址；`public/_redirects` 處理 SPA 路由
+- 步驟見 [DEPLOY.md](DEPLOY.md)（Zeabur 後端 + Cloudflare Pages 前端 + Atlas）
+
 ## 🔲 待辦（backlog）
 
+- **實際上線**：照 DEPLOY.md 在 Zeabur / Cloudflare 建 service、填環境變數、串 CORS
 - **M6 外部投遞提醒**：規則已有（`external_apply`），卡片已標「需官網投遞」，可再做提醒清單
 - **批次體驗**：翻下一批、已看/已投標記；求職進度看板
-- **部署**：Dockerfile（後端）、Cloudflare Pages、MongoDB Atlas
 - **求職信端點**：`cover_letter` 服務有了，缺 API 端點
 - **pipeline 接成端點**：`pipeline.run_batch`（爬→分析）串成 API 並把結果落 DB
 - **M3a 關鍵字優化**（P1）、**批次體驗強化**（翻下一批、已看/已投標記）

@@ -14,7 +14,8 @@ export interface AnalyzeRequest {
   page?: number;
 }
 
-const BASE = "/api";
+// dev：留空 → "/api" 走 Vite proxy。prod：設 VITE_API_BASE_URL 為後端網址 + /api
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(`${BASE}${path}`, init);
