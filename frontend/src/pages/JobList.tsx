@@ -24,15 +24,28 @@ export function JobList() {
   const [keyword, setKeyword] = useState("");
   const qc = useQueryClient();
 
+  const [offset, setOffset] = useState(0);
+  const [noMore, setNoMore] = useState(false);
+
   const matchesQ = useQuery({ queryKey: ["matches"], queryFn: api.listMatches });
   const analyzeMut = useMutation({
     mutationFn: api.analyzeJobs,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["matches"] }),
+    onSuccess: (data, vars) => {
+      setOffset((vars.offset ?? 0) + data.length);
+      setNoMore(data.length === 0);
+      qc.invalidateQueries({ queryKey: ["matches"] });
+    },
   });
 
   const canRun = !!target && keyword.trim().length > 0 && !analyzeMut.isPending;
-  const run = () =>
-    target && analyzeMut.mutate({ keyword: keyword.trim(), target, limit: 5 });
+  const doAnalyze = (off: number) =>
+    target &&
+    analyzeMut.mutate({ keyword: keyword.trim(), target, offset: off, limit: 5 });
+  const run = () => {
+    setNoMore(false);
+    doAnalyze(0); // 新搜尋 → 從頭
+  };
+  const runNext = () => doAnalyze(offset); // 翻下一批
 
   const matches = matchesQ.data ?? [];
 
@@ -131,6 +144,25 @@ export function JobList() {
                   {matches.map((m) => (
                     <MatchCard key={m.job.job_id} match={m} />
                   ))}
+                  {/* 翻下一批（分析過至少一批後才出現） */}
+                  {offset > 0 && (
+                    <Group justify="center" mt={6}>
+                      {noMore ? (
+                        <Text fz="xs" c="dimmed">
+                          沒有更多職缺了
+                        </Text>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          disabled={!canRun}
+                          onClick={runNext}
+                        >
+                          分析下一批（第 {offset + 1}–{offset + 5} 筆）
+                        </Button>
+                      )}
+                    </Group>
+                  )}
                 </Stack>
               ) : (
                 <div className="jt-empty">

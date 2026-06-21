@@ -22,7 +22,7 @@ _MAX_ANALYZE = 10  # 單次分析上限，避免一次燒太多
 class AnalyzeRequest(BaseModel):
     keyword: str
     target: ResumeTarget
-    page: int = 1
+    offset: int = 0
     limit: int = 5
 
 
@@ -56,7 +56,13 @@ async def analyze(
     await ensure_quota(user, quota)
     limit = min(req.limit, _MAX_ANALYZE)
     matches = await analyze_jobs(
-        user, req.keyword, req.target, job_repo, match_repo, page=req.page, limit=limit
+        user,
+        req.keyword,
+        req.target,
+        job_repo,
+        match_repo,
+        offset=max(0, req.offset),
+        limit=limit,
     )
     await quota.add(user, len(matches))  # 以實際分析筆數計入額度
     return matches

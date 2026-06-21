@@ -16,8 +16,12 @@ DETAIL = json.loads((FIXTURES / "104_detail.json").read_text(encoding="utf-8"))
 
 
 def _handler(request: httpx.Request) -> httpx.Response:
-    if "search/api/jobs" in str(request.url):
-        return httpx.Response(200, json=SEARCH)
+    url = str(request.url)
+    if "search/api/jobs" in url:
+        # 只有 page=1 有資料，避免累積時重複抓同一批 fixture
+        if "page=1" in url:
+            return httpx.Response(200, json=SEARCH)
+        return httpx.Response(200, json={"data": [], "metadata": {}})
     return httpx.Response(200, json=DETAIL)
 
 

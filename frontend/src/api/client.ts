@@ -44,7 +44,7 @@ export interface AnalyzeRequest {
   keyword: string;
   target: ResumeTarget;
   limit?: number;
-  page?: number;
+  offset?: number;
 }
 
 export const api = {

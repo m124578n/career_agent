@@ -24,27 +24,37 @@ async def analyze_jobs(
     job_repo: JobRepository,
     match_repo: MatchRepository,
     *,
-    page: int = 1,
-    limit: int = 20,
+    offset: int = 0,
+    limit: int = 5,
     http_client: httpx.AsyncClient | None = None,
     llm_client=None,
     min_delay: float = 2.0,
     max_delay: float = 5.0,
 ) -> list[JobMatch]:
-    """爬一頁職缺（取前 `limit` 筆）→ 逐筆分析 → 存（match 按 user 隔離），回傳排序結果。"""
+    """分析搜尋結果中 [offset, offset+limit) 這批職缺（翻下一批用 offset 累進）。"""
     owns_http = http_client is None
     http_client = http_client or httpx.AsyncClient()
     matches: list[JobMatch] = []
     try:
-        jobs = (await crawl_jobs(keyword, page=page, client=http_client))[:limit]
+        # 累積足夠職缺以涵蓋這個視窗（104 每頁約 30 筆；跨頁時多抓幾頁）
+        jobs: list = []
+        page = 1
+        while len(jobs) < offset + limit and page <= 5:
+            batch = await crawl_jobs(keyword, page=page, client=http_client)
+            if not batch:
+                break
+            jobs.extend(batch)
+            page += 1
+        window = jobs[offset : offset + limit]
         logger.info(
-            "analyze start user=%s keyword=%r limit=%d jobs=%d",
+            "analyze start user=%s keyword=%r offset=%d limit=%d window=%d",
             user,
             keyword,
+            offset,
             limit,
-            len(jobs),
+            len(window),
         )
-        for i, job in enumerate(jobs):
+        for i, job in enumerate(window):
             try:
                 if i > 0:  # 請求間節流，避免被鎖
                     await asyncio.sleep(random.uniform(min_delay, max_delay))
