@@ -5,6 +5,7 @@ import httpx
 
 from job_tracker import crawler
 from job_tracker.crawler import (
+    _format_salary,
     crawl_job_details,
     crawl_jobs,
     fetch_job_detail,
@@ -42,6 +43,19 @@ def test_parse_jobs_formats_negotiable_salary():
     # salaryLow/High 皆 0 → 面議
     job = parse_jobs(load_payload())[0]
     assert job.salary == "面議"
+
+
+def test_format_salary_negotiable():
+    assert _format_salary(0, 0) == "面議"
+
+
+def test_format_salary_range():
+    assert _format_salary(48000, 75000) == "48,000~75,000"
+
+
+def test_format_salary_upper_unbounded():
+    # 104 用 9999999 表示「以上」（無上限），不該顯示成 60,000~9,999,999
+    assert _format_salary(60000, 9999999) == "60,000 以上"
 
 
 def test_parse_jobs_extracts_short_code():

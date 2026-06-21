@@ -122,10 +122,15 @@ def _parse_job(raw: dict) -> Job:
     )
 
 
+_SALARY_UNBOUNDED = 9999999  # 104 用此值表示「以上」（無上限）
+
+
 def _format_salary(low: int, high: int) -> str:
-    """salaryLow/High 皆 0 代表面議；否則組成範圍字串。"""
+    """組薪資字串。皆 0 → 面議；high 為 104 哨兵 → 「X 以上」；否則範圍。"""
     if not low and not high:
         return "面議"
+    if high >= _SALARY_UNBOUNDED:
+        return f"{low:,} 以上"
     return f"{low:,}~{high:,}"
 
 
