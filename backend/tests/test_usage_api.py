@@ -8,29 +8,52 @@ from job_tracker.db.repositories import TokenUsageRepository
 from job_tracker.main import app
 
 
-def test_usage_endpoint_returns_summary():
+def _rec(user: str, total: int) -> dict:
+    return {
+        "user": user,
+        "provider": "foundry",
+        "model": "claude-sonnet-4-6",
+        "kind": "parse",
+        "input_tokens": total,
+        "output_tokens": 0,
+        "total_tokens": total,
+    }
+
+
+def test_my_usage_scoped_to_user():
     repo = TokenUsageRepository(AsyncMongoMockClient()["test"])
-    asyncio.run(
-        repo.record(
-            {
-                "provider": "foundry",
-                "model": "claude-sonnet-4-6",
-                "kind": "parse",
-                "input_tokens": 100,
-                "output_tokens": 40,
-                "total_tokens": 140,
-            }
-        )
-    )
+    asyncio.run(repo.record(_rec("dev@local", 140)))
+    asyncio.run(repo.record(_rec("someone@else", 999)))
 
     app.dependency_overrides[deps.get_usage_repo] = lambda: repo
     try:
-        resp = TestClient(app).get("/api/usage")
+        resp = TestClient(app).get("/api/usage")  # 未設 google → user=dev@local
     finally:
         app.dependency_overrides.clear()
 
     assert resp.status_code == 200
+    assert resp.json()["total_tokens"] == 140  # 只算自己
+
+
+def test_global_usage_allowed_for_admin_in_dev():
+    repo = TokenUsageRepository(AsyncMongoMockClient()["test"])
+    asyncio.run(repo.record(_rec("dev@local", 140)))
+    asyncio.run(repo.record(_rec("someone@else", 60)))
+
+    app.dependency_overrides[deps.get_usage_repo] = lambda: repo
+    try:
+        # 本機停用驗證 → dev@local 視為 admin
+        resp = TestClient(app).get("/api/usage/global")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    assert resp.json()["total_tokens"] == 200  # 全站加總
+
+
+def test_quota_reports_is_admin():
+    resp = TestClient(app).get("/api/usage/quota")
+    assert resp.status_code == 200
     body = resp.json()
-    assert body["total_tokens"] == 140
-    assert body["calls"] == 1
-    assert body["by_model"]["claude-sonnet-4-6"] == 140
+    assert body["is_admin"] is True  # dev 模式
+    assert body["limit"] == 50

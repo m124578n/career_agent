@@ -8,6 +8,8 @@ import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
+from job_tracker import context
+
 logger = logging.getLogger("job_tracker.usage")
 
 Sink = Callable[[dict], Awaitable[None]]
@@ -42,6 +44,7 @@ def normalize(provider: str, model: str, kind: str, raw) -> dict | None:
         total = (inp or 0) + (out or 0)
     return {
         "ts": datetime.now(UTC),
+        "user": context.current_user.get(),
         "provider": provider,
         "model": model,
         "kind": kind,

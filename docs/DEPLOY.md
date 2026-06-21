@@ -39,6 +39,7 @@
    | `ALLOWED_ORIGINS` | 前端正式網址（部署完前端後回填，見步驟 3） |
    | `GOOGLE_CLIENT_ID` | Google OAuth Client ID（登入用） |
    | `DAILY_CALL_LIMIT` | `50`（每人每日 LLM 呼叫上限） |
+   | `ADMIN_EMAILS` | 你的 email（可看全站 token 用量，逗號分隔多個） |
    | `LOG_LEVEL` | `INFO` |
 
 5. `PORT` 由 Zeabur 自動帶入，Dockerfile 已處理。

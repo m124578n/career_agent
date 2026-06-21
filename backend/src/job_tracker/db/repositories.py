@@ -97,12 +97,13 @@ class TokenUsageRepository:
     async def record(self, usage: dict) -> None:
         await self._col.insert_one(dict(usage))
 
-    async def summary(self) -> dict:
-        """彙總總用量與各 model 細分（MVP 量級直接累加）。"""
+    async def summary(self, user: str | None = None) -> dict:
+        """彙總用量。user=None → 全站；否則只算該使用者。"""
+        query = {} if user is None else {"user": user}
         calls = 0
         inp = out = total = 0
         by_model: dict[str, int] = {}
-        async for d in self._col.find():
+        async for d in self._col.find(query):
             calls += 1
             inp += d.get("input_tokens", 0)
             out += d.get("output_tokens", 0)

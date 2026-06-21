@@ -89,6 +89,12 @@ function AccountFooter() {
     queryFn: api.usage,
     refetchInterval: 15000,
   });
+  const { data: globalUsage } = useQuery({
+    queryKey: ["usage-global"],
+    queryFn: api.globalUsage,
+    refetchInterval: 15000,
+    enabled: !!quota?.is_admin, // 僅 admin 撈全站
+  });
 
   return (
     <Stack
@@ -115,10 +121,17 @@ function AccountFooter() {
         </div>
       </div>
 
-      {/* 全域 token（成本檢視） */}
-      <Text fz={11} c="dimmed" ff="monospace">
-        累計 {(usage?.total_tokens ?? 0).toLocaleString()} tokens
-      </Text>
+      {/* 個人 token；admin 另看全站 */}
+      <div>
+        <Text fz={11} c="dimmed" ff="monospace">
+          我的 {(usage?.total_tokens ?? 0).toLocaleString()} tokens
+        </Text>
+        {quota?.is_admin && (
+          <Text fz={11} c="tangerine.5" ff="monospace">
+            全站 {(globalUsage?.total_tokens ?? 0).toLocaleString()} tokens
+          </Text>
+        )}
+      </div>
 
       {/* 使用者 + 登出 */}
       {enabled && user && (

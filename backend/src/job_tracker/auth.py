@@ -7,9 +7,18 @@ import logging
 
 from fastapi import Header, HTTPException
 
+from job_tracker import context
 from job_tracker.config import get_settings
 
 logger = logging.getLogger("job_tracker.auth")
+
+
+def is_admin(user: str) -> bool:
+    """是否可看全站用量。停用驗證（本機）時一律視為 admin。"""
+    s = get_settings()
+    if not s.google_client_id:
+        return True
+    return user.lower() in s.admin_email_list
 
 
 def _default_verify(token: str, client_id: str) -> dict:
@@ -32,6 +41,7 @@ async def current_user(authorization: str | None = Header(default=None)) -> str:
     """FastAPI 依賴：回傳已驗證的使用者 email。未登入/無效 → 401。"""
     settings = get_settings()
     if not settings.google_client_id:
+        context.current_user.set("dev@local")
         return "dev@local"  # 驗證停用（本機開發/測試）
 
     if not authorization or not authorization.startswith("Bearer "):
@@ -45,4 +55,5 @@ async def current_user(authorization: str | None = Header(default=None)) -> str:
         raise HTTPException(status_code=401, detail="登入無效") from None
     if not email:
         raise HTTPException(status_code=401, detail="登入缺少 email")
+    context.current_user.set(email)  # 供 LLM 用量歸戶
     return email

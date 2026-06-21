@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # 認證（Google OAuth）。空字串 → 停用驗證（本機/測試）
     google_client_id: str = ""
     daily_call_limit: int = 50  # 每位使用者每日 LLM 呼叫上限
+    admin_emails: str = ""  # 逗號分隔；可看全站用量
+
+    @property
+    def admin_email_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
 
     # Logging
     log_level: str = "INFO"

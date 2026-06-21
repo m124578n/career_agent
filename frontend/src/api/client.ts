@@ -73,5 +73,6 @@ export const api = {
       body: JSON.stringify(req),
     }),
   usage: () => request<UsageSummary>("/usage"),
+  globalUsage: () => request<UsageSummary>("/usage/global"),
   quota: () => request<QuotaInfo>("/usage/quota"),
 };

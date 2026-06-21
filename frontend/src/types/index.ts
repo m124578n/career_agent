@@ -23,6 +23,7 @@ export interface QuotaInfo {
   used: number;
   limit: number;
   remaining: number;
+  is_admin: boolean;
 }
 
 export interface Job {

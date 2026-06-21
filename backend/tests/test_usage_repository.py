@@ -44,3 +44,12 @@ async def test_empty_summary(repo: TokenUsageRepository):
     s = await repo.summary()
     assert s["calls"] == 0
     assert s["total_tokens"] == 0
+
+
+async def test_summary_scoped_by_user(repo: TokenUsageRepository):
+    await repo.record({**rec("m", 10, 5), "user": "a"})
+    await repo.record({**rec("m", 20, 10), "user": "b"})
+
+    assert (await repo.summary("a"))["total_tokens"] == 15
+    assert (await repo.summary("b"))["total_tokens"] == 30
+    assert (await repo.summary())["total_tokens"] == 45  # 全站
