@@ -3,8 +3,9 @@
 import pytest
 
 from job_tracker import llm
+from job_tracker.config import get_settings
 from job_tracker.llm import make_provider
-from job_tracker.llm.providers import AnthropicProvider, OpenRouterProvider
+from job_tracker.llm.providers import AnthropicProvider, AzureProvider, OpenRouterProvider
 from job_tracker.schemas import MatchAnalysis
 
 
@@ -53,6 +54,17 @@ async def test_parse_requests_json_response_format():
 def test_make_provider_selects_by_name():
     assert isinstance(make_provider("openrouter"), OpenRouterProvider)
     assert isinstance(make_provider("anthropic"), AnthropicProvider)
+    assert isinstance(make_provider("azure"), AzureProvider)
+
+
+async def test_azure_provider_parse_uses_deployment_and_json():
+    client = _FakeClient('{"score": 55, "reasons": [], "gaps": []}')
+    result = await AzureProvider().parse("prompt", MatchAnalysis, client=client)
+    assert result.score == 55
+    sent = client.chat.completions.calls[0]
+    # Azure 與 OpenRouter 共用 OpenAI 相容邏輯：json_object + deployment 當 model
+    assert sent["response_format"] == {"type": "json_object"}
+    assert sent["model"] == get_settings().azure_openai_deployment
 
 
 def test_make_provider_unknown_raises():

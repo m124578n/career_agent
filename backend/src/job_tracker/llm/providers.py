@@ -12,24 +12,26 @@ from job_tracker.llm.base import _DEFAULT_SYSTEM, LLMProvider
 T = TypeVar("T", bound=BaseModel)
 
 
-class OpenRouterProvider:
-    """OpenRouter / 任何 OpenAI 相容端點。
+class _OpenAICompatProvider:
+    """OpenAI 相容端點的共用邏輯（OpenRouter / Azure 都吃這套）。
 
-    免費模型多半不支援嚴格 json_schema，故用 json_object 模式 +
-    把 schema 塞進 system prompt，再以 Pydantic 驗證。
+    免費/多數模型不一定支援嚴格 json_schema，故用 json_object 模式 +
+    把 schema 塞進 system prompt，再以 Pydantic 驗證（含去 markdown 圍欄）。
+    子類別只需實作 _make_client() 與 _model()。
     """
 
     def __init__(self):
         self._client = None
 
+    def _make_client(self):
+        raise NotImplementedError
+
+    def _model(self) -> str:
+        raise NotImplementedError
+
     def _get_client(self):
         if self._client is None:
-            from openai import AsyncOpenAI
-
-            s = get_settings()
-            self._client = AsyncOpenAI(
-                api_key=s.openrouter_api_key, base_url=s.openrouter_base_url
-            )
+            self._client = self._make_client()
         return self._client
 
     async def complete(
@@ -37,7 +39,7 @@ class OpenRouterProvider:
     ) -> str:
         client = client or self._get_client()
         resp = await client.chat.completions.create(
-            model=get_settings().openrouter_model,
+            model=self._model(),
             max_tokens=max_tokens,
             messages=[
                 {"role": "system", "content": system or _DEFAULT_SYSTEM},
@@ -63,7 +65,7 @@ class OpenRouterProvider:
             f"{schema_json}"
         )
         resp = await client.chat.completions.create(
-            model=get_settings().openrouter_model,
+            model=self._model(),
             max_tokens=max_tokens,
             response_format={"type": "json_object"},
             messages=[
@@ -73,6 +75,36 @@ class OpenRouterProvider:
         )
         content = resp.choices[0].message.content or ""
         return schema.model_validate_json(_extract_json(content))
+
+
+class OpenRouterProvider(_OpenAICompatProvider):
+    """OpenRouter / 任何 OpenAI 相容端點。"""
+
+    def _make_client(self):
+        from openai import AsyncOpenAI
+
+        s = get_settings()
+        return AsyncOpenAI(api_key=s.openrouter_api_key, base_url=s.openrouter_base_url)
+
+    def _model(self) -> str:
+        return get_settings().openrouter_model
+
+
+class AzureProvider(_OpenAICompatProvider):
+    """Azure OpenAI。model 用 Azure 上的 deployment 名稱。"""
+
+    def _make_client(self):
+        from openai import AsyncAzureOpenAI
+
+        s = get_settings()
+        return AsyncAzureOpenAI(
+            api_key=s.azure_openai_api_key,
+            api_version=s.azure_openai_api_version,
+            azure_endpoint=s.azure_openai_endpoint,
+        )
+
+    def _model(self) -> str:
+        return get_settings().azure_openai_deployment
 
 
 class AnthropicProvider:
@@ -136,6 +168,7 @@ def _extract_json(text: str) -> str:
 
 _REGISTRY: dict[str, type] = {
     "openrouter": OpenRouterProvider,
+    "azure": AzureProvider,
     "anthropic": AnthropicProvider,
 }
 
