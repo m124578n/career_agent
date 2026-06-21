@@ -2,7 +2,6 @@
 
 import pytest
 
-from job_tracker import llm
 from job_tracker.config import get_settings
 from job_tracker.llm import make_provider
 from job_tracker.llm.providers import (
@@ -33,7 +32,7 @@ class _FakeClient:
 
 async def test_parse_validates_json_into_schema():
     client = _FakeClient('{"score": 80, "reasons": ["技能符合"], "gaps": ["缺經驗"]}')
-    result = await llm.parse("prompt", MatchAnalysis, client=client)
+    result = await OpenRouterProvider().parse("prompt", MatchAnalysis, client=client)
     assert isinstance(result, MatchAnalysis)
     assert result.score == 80
     assert result.reasons == ["技能符合"]
@@ -42,13 +41,13 @@ async def test_parse_validates_json_into_schema():
 async def test_parse_strips_markdown_fences():
     # 免費模型常把 JSON 包在 ```json ... ``` 裡
     client = _FakeClient('```json\n{"score": 60, "reasons": [], "gaps": []}\n```')
-    result = await llm.parse("prompt", MatchAnalysis, client=client)
+    result = await OpenRouterProvider().parse("prompt", MatchAnalysis, client=client)
     assert result.score == 60
 
 
 async def test_parse_requests_json_response_format():
     client = _FakeClient('{"score": 1, "reasons": [], "gaps": []}')
-    await llm.parse("prompt", MatchAnalysis, client=client)
+    await OpenRouterProvider().parse("prompt", MatchAnalysis, client=client)
     sent = client.chat.completions.calls[0]
     assert sent["response_format"] == {"type": "json_object"}
 

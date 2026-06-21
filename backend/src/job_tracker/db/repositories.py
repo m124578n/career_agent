@@ -5,7 +5,7 @@
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from job_tracker.schemas import Job, JobDetail
+from job_tracker.schemas import Job, JobDetail, JobMatch
 
 
 class JobRepository:
@@ -39,3 +39,27 @@ class JobRepository:
         if not doc or "detail" not in doc:
             return None
         return JobDetail(**doc["detail"])
+
+    async def set_match(self, job_id: str, match: JobMatch) -> None:
+        """存契合度分析結果（不含 job 本身，job 已在文件中）。"""
+        await self._col.update_one(
+            {"_id": job_id},
+            {
+                "$set": {
+                    "match": {
+                        "score": match.score,
+                        "reasons": match.reasons,
+                        "gaps": match.gaps,
+                        "requires_external_apply": match.requires_external_apply,
+                    }
+                }
+            },
+        )
+
+    async def list_matches(self) -> list[JobMatch]:
+        """回傳已分析的職缺，依契合度由高到低排序。"""
+        matches = [
+            JobMatch(job=Job(**doc), **doc["match"])
+            async for doc in self._col.find({"match": {"$exists": True}})
+        ]
+        return sorted(matches, key=lambda m: m.score, reverse=True)

@@ -2,7 +2,7 @@ import pytest
 from mongomock_motor import AsyncMongoMockClient
 
 from job_tracker.db.repositories import JobRepository
-from job_tracker.schemas import Job, JobDetail
+from job_tracker.schemas import Job, JobDetail, JobMatch
 
 
 @pytest.fixture
@@ -51,3 +51,33 @@ async def test_set_and_get_detail(repo: JobRepository):
     assert got is not None
     assert got.description == "完整 JD"
     assert got.specialties == ["Python"]
+
+
+def make_match(job_id: str, score: int) -> JobMatch:
+    return JobMatch(
+        job=make_job(job_id, code=f"c{job_id}"),
+        score=score,
+        reasons=["理由"],
+        gaps=["缺口"],
+    )
+
+
+async def test_set_and_list_matches_sorted(repo: JobRepository):
+    await repo.upsert_job(make_job("1", "c1"))
+    await repo.upsert_job(make_job("2", "c2"))
+    await repo.set_match("1", make_match("1", 60))
+    await repo.set_match("2", make_match("2", 90))
+
+    matches = await repo.list_matches()
+    assert [m.score for m in matches] == [90, 60]  # 由高到低
+    assert matches[0].job.job_id == "2"
+    assert matches[0].reasons == ["理由"]
+
+
+async def test_list_matches_skips_unanalyzed(repo: JobRepository):
+    await repo.upsert_job(make_job("1", "c1"))  # 沒分析
+    await repo.upsert_job(make_job("2", "c2"))
+    await repo.set_match("2", make_match("2", 75))
+
+    matches = await repo.list_matches()
+    assert [m.job.job_id for m in matches] == ["2"]
