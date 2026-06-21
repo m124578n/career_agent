@@ -41,4 +41,10 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req),
     }),
+  coverLetter: (req: { target: ResumeTarget; job_id: string }) =>
+    request<{ cover_letter: string }>("/applications/cover-letter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    }),
 };

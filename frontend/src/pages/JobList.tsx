@@ -1,13 +1,17 @@
 import {
   Box,
   Button,
+  CopyButton,
   Group,
   Loader,
+  Modal,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -143,6 +147,23 @@ export function JobList() {
 
 function MatchCard({ match }: { match: JobMatch }) {
   const { job, score, reasons, gaps, requires_external_apply } = match;
+  const { target } = useResume();
+  const [opened, { open, close }] = useDisclosure(false);
+  const [draft, setDraft] = useState("");
+
+  const letterMut = useMutation({
+    mutationFn: api.coverLetter,
+    onSuccess: (d) => setDraft(d.cover_letter),
+  });
+
+  const generate = () => {
+    if (target) letterMut.mutate({ target, job_id: job.job_id });
+  };
+  const openLetter = () => {
+    open();
+    if (!draft && !letterMut.isPending) generate();
+  };
+
   return (
     <div className="jt-jobcard">
       <div className="jt-job-head">
@@ -170,10 +191,6 @@ function MatchCard({ match }: { match: JobMatch }) {
         <span style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
       </div>
 
-      {requires_external_apply && (
-        <span className="jt-chip">⚑ 需至官網投遞</span>
-      )}
-
       <div className="jt-tags">
         {reasons.map((r, i) => (
           <div key={`r${i}`} className="jt-tag" data-kind="pos">
@@ -188,6 +205,66 @@ function MatchCard({ match }: { match: JobMatch }) {
           </div>
         ))}
       </div>
+
+      <Group justify="space-between" mt={2}>
+        {requires_external_apply ? (
+          <span className="jt-chip">⚑ 需至官網投遞</span>
+        ) : (
+          <span />
+        )}
+        <Button size="xs" variant="default" onClick={openLetter}>
+          生成求職信
+        </Button>
+      </Group>
+
+      <Modal
+        opened={opened}
+        onClose={close}
+        size="lg"
+        title={
+          <span className="jt-eyebrow">
+            求職信 // {job.company} · {job.title}
+          </span>
+        }
+      >
+        {letterMut.isPending ? (
+          <Group justify="center" py={40}>
+            <Loader size="sm" color="tangerine" />
+            <Text fz="sm" c="dimmed">
+              生成中…
+            </Text>
+          </Group>
+        ) : letterMut.isError ? (
+          <Text fz="sm" c="tangerine.5">
+            生成失敗，請重試。
+          </Text>
+        ) : (
+          <Stack gap={12}>
+            <Textarea
+              autosize
+              minRows={12}
+              maxRows={24}
+              value={draft}
+              onChange={(e) => setDraft(e.currentTarget.value)}
+              styles={{
+                input: { fontFamily: "var(--mantine-font-family-monospace)" },
+              }}
+            />
+            <Group justify="flex-end">
+              <Button variant="subtle" color="gray" onClick={generate}>
+                重新生成
+              </Button>
+              <CopyButton value={draft}>
+                {({ copied, copy }) => (
+                  <Button color="tangerine" onClick={copy}>
+                    {copied ? "已複製" : "複製"}
+                  </Button>
+                )}
+              </CopyButton>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
     </div>
   );
 }

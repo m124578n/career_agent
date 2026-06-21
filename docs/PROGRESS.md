@@ -76,10 +76,15 @@
 - `services/analyze.analyze_jobs`：爬 → 逐筆詳情（節流、**容錯**：單筆失敗跳過）→ LLM 分析 → 存 DB → 排序
 - `JobRepository.set_match/list_matches`；API `POST /api/jobs/analyze`、`GET /api/jobs/matches`
 
+### 求職信（M5）✅ 完成並 e2e 驗證
+- `cover_letter.generate`（用完整 JD + 履歷）；API `POST /api/applications/cover-letter`
+- 前端：每張職缺卡「生成求職信」→ modal（可編輯、重新生成、複製）
+
 ## 🔲 待辦（backlog）
 
-- **求職信（M5）**：服務有了，補 API 端點 + 前端頁
+- **M6 外部投遞提醒**：規則已有（`external_apply`），卡片已標「需官網投遞」，可再做提醒清單
 - **批次體驗**：翻下一批、已看/已投標記；求職進度看板
+- **部署**：Dockerfile（後端）、Cloudflare Pages、MongoDB Atlas
 - **求職信端點**：`cover_letter` 服務有了，缺 API 端點
 - **pipeline 接成端點**：`pipeline.run_batch`（爬→分析）串成 API 並把結果落 DB
 - **M3a 關鍵字優化**（P1）、**批次體驗強化**（翻下一批、已看/已投標記）
