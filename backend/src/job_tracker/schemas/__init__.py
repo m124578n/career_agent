@@ -50,8 +50,16 @@ class JobDetail(BaseModel):
     specialties: list[str] = Field(default_factory=list, description="專長/技能")
 
 
+class MatchAnalysis(BaseModel):
+    """LLM 對單筆職缺的契合度分析輸出（結構化輸出 schema）。"""
+
+    score: int = Field(ge=0, le=100, description="契合度 0~100")
+    reasons: list[str] = Field(description="契合的理由")
+    gaps: list[str] = Field(description="待補強/缺口")
+
+
 class JobMatch(BaseModel):
-    """職缺契合度分析（M4）。"""
+    """職缺契合度分析（M4），= 職缺 + LLM 分析 + 規則判斷。"""
 
     job: Job
     score: float = Field(ge=0, le=100, description="契合度 0~100")
