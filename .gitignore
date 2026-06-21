@@ -22,6 +22,9 @@ venv/
 # 本地測試資料（含個資，不入版控）
 sample_data/
 
+# Google OAuth client secret（只需 client ID，secret 不入版控）
+client_secret_*.json
+
 # IDE / editor
 .idea/
 .vscode/
