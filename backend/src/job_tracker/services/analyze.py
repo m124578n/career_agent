@@ -35,6 +35,7 @@ async def analyze_jobs(
     matches: list[JobMatch] = []
     try:
         jobs = (await crawl_jobs(keyword, page=page, client=http_client))[:limit]
+        logger.info("analyze start keyword=%r limit=%d jobs=%d", keyword, limit, len(jobs))
         for i, job in enumerate(jobs):
             try:
                 if i > 0:  # 請求間節流，避免被鎖
@@ -51,6 +52,7 @@ async def analyze_jobs(
                 logger.warning("跳過分析失敗的職缺 %s", job.job_id, exc_info=True)
                 continue
 
+        logger.info("analyze done keyword=%r -> %d matches", keyword, len(matches))
         return sorted(matches, key=lambda m: m.score, reverse=True)
     finally:
         if owns_http:

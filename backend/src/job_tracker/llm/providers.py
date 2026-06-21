@@ -1,7 +1,9 @@
 """各家 LLM provider 實作。新增 provider：寫一個 class，加進 _REGISTRY。"""
 
 import json
+import logging
 import re
+import time
 from typing import TypeVar
 
 from pydantic import BaseModel
@@ -10,6 +12,18 @@ from job_tracker.config import get_settings
 from job_tracker.llm.base import _DEFAULT_SYSTEM, LLMProvider
 
 T = TypeVar("T", bound=BaseModel)
+
+logger = logging.getLogger("job_tracker.llm")
+
+
+def _log_call(kind: str, model: str, start: float, error: Exception | None = None):
+    dur = time.perf_counter() - start
+    if error is None:
+        logger.info("llm.%s model=%s %.2fs ok", kind, model, dur)
+    else:
+        logger.warning(
+            "llm.%s model=%s %.2fs FAILED %s", kind, model, dur, type(error).__name__
+        )
 
 
 class _OpenAICompatProvider:
@@ -38,15 +52,22 @@ class _OpenAICompatProvider:
         self, prompt: str, *, system: str = "", max_tokens: int = 2048, client=None
     ) -> str:
         client = client or self._get_client()
-        resp = await client.chat.completions.create(
-            model=self._model(),
-            max_tokens=max_tokens,
-            messages=[
-                {"role": "system", "content": system or _DEFAULT_SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        return resp.choices[0].message.content or ""
+        model = self._model()
+        start = time.perf_counter()
+        try:
+            resp = await client.chat.completions.create(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[
+                    {"role": "system", "content": system or _DEFAULT_SYSTEM},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            _log_call("complete", model, start)
+            return resp.choices[0].message.content or ""
+        except Exception as e:
+            _log_call("complete", model, start, e)
+            raise
 
     async def parse(
         self,
@@ -58,23 +79,31 @@ class _OpenAICompatProvider:
         client=None,
     ) -> T:
         client = client or self._get_client()
+        model = self._model()
         schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False)
         full_system = (
             f"{system or _DEFAULT_SYSTEM}\n\n"
             "請只輸出符合以下 JSON Schema 的單一 JSON 物件，不要任何額外文字或說明：\n"
             f"{schema_json}"
         )
-        resp = await client.chat.completions.create(
-            model=self._model(),
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": full_system},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        content = resp.choices[0].message.content or ""
-        return schema.model_validate_json(_extract_json(content))
+        start = time.perf_counter()
+        try:
+            resp = await client.chat.completions.create(
+                model=model,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": full_system},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            content = resp.choices[0].message.content or ""
+            result = schema.model_validate_json(_extract_json(content))
+            _log_call("parse", model, start)
+            return result
+        except Exception as e:
+            _log_call("parse", model, start, e)
+            raise
 
 
 class OpenRouterProvider(_OpenAICompatProvider):
@@ -132,14 +161,21 @@ class _AnthropicBaseProvider:
         self, prompt: str, *, system: str = "", max_tokens: int = 2048, client=None
     ) -> str:
         client = client or self._get_client()
-        resp = await client.messages.create(
-            model=self._model(),
-            max_tokens=max_tokens,
-            thinking={"type": "adaptive"},
-            system=system or _DEFAULT_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return "".join(b.text for b in resp.content if b.type == "text")
+        model = self._model()
+        start = time.perf_counter()
+        try:
+            resp = await client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                thinking={"type": "adaptive"},
+                system=system or _DEFAULT_SYSTEM,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            _log_call("complete", model, start)
+            return "".join(b.text for b in resp.content if b.type == "text")
+        except Exception as e:
+            _log_call("complete", model, start, e)
+            raise
 
     async def parse(
         self,
@@ -151,15 +187,22 @@ class _AnthropicBaseProvider:
         client=None,
     ) -> T:
         client = client or self._get_client()
-        resp = await client.messages.parse(
-            model=self._model(),
-            max_tokens=max_tokens,
-            thinking={"type": "adaptive"},
-            system=system or _DEFAULT_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
-            output_format=schema,
-        )
-        return resp.parsed_output
+        model = self._model()
+        start = time.perf_counter()
+        try:
+            resp = await client.messages.parse(
+                model=model,
+                max_tokens=max_tokens,
+                thinking={"type": "adaptive"},
+                system=system or _DEFAULT_SYSTEM,
+                messages=[{"role": "user", "content": prompt}],
+                output_format=schema,
+            )
+            _log_call("parse", model, start)
+            return resp.parsed_output
+        except Exception as e:
+            _log_call("parse", model, start, e)
+            raise
 
 
 class AnthropicProvider(_AnthropicBaseProvider):

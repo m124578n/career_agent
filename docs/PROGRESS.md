@@ -80,6 +80,12 @@
 - `cover_letter.generate`（用完整 JD + 履歷）；API `POST /api/applications/cover-letter`
 - 前端：每張職缺卡「生成求職信」→ modal（可編輯、重新生成、複製）
 
+### Logging ✅ 基礎 + 請求計時
+- `logging_config.setup_logging`（`LOG_LEVEL` 環境變數、乾淨格式、stdout）
+- 啟動（provider/model/db）、爬蟲（keyword/page/count）、LLM 呼叫（model/延遲/ok-fail）、
+  analyze（start/done）、每個 HTTP 請求（method/path/status/耗時）
+- 已實際驗證 log 輸出正常
+
 ## 🔲 待辦（backlog）
 
 - **M6 外部投遞提醒**：規則已有（`external_apply`），卡片已標「需官網投遞」，可再做提醒清單

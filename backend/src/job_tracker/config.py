@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # CORS（前端開發伺服器）
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Logging
+    log_level: str = "INFO"
+
 
 @lru_cache
 def get_settings() -> Settings:

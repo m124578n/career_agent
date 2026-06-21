@@ -25,6 +25,18 @@ def get_provider() -> LLMProvider:
     return _provider
 
 
+def describe() -> str:
+    """目前 provider/model 字串，供啟動日誌用。"""
+    s = get_settings()
+    model = {
+        "openrouter": s.openrouter_model,
+        "azure": s.azure_openai_deployment,
+        "foundry": s.foundry_model,
+        "anthropic": s.anthropic_model,
+    }.get(s.llm_provider, "?")
+    return f"{s.llm_provider}/{model}"
+
+
 async def complete(
     prompt: str, *, system: str = "", max_tokens: int = 2048, client=None
 ) -> str:

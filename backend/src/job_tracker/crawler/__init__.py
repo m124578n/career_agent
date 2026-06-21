@@ -5,11 +5,14 @@
 """
 
 import asyncio
+import logging
 import random
 
 import httpx
 
 from job_tracker.schemas import Job, JobDetail
+
+logger = logging.getLogger("job_tracker.crawler")
 
 SEARCH_URL = "https://www.104.com.tw/jobs/search/api/jobs"
 DETAIL_URL = "https://www.104.com.tw/job/ajax/content/{code}"
@@ -49,7 +52,9 @@ async def crawl_jobs(
     try:
         resp = await client.get(SEARCH_URL, params=params, headers=_HEADERS)
         resp.raise_for_status()
-        return parse_jobs(resp.json())
+        jobs = parse_jobs(resp.json())
+        logger.info("crawl keyword=%r page=%d -> %d jobs", keyword, page, len(jobs))
+        return jobs
     finally:
         if owns_client:
             await client.aclose()
