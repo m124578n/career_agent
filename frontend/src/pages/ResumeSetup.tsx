@@ -16,6 +16,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useResume } from "../state/resume";
+import { AnalyzingSteps } from "../components/AnalyzingSteps";
 
 export function ResumeSetup() {
   const { setTarget } = useResume();
@@ -152,14 +153,20 @@ export function ResumeSetup() {
               )}
             </span>
           </div>
-          <div className="jt-panel-body" data-center={!diagMut.data}>
+          <div
+            className="jt-panel-body"
+            data-center={!diagMut.data && !diagMut.isPending}
+          >
             {diagMut.isPending ? (
-              <div className="jt-empty">
-                <Loader size="sm" color="tangerine" />
-                <Text mt={12} fz="sm" c="dimmed">
-                  分析中 // 對標目標職位評估履歷…
-                </Text>
-              </div>
+              <AnalyzingSteps
+                steps={[
+                  "讀取履歷與目標…",
+                  "對標職位分析優勢…",
+                  "整理待補強缺口…",
+                  "彙整診斷結果…",
+                ]}
+                intervalSec={4}
+              />
             ) : diagMut.isError ? (
               <div className="jt-empty">
                 診斷失敗 // 請稍後再試或確認後端設定

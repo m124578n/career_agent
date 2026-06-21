@@ -17,6 +17,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useResume } from "../state/resume";
+import { AnalyzingSteps } from "../components/AnalyzingSteps";
 import type { JobMatch } from "../types";
 
 export function JobList() {
@@ -131,12 +132,14 @@ export function JobList() {
               data-center={!matches.length && !analyzeMut.isPending}
             >
               {analyzeMut.isPending ? (
-                <div className="jt-empty">
-                  <Loader size="sm" color="tangerine" />
-                  <Text mt={12} fz="sm" c="dimmed">
-                    爬取與逐筆分析中 // 每筆間有節流，請稍候…
-                  </Text>
-                </div>
+                <AnalyzingSteps
+                  steps={[
+                    "爬取 104 職缺…",
+                    "讀取職缺詳情（含節流）…",
+                    "逐筆比對契合度…",
+                    "排序與整理結果…",
+                  ]}
+                />
               ) : matchesQ.isLoading ? (
                 <div className="jt-empty">載入中…</div>
               ) : matches.length ? (
