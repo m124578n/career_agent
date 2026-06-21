@@ -26,15 +26,28 @@ class ResumeDiagnosis(BaseModel):
 
 
 class Job(BaseModel):
-    """一筆 104 職缺。"""
+    """一筆 104 職缺（搜尋列表層級）。"""
 
     job_id: str
+    code: str = Field(description="職缺短碼，詳情 API 用（url 末段）")
     title: str
     company: str
     url: str
     salary: str | None = None
     description: str = ""
     crawled_at: datetime = Field(default_factory=_utcnow)
+
+
+class JobDetail(BaseModel):
+    """職缺詳情（詳情 API，含完整 JD 與條件需求，供契合度分析用）。"""
+
+    description: str = Field(description="完整職缺描述")
+    salary: str = ""
+    location: str = ""
+    work_exp: str = Field(default="", description="工作經驗需求")
+    education: str = ""
+    majors: list[str] = Field(default_factory=list, description="科系需求")
+    specialties: list[str] = Field(default_factory=list, description="專長/技能")
 
 
 class JobMatch(BaseModel):

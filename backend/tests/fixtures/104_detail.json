@@ -1,0 +1,107 @@
+{
+  "data": {
+    "header": {
+      "corpImageTop": {
+        "imageUrl": "https://static.104.com.tw/b_profile/cust_picture/7000/23310837000/custintroduce/image2.jpg?v=20260306101314",
+        "link": ""
+      },
+      "jobName": "R0007868: (Sr.) Applied AI Module Engineer ",
+      "appearDate": "2026/06/18",
+      "custName": "Trend Micro_趨勢科技股份有限公司",
+      "custUrl": "https://www.104.com.tw/company/apio4y0",
+      "analysisType": 2,
+      "analysisUrl": "//www.104.com.tw/jobs/apply/analysis/8rl43",
+      "isSaved": false,
+      "isFollowed": false,
+      "isApplied": false,
+      "applyDate": "",
+      "userApplyCount": 0,
+      "hrBehaviorPR": 0.16495614190844846
+    },
+    "jobDetail": {
+      "jobDescription": "\nJob Description\nOverview\n\nWe Endpoint Module team is responsible for building Trend Micro’s most fundamental and critical engines, the core of our security technologies. These engines power key protection capabilities across our entire endpoint product line.\n\nTo stay ahead of today’s evolving threats and meet the ever-changing needs of our customers, we continuously refine and advance our technologies. Here, we don’t just maintain—we innovate.\n\n\n\nJoin us, and you’ll work hands-on with the most essential components in Trend Micro’s protection stack, gaining deep insights into how we safeguard our customers’ products in real-world environments.\n\n\n\nWe are now looking for passionate and experienced software engineers to join our team. You will help develop and maintain our core detection and protection engines on endpoint platforms (Windows/Linux), playing a critical role in Trend Micro’s overall security portfolio.\n\n\n\nBelow are some examples which you might be involved:\n\n● Develop features on the Linux/Windows platform, with a focus on C/C++.\n● Develop automation processes/systems for the testing flow, with a focus on Python.\n● Develop and maintain both user-mode dlls and kernel mode drivers.\n● Apply DevOps practices to enhance engine availability and reliability.\n● Collaborate with different teams to resolve customer issues.\n\n● Leverage AI-assisted development tools to accelerate coding and improve code quality.\n\n\n\nWhat you can learn in this job?\n\n● Solid technology in Linux/Windows system domain\n● C/C++/Python coding skill\n● Automation testing skill\n● Dump analyzing skill\n● Performance analyzing skill\n\n\n\nQualification/Requirement\n\n● Highly proactive, self-motivated and good team work\n● Familiar with/interested in Linux/Windows system mechanism\n● 3+ years of C/C++ developing experience\n\n\n\nNice-to-have as a plus\n\n● BS or MS in Computer Science or related field.\n● Strong knowledge of Linux/Windows internal\n● Good English communication skills.\n● Familiar with python\n● Deep threat knowledge is a plus.\n● Experience with AI-assisted development tools (e.g., Claude Code, Cursor, GitHub Copilot).",
+      "jobCategory": [
+        {
+          "code": "2007001004",
+          "description": "軟體工程師"
+        },
+        {
+          "code": "2007002006",
+          "description": "系統工程師"
+        }
+      ],
+      "salary": "待遇面議",
+      "salaryMin": 0,
+      "salaryMax": 0,
+      "salaryType": 10,
+      "jobType": 1,
+      "workType": [],
+      "addressNo": "6001001005",
+      "addressRegion": "台北市大安區",
+      "addressArea": "台北市",
+      "addressDetail": "敦化南路二段198號8F",
+      "industryArea": "",
+      "longitude": "121.5482094",
+      "latitude": "25.0231015",
+      "manageResp": "不需負擔管理責任",
+      "businessTrip": "無需出差外派",
+      "workPeriod": {
+        "shifts": {
+          "日班": []
+        },
+        "note": ""
+      },
+      "workPeriodTags": [],
+      "vacationPolicy": "依公司規定",
+      "startWorkingDay": "不限",
+      "hireType": 0,
+      "delegatedRecruit": "",
+      "needEmp": "1人",
+      "landmark": "距捷運六張犁站約500公尺",
+      "remoteWork": null
+    },
+    "condition": {
+      "acceptRole": {
+        "role": [],
+        "disRole": {
+          "needHandicapCompendium": false,
+          "disability": []
+        }
+      },
+      "workExp": "不拘",
+      "edu": "專科、大學、碩士",
+      "major": [
+        "資訊管理相關",
+        "資訊工程相關",
+        "電機電子工程相關"
+      ],
+      "language": [
+        {
+          "code": 1,
+          "language": "英文",
+          "ability": {
+            "listening": "中等",
+            "speaking": "中等",
+            "reading": "中等",
+            "writing": "中等"
+          }
+        }
+      ],
+      "localLanguage": [],
+      "specialty": [
+        {
+          "code": "12001001007",
+          "description": "Linux"
+        },
+        {
+          "code": "12001003010",
+          "description": "C++"
+        }
+      ],
+      "skill": [],
+      "certificate": [],
+      "driverLicense": [],
+      "other": " "
+    }
+  }
+}

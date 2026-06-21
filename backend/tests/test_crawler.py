@@ -3,13 +3,25 @@ from pathlib import Path
 
 import httpx
 
-from job_tracker.crawler import crawl_jobs, parse_jobs
+from job_tracker import crawler
+from job_tracker.crawler import (
+    crawl_job_details,
+    crawl_jobs,
+    fetch_job_detail,
+    parse_job_detail,
+    parse_jobs,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "104_search.json"
+DETAIL_FIXTURE = Path(__file__).parent / "fixtures" / "104_detail.json"
 
 
 def load_payload() -> dict:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def load_detail_payload() -> dict:
+    return json.loads(DETAIL_FIXTURE.read_text(encoding="utf-8"))
 
 
 def test_parse_jobs_returns_all_jobs():
@@ -32,6 +44,23 @@ def test_parse_jobs_formats_negotiable_salary():
     assert job.salary == "面議"
 
 
+def test_parse_jobs_extracts_short_code():
+    # 詳情 API 用的是 url 末段短碼，需從 link.job 取出
+    job = parse_jobs(load_payload())[0]
+    assert job.code == "8rl43"
+
+
+def test_parse_job_detail_extracts_fields():
+    detail = parse_job_detail(load_detail_payload())
+    assert "Job Description" in detail.description
+    assert detail.salary == "待遇面議"
+    assert detail.location == "台北市大安區"
+    assert detail.work_exp == "不拘"
+    assert detail.education == "專科、大學、碩士"
+    assert "Linux" in detail.specialties
+    assert "C++" in detail.specialties
+
+
 async def test_crawl_jobs_sends_referer_and_parses():
     captured: dict = {}
 
@@ -49,3 +78,43 @@ async def test_crawl_jobs_sends_referer_and_parses():
     assert captured["keyword"] == "python"
     assert len(jobs) == 2
     assert jobs[0].job_id == "14724003"
+
+
+async def test_fetch_job_detail_uses_job_specific_referer():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["referer"] = request.headers.get("referer")
+        captured["url"] = str(request.url)
+        return httpx.Response(200, json=load_detail_payload())
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        detail = await fetch_job_detail("8rl43", client=client)
+
+    # 詳情 API 需帶該職缺自己的 Referer 才不會 403
+    assert captured["referer"] == "https://www.104.com.tw/job/8rl43"
+    assert "8rl43" in captured["url"]
+    assert detail.salary == "待遇面議"
+
+
+async def test_crawl_job_details_throttles_between_requests(monkeypatch):
+    sleeps: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(crawler.asyncio, "sleep", fake_sleep)
+    transport = httpx.MockTransport(
+        lambda req: httpx.Response(200, json=load_detail_payload())
+    )
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        details = await crawl_job_details(
+            ["aaa", "bbb", "ccc"], client=client, min_delay=2.0, max_delay=5.0
+        )
+
+    assert len(details) == 3
+    # 3 個請求 → 之間延遲 2 次（首個請求前不延遲）
+    assert len(sleeps) == 2
+    assert all(2.0 <= s <= 5.0 for s in sleeps)
