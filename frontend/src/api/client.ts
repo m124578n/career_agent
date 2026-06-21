@@ -1,5 +1,7 @@
 // 打 backend 的薄封裝。所有路徑走 /api（由 Vite proxy 轉到 FastAPI）。
 
+import type { ResumeDiagnosis, ResumeTarget } from "../types";
+
 const BASE = "/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -19,6 +21,12 @@ export const api = {
       body: form,
     });
   },
+  diagnose: (target: ResumeTarget) =>
+    request<ResumeDiagnosis>("/resumes/diagnose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(target),
+    }),
   listJobs: () => request<unknown[]>("/jobs"),
   listApplications: () => request<unknown[]>("/applications"),
 };

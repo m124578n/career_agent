@@ -1,0 +1,168 @@
+:root {
+  --jt-bg: #14161a;
+  --jt-panel: #1e2127;
+  --jt-panel-2: #23272f;
+  --jt-border: #2a2e36;
+  --jt-text: #e6e8eb;
+  --jt-muted: #9aa1ab;
+  --jt-dim: #6b727c;
+  --jt-accent: #ff6a3d;
+  --jt-teal: #34d6c8;
+}
+
+body {
+  background-color: var(--jt-bg);
+  /* 極淡的網格 + 頂部暈光，營造艙內氛圍（克制） */
+  background-image:
+    radial-gradient(1100px 480px at 78% -10%, rgba(255, 106, 61, 0.06), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px);
+  background-size: 100% 100%, 44px 44px, 44px 44px;
+  color: var(--jt-text);
+}
+
+/* 終端機式 eyebrow 標籤 */
+.jt-eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--jt-dim);
+}
+.jt-eyebrow b {
+  color: var(--jt-teal);
+  font-weight: 600;
+}
+
+/* 面板 */
+.jt-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--jt-panel);
+  border: 1px solid var(--jt-border);
+  border-radius: 10px;
+}
+.jt-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--jt-border);
+}
+.jt-panel-body {
+  flex: 1;
+  padding: 18px;
+}
+.jt-panel-body[data-center="true"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 自訂上傳投放區 */
+.jt-drop {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 20px;
+  border: 1px dashed var(--jt-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.012);
+  color: var(--jt-muted);
+  text-align: left;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.jt-drop:hover {
+  border-color: var(--jt-accent);
+  background: rgba(255, 106, 61, 0.04);
+}
+.jt-drop[data-loaded="true"] {
+  border-style: solid;
+  border-color: var(--jt-teal);
+  background: rgba(52, 214, 200, 0.04);
+}
+
+/* 讀數空狀態 */
+.jt-empty {
+  border: 1px dashed var(--jt-border);
+  border-radius: 10px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--jt-dim);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+/* 診斷讀數條目：[+] 優勢 / [!] 待補強 */
+.jt-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.jt-item {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--jt-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.012);
+  line-height: 1.55;
+  font-size: 14px;
+}
+.jt-item .jt-mark {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  user-select: none;
+}
+.jt-item[data-kind="pos"] {
+  border-left: 2px solid var(--jt-teal);
+}
+.jt-item[data-kind="pos"] .jt-mark {
+  color: var(--jt-teal);
+}
+.jt-item[data-kind="neg"] {
+  border-left: 2px solid var(--jt-accent);
+}
+.jt-item[data-kind="neg"] .jt-mark {
+  color: var(--jt-accent);
+}
+
+/* 契合度能量條（之後職缺頁用，先定義好） */
+.jt-meter {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--jt-panel-2);
+  overflow: hidden;
+}
+.jt-meter > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--jt-teal), #7be6da);
+  border-radius: 99px;
+}
+
+/* 側欄品牌 */
+.jt-brand {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--jt-text);
+}
+.jt-brand .dot {
+  color: var(--jt-accent);
+}
+.jt-brandtag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--jt-dim);
+  text-transform: uppercase;
+}

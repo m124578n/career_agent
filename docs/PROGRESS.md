@@ -62,11 +62,17 @@
 
 ---
 
+## 🎨 前端設計系統（Cockpit 指揮艙）
+
+- 深色 ink 底 + 雙訊號色（tangerine 行動 / teal 契合）+ 終端機式 mono 標籤
+- 字型：Space Grotesk(標) / IBM Plex Sans(內文) / IBM Plex Mono(數據)
+- 樣式集中在 `frontend/src/styles/global.css`（`.jt-*` 前綴），Mantine 主題在 `theme.ts`
+- ✅ **履歷與目標頁完成並 e2e 驗證**：上傳 PDF → 解析 → 執行診斷 → 讀數面板
+  （[+] 優勢 / [!] 待補強），用真實履歷 + Azure Foundry Claude Sonnet 4.6 跑通
+
 ## 🔲 待辦（backlog）
 
-- **前端串接**：把骨架頁接上 API
-  - 履歷頁：`/parse`（上傳）→ 組 `ResumeTarget` → `/diagnose`
-  - 職缺頁：`/api/jobs` 列表、`/crawl` 觸發、契合度顯示
+- **前端**：職缺頁串 `/api/jobs`（列表 + crawl 觸發 + 契合度能量條）；求職信頁
 - **求職信端點**：`cover_letter` 服務有了，缺 API 端點
 - **pipeline 接成端點**：`pipeline.run_batch`（爬→分析）串成 API 並把結果落 DB
 - **M3a 關鍵字優化**（P1）、**批次體驗強化**（翻下一批、已看/已投標記）
