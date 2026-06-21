@@ -11,6 +11,7 @@ dependencies = [
     "motor>=3.6",
     "pydantic-settings>=2.7",
     "python-multipart>=0.0.18",
+    "openai>=1.60",
     "anthropic>=0.42",
     "pypdf>=5.1",
     "python-docx>=1.1",
