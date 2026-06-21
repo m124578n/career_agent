@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # OpenRouter（OpenAI 相容，預設用免費模型）
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_model: str = "google/gemini-2.0-flash-exp:free"
+    openrouter_model: str = "qwen/qwen3-next-80b-a3b-instruct:free"
 
     # Anthropic（原生 structured outputs）
     anthropic_api_key: str = ""
