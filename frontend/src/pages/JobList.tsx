@@ -14,7 +14,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useResume } from "../state/resume";
 import type { JobMatch } from "../types";
@@ -164,6 +164,17 @@ function MatchCard({ match }: { match: JobMatch }) {
     if (!draft && !letterMut.isPending) generate();
   };
 
+  // 生成中的經過秒數（讓使用者知道在跑、別關視窗）
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!letterMut.isPending) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [letterMut.isPending]);
+  const elapsed = letterMut.submittedAt
+    ? Math.max(0, Math.floor((Date.now() - letterMut.submittedAt) / 1000))
+    : 0;
+
   return (
     <div className="jt-jobcard">
       <div className="jt-job-head">
@@ -221,6 +232,8 @@ function MatchCard({ match }: { match: JobMatch }) {
         opened={opened}
         onClose={close}
         size="lg"
+        closeOnClickOutside={!letterMut.isPending}
+        closeOnEscape={!letterMut.isPending}
         title={
           <span className="jt-eyebrow">
             求職信 // {job.company} · {job.title}
@@ -228,12 +241,12 @@ function MatchCard({ match }: { match: JobMatch }) {
         }
       >
         {letterMut.isPending ? (
-          <Group justify="center" py={40}>
+          <Stack align="center" py={40} gap={10}>
             <Loader size="sm" color="tangerine" />
-            <Text fz="sm" c="dimmed">
-              生成中…
+            <Text fz="sm" c="dimmed" ta="center">
+              生成中…約需 20–40 秒，請勿關閉視窗（{elapsed}s）
             </Text>
-          </Group>
+          </Stack>
         ) : letterMut.isError ? (
           <Text fz="sm" c="tangerine.5">
             生成失敗，請重試。
