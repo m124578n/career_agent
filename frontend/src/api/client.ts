@@ -1,6 +1,13 @@
 // 打 backend 的薄封裝。所有路徑走 /api（由 Vite proxy 轉到 FastAPI）。
 
-import type { ResumeDiagnosis, ResumeTarget } from "../types";
+import type { JobMatch, ResumeDiagnosis, ResumeTarget } from "../types";
+
+export interface AnalyzeRequest {
+  keyword: string;
+  target: ResumeTarget;
+  limit?: number;
+  page?: number;
+}
 
 const BASE = "/api";
 
@@ -27,6 +34,11 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(target),
     }),
-  listJobs: () => request<unknown[]>("/jobs"),
-  listApplications: () => request<unknown[]>("/applications"),
+  listMatches: () => request<JobMatch[]>("/jobs/matches"),
+  analyzeJobs: (req: AnalyzeRequest) =>
+    request<JobMatch[]>("/jobs/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    }),
 };

@@ -9,6 +9,7 @@ import "@mantine/notifications/styles.css";
 import "./styles/global.css";
 import { App } from "./App";
 import { theme } from "./theme";
+import { ResumeProvider } from "./state/resume";
 
 const queryClient = new QueryClient();
 
@@ -17,9 +18,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <MantineProvider theme={theme} defaultColorScheme="dark" forceColorScheme="dark">
       <Notifications />
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <ResumeProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </ResumeProvider>
       </QueryClientProvider>
     </MantineProvider>
   </React.StrictMode>,

@@ -134,7 +134,7 @@ body {
   color: var(--jt-accent);
 }
 
-/* 契合度能量條（之後職缺頁用，先定義好） */
+/* 契合度能量條 */
 .jt-meter {
   height: 6px;
   border-radius: 99px;
@@ -146,6 +146,99 @@ body {
   height: 100%;
   background: linear-gradient(90deg, var(--jt-teal), #7be6da);
   border-radius: 99px;
+  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 職缺契合度卡片 */
+.jt-jobcard {
+  border: 1px solid var(--jt-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.012);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.jt-jobcard:hover {
+  border-color: #3a3f49;
+}
+.jt-job-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.jt-job-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--jt-text);
+  text-decoration: none;
+  line-height: 1.35;
+}
+.jt-job-title:hover {
+  color: var(--jt-teal);
+}
+.jt-job-meta {
+  font-size: 13px;
+  color: var(--jt-muted);
+  margin-top: 3px;
+}
+.jt-score {
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 64px;
+}
+.jt-score b {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--jt-teal);
+}
+.jt-score small {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--jt-dim);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.jt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--jt-accent);
+  border: 1px solid rgba(255, 106, 61, 0.4);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.jt-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.jt-tag {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--jt-muted);
+  line-height: 1.5;
+}
+.jt-tag .m {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+}
+.jt-tag[data-kind="pos"] .m {
+  color: var(--jt-teal);
+}
+.jt-tag[data-kind="neg"] .m {
+  color: var(--jt-accent);
 }
 
 /* 側欄品牌 */

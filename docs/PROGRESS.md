@@ -69,10 +69,17 @@
 - 樣式集中在 `frontend/src/styles/global.css`（`.jt-*` 前綴），Mantine 主題在 `theme.ts`
 - ✅ **履歷與目標頁完成並 e2e 驗證**：上傳 PDF → 解析 → 執行診斷 → 讀數面板
   （[+] 優勢 / [!] 待補強），用真實履歷 + Azure Foundry Claude Sonnet 4.6 跑通
+- ✅ **職缺契合度頁完成並 e2e 驗證**：輸入關鍵字 → 爬取 + 逐筆分析 → 排序卡片
+  （契合度能量條、teal 分數、[+]/[!] 標籤）。履歷目標跨頁共用（ResumeContext + localStorage）
+
+### 後端契合度流程（M4）
+- `services/analyze.analyze_jobs`：爬 → 逐筆詳情（節流、**容錯**：單筆失敗跳過）→ LLM 分析 → 存 DB → 排序
+- `JobRepository.set_match/list_matches`；API `POST /api/jobs/analyze`、`GET /api/jobs/matches`
 
 ## 🔲 待辦（backlog）
 
-- **前端**：職缺頁串 `/api/jobs`（列表 + crawl 觸發 + 契合度能量條）；求職信頁
+- **求職信（M5）**：服務有了，補 API 端點 + 前端頁
+- **批次體驗**：翻下一批、已看/已投標記；求職進度看板
 - **求職信端點**：`cover_letter` 服務有了，缺 API 端點
 - **pipeline 接成端點**：`pipeline.run_batch`（爬→分析）串成 API 並把結果落 DB
 - **M3a 關鍵字優化**（P1）、**批次體驗強化**（翻下一批、已看/已投標記）

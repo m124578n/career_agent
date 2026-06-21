@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -15,12 +15,25 @@ import {
 } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { useResume } from "../state/resume";
 
 export function ResumeSetup() {
+  const { setTarget } = useResume();
   const [file, setFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
   const [title, setTitle] = useState("");
   const [salary, setSalary] = useState<number | string>("");
+
+  // 履歷與目標就緒時，存進共用狀態供「職缺契合度」頁使用
+  useEffect(() => {
+    if (resumeText && title.trim()) {
+      setTarget({
+        target_title: title.trim(),
+        expected_salary: typeof salary === "number" ? salary : null,
+        resume_text: resumeText,
+      });
+    }
+  }, [resumeText, title, salary, setTarget]);
 
   const parseMut = useMutation({
     mutationFn: api.parseResume,

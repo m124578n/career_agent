@@ -1,39 +1,193 @@
-import { Box, Stack, Text, Title } from "@mantine/core";
-import { useJobs } from "../hooks/useJobs";
+import {
+  Box,
+  Button,
+  Group,
+  Loader,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
+import { Link } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { api } from "../api/client";
+import { useResume } from "../state/resume";
+import type { JobMatch } from "../types";
 
-// M4：職缺清單 + 契合度排序。骨架，待爬蟲/分析端點串上後填入表格。
 export function JobList() {
-  const { data, isLoading } = useJobs();
-  const count = Array.isArray(data) ? data.length : 0;
+  const { target } = useResume();
+  const [keyword, setKeyword] = useState("");
+  const qc = useQueryClient();
+
+  const matchesQ = useQuery({ queryKey: ["matches"], queryFn: api.listMatches });
+  const analyzeMut = useMutation({
+    mutationFn: api.analyzeJobs,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["matches"] }),
+  });
+
+  const canRun = !!target && keyword.trim().length > 0 && !analyzeMut.isPending;
+  const run = () =>
+    target && analyzeMut.mutate({ keyword: keyword.trim(), target, limit: 5 });
+
+  const matches = matchesQ.data ?? [];
 
   return (
     <Box p={{ base: "lg", md: 40 }} maw={1180} mx="auto">
-      <Stack gap={6} mb={32}>
+      <Stack gap={6} mb={28}>
         <span className="jt-eyebrow">
           職缺 <b>×</b> 契合度
         </span>
         <Title order={1} fz={{ base: 28, md: 34 }} fw={700} lts="-0.02em">
           職缺契合度
         </Title>
-        <Text c="dimmed" fz="sm" maw={560}>
-          依關鍵字爬取 104 職缺，逐筆比對你的履歷並排序。
+        <Text c="dimmed" fz="sm" maw={580}>
+          輸入關鍵字爬取 104 職缺，逐筆比對你的履歷並排序。每次分析前 5 筆（含節流，需稍候）。
         </Text>
       </Stack>
 
-      <div className="jt-panel">
-        <div className="jt-panel-head">
-          <span className="jt-eyebrow">
-            清單 // JOBS{count ? <> · <b>{count}</b> 筆</> : null}
-          </span>
-        </div>
-        <div className="jt-panel-body">
-          <div className="jt-empty">
-            {isLoading
-              ? "載入中…"
-              : "尚無職缺 // 待爬取與契合度分析端點串接後顯示"}
+      {!target ? (
+        <div className="jt-panel">
+          <div className="jt-panel-body" data-center="true">
+            <div className="jt-empty">
+              尚未設定履歷 //{" "}
+              <Link to="/resume" style={{ color: "var(--jt-teal)" }}>
+                先到「履歷與目標」
+              </Link>{" "}
+              上傳並設定目標
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* 控制列 */}
+          <div className="jt-panel" style={{ marginBottom: 20 }}>
+            <div className="jt-panel-body">
+              <Group align="flex-end" gap={12} wrap="nowrap">
+                <TextInput
+                  label="搜尋關鍵字"
+                  placeholder="例：Python 後端 / AI 工程師"
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.currentTarget.value)}
+                  onKeyDown={(e) => e.key === "Enter" && canRun && run()}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  color="tangerine"
+                  size="md"
+                  disabled={!canRun}
+                  loading={analyzeMut.isPending}
+                  onClick={run}
+                >
+                  爬取並分析
+                </Button>
+              </Group>
+              <Text fz="xs" c="dimmed" mt={8}>
+                目標：{target.target_title}
+                {target.expected_salary
+                  ? ` · 期望 ${target.expected_salary.toLocaleString()}`
+                  : ""}
+              </Text>
+              {analyzeMut.isError && (
+                <Text fz="xs" c="tangerine.5" mt={6}>
+                  分析失敗：請確認後端與關鍵字後再試。
+                </Text>
+              )}
+            </div>
+          </div>
+
+          {/* 結果 */}
+          <div className="jt-panel">
+            <div className="jt-panel-head">
+              <span className="jt-eyebrow">
+                排序結果 // RANKED
+                {matches.length ? (
+                  <>
+                    {" · "}
+                    <b>{matches.length}</b> 筆
+                  </>
+                ) : null}
+              </span>
+            </div>
+            <div
+              className="jt-panel-body"
+              data-center={!matches.length && !analyzeMut.isPending}
+            >
+              {analyzeMut.isPending ? (
+                <div className="jt-empty">
+                  <Loader size="sm" color="tangerine" />
+                  <Text mt={12} fz="sm" c="dimmed">
+                    爬取與逐筆分析中 // 每筆間有節流，請稍候…
+                  </Text>
+                </div>
+              ) : matchesQ.isLoading ? (
+                <div className="jt-empty">載入中…</div>
+              ) : matches.length ? (
+                <Stack gap={12}>
+                  {matches.map((m) => (
+                    <MatchCard key={m.job.job_id} match={m} />
+                  ))}
+                </Stack>
+              ) : (
+                <div className="jt-empty">
+                  尚無結果 // 輸入關鍵字後執行「爬取並分析」
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </Box>
+  );
+}
+
+function MatchCard({ match }: { match: JobMatch }) {
+  const { job, score, reasons, gaps, requires_external_apply } = match;
+  return (
+    <div className="jt-jobcard">
+      <div className="jt-job-head">
+        <div>
+          <a
+            className="jt-job-title"
+            href={job.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {job.title}
+          </a>
+          <div className="jt-job-meta">
+            {job.company}
+            {job.salary ? ` · ${job.salary}` : ""}
+          </div>
+        </div>
+        <div className="jt-score">
+          <b>{score}</b>
+          <small>match</small>
+        </div>
+      </div>
+
+      <div className="jt-meter">
+        <span style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+      </div>
+
+      {requires_external_apply && (
+        <span className="jt-chip">⚑ 需至官網投遞</span>
+      )}
+
+      <div className="jt-tags">
+        {reasons.map((r, i) => (
+          <div key={`r${i}`} className="jt-tag" data-kind="pos">
+            <span className="m">[+]</span>
+            <span>{r}</span>
+          </div>
+        ))}
+        {gaps.map((g, i) => (
+          <div key={`g${i}`} className="jt-tag" data-kind="neg">
+            <span className="m">[!]</span>
+            <span>{g}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
