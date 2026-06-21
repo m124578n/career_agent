@@ -25,6 +25,9 @@ sample_data/
 # Google OAuth client secret（只需 client ID，secret 不入版控）
 client_secret_*.json
 
+# 本地執行 log
+*.log
+
 # IDE / editor
 .idea/
 .vscode/
