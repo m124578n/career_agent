@@ -59,6 +59,9 @@ async def analyze_jobs(
                 if i > 0:  # 請求間節流，避免被鎖
                     await asyncio.sleep(random.uniform(min_delay, max_delay))
                 detail = await fetch_job_detail(job.code, client=http_client)
+                if detail.salary:
+                    # 用 104 詳情的完整薪資字串（含 月薪/年薪/以上/面議 等）
+                    job.salary = detail.salary
                 await job_repo.upsert_job(job)
                 await job_repo.set_detail(job.job_id, detail)
                 match = await job_matching.analyze(

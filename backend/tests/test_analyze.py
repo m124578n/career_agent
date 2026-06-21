@@ -54,6 +54,8 @@ async def test_analyze_jobs_stores_and_sorts(monkeypatch):
     assert [m.score for m in matches] == [80, 50]
     stored = await match_repo.list_matches("u1")
     assert [m.score for m in stored] == [80, 50]
+    # 薪資用詳情 API 的完整字串覆蓋（fixture 詳情為「待遇面議」）
+    assert all(m.job.salary == "待遇面議" for m in stored)
 
 
 async def test_analyze_jobs_skips_failed(monkeypatch):
