@@ -13,6 +13,7 @@ dependencies = [
     "python-multipart>=0.0.18",
     "openai>=1.60",
     "anthropic>=0.42",
+    "google-auth>=2.37",
     "pypdf>=5.1",
     "python-docx>=1.1",
 ]

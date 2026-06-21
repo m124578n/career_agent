@@ -3,8 +3,8 @@ import asyncio
 from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
 
-from job_tracker.api.routers.applications import get_repo
-from job_tracker.db.repositories import JobRepository
+from job_tracker.api import deps
+from job_tracker.db.repositories import JobRepository, QuotaRepository
 from job_tracker.main import app
 from job_tracker.schemas import Job
 from job_tracker.services import cover_letter
@@ -32,7 +32,8 @@ def _body(job_id: str) -> dict:
 
 
 def test_cover_letter_endpoint_returns_text(monkeypatch):
-    repo = JobRepository(AsyncMongoMockClient()["test"])
+    db = AsyncMongoMockClient()["test"]
+    repo = JobRepository(db)
     asyncio.run(repo.upsert_job(make_job("1")))
 
     async def fake_generate(target, job, detail=None, *, client=None):
@@ -41,7 +42,8 @@ def test_cover_letter_endpoint_returns_text(monkeypatch):
 
     monkeypatch.setattr(cover_letter, "generate", fake_generate)
 
-    app.dependency_overrides[get_repo] = lambda: repo
+    app.dependency_overrides[deps.get_job_repo] = lambda: repo
+    app.dependency_overrides[deps.get_quota_repo] = lambda: QuotaRepository(db)
     try:
         resp = TestClient(app).post("/api/applications/cover-letter", json=_body("1"))
     finally:
@@ -52,8 +54,9 @@ def test_cover_letter_endpoint_returns_text(monkeypatch):
 
 
 def test_cover_letter_endpoint_404_for_missing_job():
-    repo = JobRepository(AsyncMongoMockClient()["test"])
-    app.dependency_overrides[get_repo] = lambda: repo
+    db = AsyncMongoMockClient()["test"]
+    app.dependency_overrides[deps.get_job_repo] = lambda: JobRepository(db)
+    app.dependency_overrides[deps.get_quota_repo] = lambda: QuotaRepository(db)
     try:
         resp = TestClient(app).post("/api/applications/cover-letter", json=_body("nope"))
     finally:

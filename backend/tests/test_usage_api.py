@@ -3,7 +3,7 @@ import asyncio
 from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
 
-from job_tracker.api.routers.usage import get_usage_repo
+from job_tracker.api import deps
 from job_tracker.db.repositories import TokenUsageRepository
 from job_tracker.main import app
 
@@ -23,7 +23,7 @@ def test_usage_endpoint_returns_summary():
         )
     )
 
-    app.dependency_overrides[get_usage_repo] = lambda: repo
+    app.dependency_overrides[deps.get_usage_repo] = lambda: repo
     try:
         resp = TestClient(app).get("/api/usage")
     finally:

@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 from mongomock_motor import AsyncMongoMockClient
 
-from job_tracker.db.repositories import JobRepository
+from job_tracker.db.repositories import JobRepository, MatchRepository
 from job_tracker.schemas import JobMatch, ResumeTarget
 from job_tracker.services import analyze as analyze_mod
 from job_tracker.services import job_matching
@@ -37,14 +37,18 @@ async def test_analyze_jobs_stores_and_sorts(monkeypatch):
 
     monkeypatch.setattr(analyze_mod.job_matching, "analyze", fake_analyze)
 
-    repo = JobRepository(AsyncMongoMockClient()["test"])
+    db = AsyncMongoMockClient()["test"]
+    job_repo = JobRepository(db)
+    match_repo = MatchRepository(db)
     target = ResumeTarget(target_title="X", resume_text="Y")
     transport = httpx.MockTransport(_handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
-        matches = await analyze_jobs("python", target, repo, http_client=http_client)
+        matches = await analyze_jobs(
+            "u1", "python", target, job_repo, match_repo, http_client=http_client
+        )
 
     assert [m.score for m in matches] == [80, 50]
-    stored = await repo.list_matches()
+    stored = await match_repo.list_matches("u1")
     assert [m.score for m in stored] == [80, 50]
 
 
@@ -60,11 +64,18 @@ async def test_analyze_jobs_skips_failed(monkeypatch):
 
     monkeypatch.setattr(analyze_mod.job_matching, "analyze", flaky_analyze)
 
-    repo = JobRepository(AsyncMongoMockClient()["test"])
+    db = AsyncMongoMockClient()["test"]
     target = ResumeTarget(target_title="X", resume_text="Y")
     transport = httpx.MockTransport(_handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
-        matches = await analyze_jobs("python", target, repo, http_client=http_client)
+        matches = await analyze_jobs(
+            "u1",
+            "python",
+            target,
+            JobRepository(db),
+            MatchRepository(db),
+            http_client=http_client,
+        )
 
     # 第一筆失敗被跳過，仍回傳第二筆
     assert len(matches) == 1

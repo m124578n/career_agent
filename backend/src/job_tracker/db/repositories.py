@@ -3,6 +3,8 @@
 文件結構：以 job_id 為 _id，存 Job 欄位；詳情存在 `detail` 子文件。
 """
 
+from datetime import UTC, datetime
+
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from job_tracker.schemas import Job, JobDetail, JobMatch
@@ -40,29 +42,50 @@ class JobRepository:
             return None
         return JobDetail(**doc["detail"])
 
-    async def set_match(self, job_id: str, match: JobMatch) -> None:
-        """存契合度分析結果（不含 job 本身，job 已在文件中）。"""
+
+class MatchRepository:
+    """契合度分析結果，**按使用者隔離**（每人只看到自己的）。"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self._col = db["matches"]
+
+    async def set_match(self, user: str, match: JobMatch) -> None:
+        doc = match.model_dump(mode="json")
+        doc["user"] = user
+        doc["job_id"] = match.job.job_id
         await self._col.update_one(
-            {"_id": job_id},
-            {
-                "$set": {
-                    "match": {
-                        "score": match.score,
-                        "reasons": match.reasons,
-                        "gaps": match.gaps,
-                        "requires_external_apply": match.requires_external_apply,
-                    }
-                }
-            },
+            {"_id": f"{user}|{match.job.job_id}"}, {"$set": doc}, upsert=True
         )
 
-    async def list_matches(self) -> list[JobMatch]:
-        """回傳已分析的職缺，依契合度由高到低排序。"""
+    async def list_matches(self, user: str) -> list[JobMatch]:
+        """回傳該使用者已分析的職缺，依契合度由高到低排序。"""
         matches = [
-            JobMatch(job=Job(**doc), **doc["match"])
-            async for doc in self._col.find({"match": {"$exists": True}})
+            JobMatch(**doc) async for doc in self._col.find({"user": user})
         ]
         return sorted(matches, key=lambda m: m.score, reverse=True)
+
+
+class QuotaRepository:
+    """每位使用者每日 LLM 呼叫次數（防止濫用）。"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self._col = db["daily_usage"]
+
+    @staticmethod
+    def _today() -> str:
+        return datetime.now(UTC).date().isoformat()
+
+    async def used_today(self, user: str) -> int:
+        doc = await self._col.find_one({"_id": f"{user}|{self._today()}"})
+        return doc["count"] if doc else 0
+
+    async def add(self, user: str, n: int) -> None:
+        day = self._today()
+        await self._col.update_one(
+            {"_id": f"{user}|{day}"},
+            {"$inc": {"count": n}, "$setOnInsert": {"user": user, "day": day}},
+            upsert=True,
+        )
 
 
 class TokenUsageRepository:

@@ -1,7 +1,7 @@
 import pytest
 from mongomock_motor import AsyncMongoMockClient
 
-from job_tracker.db.repositories import JobRepository
+from job_tracker.db.repositories import JobRepository, MatchRepository
 from job_tracker.schemas import Job, JobDetail, JobMatch
 
 
@@ -62,22 +62,26 @@ def make_match(job_id: str, score: int) -> JobMatch:
     )
 
 
-async def test_set_and_list_matches_sorted(repo: JobRepository):
-    await repo.upsert_job(make_job("1", "c1"))
-    await repo.upsert_job(make_job("2", "c2"))
-    await repo.set_match("1", make_match("1", 60))
-    await repo.set_match("2", make_match("2", 90))
+@pytest.fixture
+def match_repo() -> MatchRepository:
+    return MatchRepository(AsyncMongoMockClient()["test"])
 
-    matches = await repo.list_matches()
+
+async def test_set_and_list_matches_sorted(match_repo: MatchRepository):
+    await match_repo.set_match("u1", make_match("1", 60))
+    await match_repo.set_match("u1", make_match("2", 90))
+
+    matches = await match_repo.list_matches("u1")
     assert [m.score for m in matches] == [90, 60]  # 由高到低
     assert matches[0].job.job_id == "2"
     assert matches[0].reasons == ["理由"]
 
 
-async def test_list_matches_skips_unanalyzed(repo: JobRepository):
-    await repo.upsert_job(make_job("1", "c1"))  # 沒分析
-    await repo.upsert_job(make_job("2", "c2"))
-    await repo.set_match("2", make_match("2", 75))
+async def test_matches_isolated_by_user(match_repo: MatchRepository):
+    await match_repo.set_match("u1", make_match("1", 50))
+    await match_repo.set_match("u2", make_match("2", 80))
 
-    matches = await repo.list_matches()
-    assert [m.job.job_id for m in matches] == ["2"]
+    u1 = await match_repo.list_matches("u1")
+    u2 = await match_repo.list_matches("u2")
+    assert [m.job.job_id for m in u1] == ["1"]
+    assert [m.job.job_id for m in u2] == ["2"]

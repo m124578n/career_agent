@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # CORS：逗號分隔的允許來源（部署時加上前端正式網域）
     allowed_origins: str = "http://localhost:5173"
 
+    # 認證（Google OAuth）。空字串 → 停用驗證（本機/測試）
+    google_client_id: str = ""
+    daily_call_limit: int = 50  # 每位使用者每日 LLM 呼叫上限
+
     # Logging
     log_level: str = "INFO"
 
