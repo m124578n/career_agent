@@ -1,10 +1,12 @@
 import { AppShell, NavLink, Stack } from "@mantine/core";
+import { useQuery } from "@tanstack/react-query";
 import {
   Navigate,
   Route,
   Routes,
   NavLink as RouterNavLink,
 } from "react-router-dom";
+import { api } from "./api/client";
 import { ResumeSetup } from "./pages/ResumeSetup";
 import { JobList } from "./pages/JobList";
 
@@ -18,7 +20,12 @@ export function App() {
     <AppShell navbar={{ width: 232, breakpoint: "sm" }} padding={0}>
       <AppShell.Navbar
         p="md"
-        style={{ background: "var(--jt-panel)", borderColor: "var(--jt-border)" }}
+        style={{
+          background: "var(--jt-panel)",
+          borderColor: "var(--jt-border)",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
         <Stack gap={2} mb="xl" px={6} pt={4}>
           <span className="jt-brand">
@@ -52,6 +59,10 @@ export function App() {
             />
           ))}
         </Stack>
+
+        <div style={{ marginTop: "auto" }}>
+          <UsageFooter />
+        </div>
       </AppShell.Navbar>
 
       <AppShell.Main style={{ minHeight: "100dvh" }}>
@@ -62,5 +73,38 @@ export function App() {
         </Routes>
       </AppShell.Main>
     </AppShell>
+  );
+}
+
+function UsageFooter() {
+  const { data } = useQuery({
+    queryKey: ["usage"],
+    queryFn: api.usage,
+    refetchInterval: 15000,
+  });
+  return (
+    <div
+      style={{
+        borderTop: "1px solid var(--jt-border)",
+        paddingTop: 12,
+        paddingLeft: 6,
+      }}
+    >
+      <div className="jt-eyebrow">TOKENS 用量</div>
+      <div
+        style={{
+          fontFamily: "var(--mantine-font-family-monospace)",
+          fontSize: 18,
+          fontWeight: 600,
+          color: "var(--jt-text)",
+          marginTop: 4,
+        }}
+      >
+        {(data?.total_tokens ?? 0).toLocaleString()}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--jt-dim)" }}>
+        {data?.calls ?? 0} 次呼叫
+      </div>
+    </div>
   );
 }

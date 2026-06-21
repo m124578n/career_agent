@@ -63,3 +63,33 @@ class JobRepository:
             async for doc in self._col.find({"match": {"$exists": True}})
         ]
         return sorted(matches, key=lambda m: m.score, reverse=True)
+
+
+class TokenUsageRepository:
+    """LLM token 用量記錄（每次呼叫一筆）。"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self._col = db["token_usage"]
+
+    async def record(self, usage: dict) -> None:
+        await self._col.insert_one(dict(usage))
+
+    async def summary(self) -> dict:
+        """彙總總用量與各 model 細分（MVP 量級直接累加）。"""
+        calls = 0
+        inp = out = total = 0
+        by_model: dict[str, int] = {}
+        async for d in self._col.find():
+            calls += 1
+            inp += d.get("input_tokens", 0)
+            out += d.get("output_tokens", 0)
+            t = d.get("total_tokens", 0)
+            total += t
+            by_model[d.get("model", "?")] = by_model.get(d.get("model", "?"), 0) + t
+        return {
+            "calls": calls,
+            "input_tokens": inp,
+            "output_tokens": out,
+            "total_tokens": total,
+            "by_model": by_model,
+        }

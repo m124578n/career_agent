@@ -9,6 +9,7 @@ from typing import TypeVar
 from pydantic import BaseModel
 
 from job_tracker.config import get_settings
+from job_tracker.llm import usage
 from job_tracker.llm.base import _DEFAULT_SYSTEM, LLMProvider
 
 T = TypeVar("T", bound=BaseModel)
@@ -33,6 +34,8 @@ class _OpenAICompatProvider:
     把 schema 塞進 system prompt，再以 Pydantic 驗證（含去 markdown 圍欄）。
     子類別只需實作 _make_client() 與 _model()。
     """
+
+    name = "?"
 
     def __init__(self):
         self._client = None
@@ -64,6 +67,7 @@ class _OpenAICompatProvider:
                 ],
             )
             _log_call("complete", model, start)
+            await usage.record(self.name, model, "complete", getattr(resp, "usage", None))
             return resp.choices[0].message.content or ""
         except Exception as e:
             _log_call("complete", model, start, e)
@@ -100,6 +104,7 @@ class _OpenAICompatProvider:
             content = resp.choices[0].message.content or ""
             result = schema.model_validate_json(_extract_json(content))
             _log_call("parse", model, start)
+            await usage.record(self.name, model, "parse", getattr(resp, "usage", None))
             return result
         except Exception as e:
             _log_call("parse", model, start, e)
@@ -108,6 +113,8 @@ class _OpenAICompatProvider:
 
 class OpenRouterProvider(_OpenAICompatProvider):
     """OpenRouter / 任何 OpenAI 相容端點。"""
+
+    name = "openrouter"
 
     def _make_client(self):
         from openai import AsyncOpenAI
@@ -121,6 +128,8 @@ class OpenRouterProvider(_OpenAICompatProvider):
 
 class AzureProvider(_OpenAICompatProvider):
     """Azure OpenAI。model 用 Azure 上的 deployment 名稱。"""
+
+    name = "azure"
 
     def _make_client(self):
         from openai import AsyncAzureOpenAI
@@ -142,6 +151,8 @@ class _AnthropicBaseProvider:
     adaptive thinking + structured outputs（messages.parse）。
     子類別只需實作 _make_client() 與 _model()。
     """
+
+    name = "?"
 
     def __init__(self):
         self._client = None
@@ -172,6 +183,7 @@ class _AnthropicBaseProvider:
                 messages=[{"role": "user", "content": prompt}],
             )
             _log_call("complete", model, start)
+            await usage.record(self.name, model, "complete", getattr(resp, "usage", None))
             return "".join(b.text for b in resp.content if b.type == "text")
         except Exception as e:
             _log_call("complete", model, start, e)
@@ -199,6 +211,7 @@ class _AnthropicBaseProvider:
                 output_format=schema,
             )
             _log_call("parse", model, start)
+            await usage.record(self.name, model, "parse", getattr(resp, "usage", None))
             return resp.parsed_output
         except Exception as e:
             _log_call("parse", model, start, e)
@@ -207,6 +220,8 @@ class _AnthropicBaseProvider:
 
 class AnthropicProvider(_AnthropicBaseProvider):
     """直連 Anthropic。"""
+
+    name = "anthropic"
 
     def _make_client(self):
         from anthropic import AsyncAnthropic
@@ -219,6 +234,8 @@ class AnthropicProvider(_AnthropicBaseProvider):
 
 class FoundryProvider(_AnthropicBaseProvider):
     """Azure AI Foundry 上的 Claude（原生 Anthropic API，端點 .../anthropic）。"""
+
+    name = "foundry"
 
     def _make_client(self):
         from anthropic import AsyncAnthropicFoundry

@@ -10,20 +10,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from job_tracker import llm
 from job_tracker.api.routers import api_router
 from job_tracker.config import get_settings
-from job_tracker.db import close_client
+from job_tracker.db import close_client, get_db
+from job_tracker.db.repositories import TokenUsageRepository
+from job_tracker.llm import usage as llm_usage
 from job_tracker.logging_config import setup_logging
 
 logger = logging.getLogger("job_tracker.app")
 request_logger = logging.getLogger("job_tracker.request")
 
 
+async def _mongo_usage_sink(rec: dict) -> None:
+    await TokenUsageRepository(get_db()).record(rec)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    llm_usage.set_sink(_mongo_usage_sink)  # token 用量寫進 Mongo
     logger.info(
         "app start | llm=%s db=%s", llm.describe(), settings.mongo_db
     )
     yield
+    llm_usage.set_sink(None)
     await close_client()
     logger.info("app stop")
 

@@ -11,6 +11,14 @@ export interface ResumeDiagnosis {
   gaps: string[];
 }
 
+export interface UsageSummary {
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  by_model: Record<string, number>;
+}
+
 export interface Job {
   job_id: string;
   code: string;

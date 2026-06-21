@@ -86,6 +86,12 @@
   analyze（start/done）、每個 HTTP 請求（method/path/status/耗時）
 - 已實際驗證 log 輸出正常
 
+### Token 用量記錄 ✅ 完成並驗證
+- `llm/usage.py`：可插拔 sink（單元測試 no-op，app 啟動時接 Mongo）；正規化 OpenAI/Anthropic usage
+- providers 每次呼叫後記錄；`TokenUsageRepository`（record/summary by_model）
+- API `GET /api/usage`；前端側欄底部顯示總 token / 呼叫次數（每 15 秒更新）
+- 實測：診斷一次記錄 965 tokens（claude-sonnet-4-6）寫入 Mongo
+
 ## 🔲 待辦（backlog）
 
 - **M6 外部投遞提醒**：規則已有（`external_apply`），卡片已標「需官網投遞」，可再做提醒清單
