@@ -45,20 +45,20 @@
 ### LLM provider 抽象層（`llm/`）
 - `base.py` 介面 + `providers.py` 實作 + `_REGISTRY` + `make_provider`
 - 切換只改 `.env` 的 `LLM_PROVIDER`；新增 provider = 加一個 class
-- 三個 provider：
-  - **OpenRouter**（OpenAI 相容，json_object + schema 塞 prompt + Pydantic 驗證）
-  - **Azure OpenAI**（與 OpenRouter 共用 `_OpenAICompatProvider` 基底）
-  - **Anthropic**（原生 structured outputs + adaptive thinking）
+- 四個 provider（兩條基底）：
+  - OpenAI 相容基底（json_object + schema 塞 prompt + Pydantic 驗證）：
+    - **OpenRouter**、**Azure OpenAI**
+  - Anthropic 原生基底（messages.parse + adaptive thinking）：
+    - **Anthropic**（直連）、**Foundry**（Azure AI Foundry 上的 Claude，端點 `.../anthropic`）
+- ✅ **真實驗證通過**：Azure Foundry + Claude Sonnet 4.6 跑履歷診斷，結構化輸出正常、中文品質佳
 
 ---
 
 ## 🚧 進行中 / 卡關
 
-- **LLM 真實驗證**：程式邏輯已驗證正確，但
-  - OpenRouter 免費模型（qwen3 / llama3.3 / gemma）持續被上游限流（429），未儲值帳號額度太低 → 放棄走免費
-  - **改用 Azure OpenAI**：provider 基底已建好，等使用者填 `.env`：
-    `AZURE_OPENAI_API_KEY` / `AZURE_OPENAI_ENDPOINT` / `AZURE_OPENAI_DEPLOYMENT`，
-    並設 `LLM_PROVIDER=azure`。填好後跑一筆履歷診斷驗證即可。
+- （無）LLM 已用 Azure Foundry Claude Sonnet 4.6 驗證通過。
+  - OpenRouter 免費模型曾持續被限流（429）→ 放棄走免費，改 Azure。
+  - 目前 `.env` 設 `LLM_PROVIDER=foundry`，`FOUNDRY_BASE_URL=.../anthropic`、`FOUNDRY_MODEL=claude-sonnet-4-6`。
 
 ---
 

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db: str = "job_tracker"
 
-    # LLM provider 選擇：openrouter | azure | anthropic
+    # LLM provider 選擇：openrouter | azure | foundry | anthropic
     llm_provider: str = "openrouter"
 
     # OpenRouter（OpenAI 相容，預設用免費模型）
@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     azure_openai_endpoint: str = ""  # 例：https://<your-resource>.openai.azure.com
     azure_openai_api_version: str = "2024-10-21"
     azure_openai_deployment: str = "gpt-4o-mini"  # Azure 上的 deployment 名稱
+
+    # Microsoft Foundry（Azure 上的 Claude，原生 Anthropic API）
+    foundry_api_key: str = ""
+    foundry_base_url: str = ""  # 例：https://<resource>.services.ai.azure.com/anthropic
+    foundry_model: str = "claude-sonnet-4-6"  # Azure 上的 deployment 名稱
 
     # Anthropic（原生 structured outputs）
     anthropic_api_key: str = ""

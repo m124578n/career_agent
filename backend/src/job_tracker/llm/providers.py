@@ -107,17 +107,25 @@ class AzureProvider(_OpenAICompatProvider):
         return get_settings().azure_openai_deployment
 
 
-class AnthropicProvider:
-    """Anthropic 原生：adaptive thinking + structured outputs（messages.parse）。"""
+class _AnthropicBaseProvider:
+    """Anthropic 原生 Messages API 的共用邏輯（直連 Anthropic / Azure Foundry 共用）。
+
+    adaptive thinking + structured outputs（messages.parse）。
+    子類別只需實作 _make_client() 與 _model()。
+    """
 
     def __init__(self):
         self._client = None
 
+    def _make_client(self):
+        raise NotImplementedError
+
+    def _model(self) -> str:
+        raise NotImplementedError
+
     def _get_client(self):
         if self._client is None:
-            from anthropic import AsyncAnthropic
-
-            self._client = AsyncAnthropic(api_key=get_settings().anthropic_api_key)
+            self._client = self._make_client()
         return self._client
 
     async def complete(
@@ -125,7 +133,7 @@ class AnthropicProvider:
     ) -> str:
         client = client or self._get_client()
         resp = await client.messages.create(
-            model=get_settings().anthropic_model,
+            model=self._model(),
             max_tokens=max_tokens,
             thinking={"type": "adaptive"},
             system=system or _DEFAULT_SYSTEM,
@@ -144,7 +152,7 @@ class AnthropicProvider:
     ) -> T:
         client = client or self._get_client()
         resp = await client.messages.parse(
-            model=get_settings().anthropic_model,
+            model=self._model(),
             max_tokens=max_tokens,
             thinking={"type": "adaptive"},
             system=system or _DEFAULT_SYSTEM,
@@ -152,6 +160,33 @@ class AnthropicProvider:
             output_format=schema,
         )
         return resp.parsed_output
+
+
+class AnthropicProvider(_AnthropicBaseProvider):
+    """直連 Anthropic。"""
+
+    def _make_client(self):
+        from anthropic import AsyncAnthropic
+
+        return AsyncAnthropic(api_key=get_settings().anthropic_api_key)
+
+    def _model(self) -> str:
+        return get_settings().anthropic_model
+
+
+class FoundryProvider(_AnthropicBaseProvider):
+    """Azure AI Foundry 上的 Claude（原生 Anthropic API，端點 .../anthropic）。"""
+
+    def _make_client(self):
+        from anthropic import AsyncAnthropicFoundry
+
+        s = get_settings()
+        return AsyncAnthropicFoundry(
+            api_key=s.foundry_api_key, base_url=s.foundry_base_url
+        )
+
+    def _model(self) -> str:
+        return get_settings().foundry_model
 
 
 def _extract_json(text: str) -> str:
@@ -169,6 +204,7 @@ def _extract_json(text: str) -> str:
 _REGISTRY: dict[str, type] = {
     "openrouter": OpenRouterProvider,
     "azure": AzureProvider,
+    "foundry": FoundryProvider,
     "anthropic": AnthropicProvider,
 }
 

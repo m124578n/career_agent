@@ -5,7 +5,12 @@ import pytest
 from job_tracker import llm
 from job_tracker.config import get_settings
 from job_tracker.llm import make_provider
-from job_tracker.llm.providers import AnthropicProvider, AzureProvider, OpenRouterProvider
+from job_tracker.llm.providers import (
+    AnthropicProvider,
+    AzureProvider,
+    FoundryProvider,
+    OpenRouterProvider,
+)
 from job_tracker.schemas import MatchAnalysis
 
 
@@ -94,3 +99,18 @@ async def test_anthropic_provider_parse_uses_messages_parse():
     assert result.score == 70
     # Anthropic 走原生 structured outputs（output_format），非 json_object
     assert client.messages.calls[0]["output_format"] is MatchAnalysis
+
+
+def test_make_provider_supports_foundry():
+    assert isinstance(make_provider("foundry"), FoundryProvider)
+
+
+async def test_foundry_provider_parse_uses_messages_parse_and_model():
+    parsed = MatchAnalysis(score=88, reasons=[], gaps=[])
+    client = _FakeAnthropicClient(parsed)
+    result = await FoundryProvider().parse("prompt", MatchAnalysis, client=client)
+    assert result.score == 88
+    sent = client.messages.calls[0]
+    # Foundry 也走原生 Messages API，model 用 deployment 名稱
+    assert sent["output_format"] is MatchAnalysis
+    assert sent["model"] == get_settings().foundry_model
