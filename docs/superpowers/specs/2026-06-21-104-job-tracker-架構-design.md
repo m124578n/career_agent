@@ -22,8 +22,8 @@
 | 前端資料層 | **TanStack Query** | 管 API 資料、loading/error/cache |
 | 爬蟲 | **Playwright** | 104 反爬，Playwright 較穩 |
 | LLM | **Claude API / OpenAI** | 契合度分析、求職信生成 |
-| 資料庫 | **MongoDB**（motor async driver） | 職缺結構不固定 |
-| 部署 | **Azure Container Apps** | 順便練技術棧 |
+| 資料庫 | **MongoDB**（motor async driver） | 職缺結構不固定；雲端用 MongoDB Atlas 免費 tier |
+| 部署 | **Cloudflare Pages（前端）+ Zeabur（後端）+ MongoDB Atlas（DB）** | SaaS 省事省錢；後端含 Playwright 需容器，Zeabur 吃 Dockerfile；前端純靜態丟 Cloudflare Pages |
 
 ### 核心架構決策
 
@@ -130,5 +130,5 @@ frontend/
 ## 7. 不在本次範圍
 
 - 各模組演算法細節（契合度維度、求職信語氣等）—— 見規劃文件待確認區。
-- CI/CD、Azure 部署設定 —— 第三週再處理。
+- CI/CD、Zeabur/Cloudflare 部署設定 —— 第三週再處理。
 - 多人使用、帳號與隱私 —— P2 之後。

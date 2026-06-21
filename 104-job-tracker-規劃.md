@@ -79,8 +79,9 @@ User 決定投不投
 | Backend | **FastAPI** | 最熟 |
 | LLM | **Claude API / OpenAI** | 職缺契合度分析、求職信生成 |
 | 資料庫 | **MongoDB** | 職缺結構不固定，document DB 較彈性 |
-| Frontend | **Streamlit / Gradio**（MVP）| 快速搭，OSENSE 做過 Gradio 上手快。之後若要精緻化再換 |
-| 部署 | **Azure Container Apps** | 順便練到精藤的技術棧 |
+| Frontend | **React + Vite + TypeScript + Mantine** | 前後端分離；Mantine 元件齊全，dashboard 開發快。原本想用 Gradio，改成正式前端框架以利後續精緻化 |
+| 前端路由/資料層 | **React Router + TanStack Query** | 頁面路由 + 管 API 資料/loading/error/cache |
+| 部署 | **Cloudflare Pages（前端）+ Zeabur（後端）+ MongoDB Atlas（DB）** | SaaS 省事省錢，免費 tier 起步。後端含 Playwright 需容器環境，Zeabur 吃 Dockerfile 最方便；前端純靜態丟 Cloudflare Pages |
 
 ---
 
@@ -95,9 +96,9 @@ User 決定投不投
 - 把履歷餵進去，逐筆分析職缺契合度與缺口（M4 的分析部分）
 
 ### 第三週 — UI + 部署
-- 簡單 UI 串起整條流程（Streamlit/Gradio）
+- React 前端串起整條流程（職缺清單、契合度、求職信編輯）
 - 求職信生成（M5）+ 外部投遞提醒（M6）
-- 部署到 Azure Container Apps
+- 部署：前端 → Cloudflare Pages，後端（FastAPI + Playwright）→ Zeabur，DB → MongoDB Atlas
 
 > 節奏抓「先有個能跑的東西，再慢慢擴充」。每週結束都該有一個能 demo 的狀態。
 
@@ -116,6 +117,9 @@ User 決定投不投
 
 4. **履歷客製化（招募方偏好）的真實性**
    猜 HR 偏好缺乏資料支撐，容易變成「聽起來很厲害但沒根據」的功能。先做有明確邏輯的關鍵字優化，偏好猜測列為實驗性 P2。
+
+5. **Playwright 在 SaaS 容器的資源**
+   Playwright 連帶 Chromium 吃記憶體、image 也大，免費 tier 可能不夠或會冷啟動變慢。Dockerfile 要裝瀏覽器相依（用官方 `mcr.microsoft.com/playwright/python` 基底較省事）。若 Zeabur 免費資源吃緊，爬蟲可考慮拆成本地/排程跑，只把結果存進 Atlas。
 
 ---
 
