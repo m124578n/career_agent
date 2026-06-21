@@ -116,6 +116,12 @@
 - **前端**：`@react-oauth/google` 登入閘門、Bearer header、401 自動登出；側欄顯示今日額度 + 使用者 + 登出
 - 55 測試全綠；dev 模式（無 client id）免登入照常用，已截圖驗證
 
+## 🐛 待修 / 待調整（使用者回報 2026-06-21）
+
+1. **求職信 bug**：生成後沒顯示在前端（modal 沒出現內容）。待查 MatchCard modal / target 是否為空。
+2. **進度顯示**：履歷診斷、職缺分析要有進度條或「目前到哪個階段」的顯示（目前只有一個 loading 轉圈）。
+3. **翻下一批**：分析固定前 5 筆，分析完無法接著分析第 6~10 筆。需要分頁/累進（記住已分析到第幾筆、可續抓下一批）。
+
 ## 🔲 待辦（backlog）
 
 - **實際上線**：照 DEPLOY.md 在 Zeabur / Cloudflare 建 service、填環境變數、串 CORS + Google OAuth

@@ -44,26 +44,38 @@ function decode(token: string): AuthUser | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const enabled = !!CLIENT_ID;
-  const [token, setToken] = useState<string | null>(() =>
+  const [token, setTokenState] = useState<string | null>(() =>
     enabled ? localStorage.getItem(KEY) : null,
   );
 
-  useEffect(() => {
-    setAuthToken(token);
-    if (token) localStorage.setItem(KEY, token);
-    else localStorage.removeItem(KEY);
-  }, [token]);
+  // 在 render 階段同步把 token 設進 API client（早於子元件發出請求，避免 race）
+  setAuthToken(token);
 
+  // 401 → 登出
   useEffect(() => {
-    setOnUnauthorized(() => setToken(null));
+    setOnUnauthorized(() => apply(null));
     return () => setOnUnauthorized(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function apply(next: string | null) {
+    setAuthToken(next);
+    if (next) localStorage.setItem(KEY, next);
+    else localStorage.removeItem(KEY);
+    setTokenState(next);
+  }
 
   const user = token ? decode(token) : null;
 
   return (
     <Ctx.Provider
-      value={{ enabled, token, user, login: setToken, logout: () => setToken(null) }}
+      value={{
+        enabled,
+        token,
+        user,
+        login: (cred) => apply(cred),
+        logout: () => apply(null),
+      }}
     >
       {children}
     </Ctx.Provider>

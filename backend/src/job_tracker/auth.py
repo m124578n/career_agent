@@ -50,8 +50,8 @@ async def current_user(authorization: str | None = Header(default=None)) -> str:
     try:
         claims = _verifier(token, settings.google_client_id)
         email = claims.get("email")
-    except Exception:
-        logger.info("Google token 驗證失敗")
+    except Exception as e:
+        logger.warning("Google token verify failed: %s: %s", type(e).__name__, e)
         raise HTTPException(status_code=401, detail="登入無效") from None
     if not email:
         raise HTTPException(status_code=401, detail="登入缺少 email")

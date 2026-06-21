@@ -9,6 +9,7 @@ import type {
 } from "../types";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
+const TOKEN_KEY = "jobtracker.token";
 
 let authToken: string | null = null;
 export function setAuthToken(token: string | null) {
@@ -24,7 +25,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     ...((init?.headers as Record<string, string>) ?? {}),
   };
-  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  // 以 localStorage 為準，避免任何 render 時序造成漏帶 token
+  const token = authToken ?? localStorage.getItem(TOKEN_KEY);
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   const resp = await fetch(`${BASE}${path}`, { ...init, headers });
   if (resp.status === 401) {
