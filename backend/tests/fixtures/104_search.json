@@ -1,0 +1,355 @@
+{
+  "data": [
+    {
+      "appearDate": "20260618",
+      "applyCnt": 8,
+      "coIndustry": 1001001002,
+      "coIndustryDesc": "電腦軟體服務業",
+      "custName": "Trend Micro_趨勢科技股份有限公司",
+      "custNo": "23310837000",
+      "description": " flow, with a focus on Python.\n● Develop and maintain both user-mode dlls and kernel mode drivers.\n● Apply DevOps practices to",
+      "descSnippet": " flow, with a focus on [[[Python]]].\n● Develop and maintain both user-mode dlls and kernel mode drivers.\n● Apply DevOps practices to",
+      "mrtDist": 0.5,
+      "jobAddress": "敦化南路二段198號8F",
+      "jobAddrNo": 6001001005,
+      "jobAddrNoDesc": "台北市大安區",
+      "jobName": "R0007868: (Sr.) Applied AI Module Engineer ",
+      "jobNameSnippet": "R0007868: (Sr.) Applied AI Module Engineer ",
+      "jobNo": "14724003",
+      "jobRo": 1,
+      "jobType": 1,
+      "lat": 25.0231015,
+      "lon": 121.5482094,
+      "link": {
+        "job": "https://www.104.com.tw/job/8rl43",
+        "cust": "https://www.104.com.tw/company/apio4y0",
+        "applyAnalyze": "https://www.104.com.tw/jobs/apply/analysis/8rl43?channel=104rpt"
+      },
+      "major": [
+        "資訊管理相關",
+        "資訊工程相關",
+        "電機電子工程相關"
+      ],
+      "mrt": "99001001007",
+      "mrtDesc": "捷運六張犁站",
+      "optionEdu": [
+        3,
+        4,
+        5
+      ],
+      "period": 0,
+      "remoteWorkType": 0,
+      "s10": 10,
+      "salaryHigh": 0,
+      "salaryLow": 0,
+      "tags": {
+        "zoneForeign": {
+          "desc": "外商公司",
+          "param": 5
+        },
+        "wf30": {
+          "desc": "",
+          "param": "wf30"
+        },
+        "wf2": {
+          "desc": "",
+          "param": "wf2"
+        },
+        "wf10": {
+          "desc": "",
+          "param": "wf10"
+        },
+        "wf1": {
+          "desc": "",
+          "param": "wf1"
+        },
+        "wf4": {
+          "desc": "",
+          "param": "wf4"
+        },
+        "wf25": {
+          "desc": "",
+          "param": "wf25"
+        },
+        "wf7": {
+          "desc": "",
+          "param": "wf7"
+        },
+        "wf3": {
+          "desc": "",
+          "param": "wf3"
+        },
+        "wf28": {
+          "desc": "",
+          "param": "wf28"
+        },
+        "wf9": {
+          "desc": "",
+          "param": "wf9"
+        },
+        "wf12": {
+          "desc": "",
+          "param": "wf12"
+        },
+        "landmark": {
+          "desc": "距捷運六張犁站約500公尺"
+        }
+      },
+      "s9": [
+        1
+      ],
+      "s5": 0,
+      "d3": "",
+      "hrBehaviorPR": 0.16495614190844846,
+      "jobCat": [
+        2007001004,
+        2007002006
+      ],
+      "labels": [
+        "c@wf30",
+        "c@wf2",
+        "indexjob@ij048",
+        "joblist_search@jl_j0003_005.14",
+        "c@wf10",
+        "association@j00003_002",
+        "indexjob@ij017",
+        "foreigners@full_fc_em_jbs",
+        "foreigners@fc_empmidchinese_jbs",
+        "c@wf1",
+        "c@wf4",
+        "c@wf25",
+        "c@wf7",
+        "indexjob@ij010",
+        "c@wf3",
+        "indexjob@ij003",
+        "c@wf28",
+        "c@wf9",
+        "c@wf12"
+      ],
+      "languageRequirements": [
+        {
+          "language": 1,
+          "ability": {
+            "listening": 8,
+            "speaking": 8,
+            "reading": 8,
+            "writing": 8
+          }
+        }
+      ],
+      "acceptRole": [],
+      "employeeCount": 6700,
+      "pcSkills": [
+        {
+          "code": "12001001007",
+          "description": "Linux"
+        },
+        {
+          "code": "12001003010",
+          "description": "C++"
+        }
+      ],
+      "pddScore": 0.09857081,
+      "custLogo": "https://static.104.com.tw/b_profile/cust_picture/7000/23310837000/logo.png?v=20260306101314",
+      "jobSwitch": "on",
+      "isSave": null,
+      "interactionRecord": {
+        "lastProcessedResumeAtTime": 1781773685,
+        "lastCustReplyTimestamp": 1774863103,
+        "nowTimestamp": 1782031814
+      },
+      "isApplied": null,
+      "applyDate": null,
+      "userApplyCount": null
+    },
+    {
+      "appearDate": "20260519",
+      "applyCnt": 10,
+      "coIndustry": 1001001003,
+      "coIndustryDesc": "網際網路相關業",
+      "custName": "Garena_新加坡商競舞電競有限公司臺灣分公司",
+      "custNo": "130000000125857",
+      "description": "Garena 深信只要抱持著一顆赤子之心及熱情的態度，就能將工作與生活串聯，鋪設一條通往成功的康莊大道。希望所有具有相同特質及使命感的人，都能加入 Garena，在此實現他們的夢想與目標。歡迎應屆畢業生與新鮮人加入！\n\n◎ 你將負責 ......\n- 透過既有系統對Garena所有遊戲及週邊、核心服務做監控與事故管理\n- 配合各遊戲與網路機房維護，做維護通報及監控告警設置\n- 配合維運工程師做一線的障礙排查與可用性確認\n- 文件/流程管理/其他技術專案與一線技術運維服務\n- 配合維運工作程做既定流程的更新及運維任務\n- 配合遊戲的上線做政審、封包檢測支持\n- 配合營運做賽事的技術支援\n\n\n◎ 我們希望你具備 ......\n- 故障排除及疑難解答的經驗 \n- 基礎網路與系統知識\n- 清楚的邏輯與很強的責任感\n- 良好的團隊合作和溝通能力\n- 中等的英文溝通能力(信件及訊息回覆)\n\n\n◎ 想了解更多這個職位的相關資訊嗎……\n\\ NOC 團隊 /\n主要負責監控 Garena 所有的資料中心、網路連線與遊戲伺服器，確保用戶在遊戲上所遇到的技術問題能夠即時地被反應與處理。\n\n\\ 工作型態 /\n配合自動化監控平台，確保各網路、服務與Server狀況良好，用最快的速度作初步測試、用最快的速度通知負責人、用最快的速度更新遊戲現況，擔任第一線的技術人員，確保遊戲品質！\n\n\\ 值班亮點 /\n夜班同仁享有津貼，休假可於勞基法規範內彈性安排！夜間時段除例行監控外，亦是優化作業流程的好時機~ 加入夜班團隊後，將有機會參與監控自動化工具的開發專案，逐步累積多元技術的實務經驗！\n\n\\ 職涯學習與成長 /\n在 NOC 的團隊，你可以學到遊戲的架構，跨國的監控平台架構，網頁的撰寫，DB 的調校，系統與網路的管理，以及 ITIL 的管理模式。任何你在 IT 裡面想學的東西，我們都可以滿足你。",
+      "descSnippet": "Garena 深信只要抱持著一顆赤子之心及熱情的態度，就能將工作與生活串聯，鋪設一條通往成功的康莊大道。希望所有具有相同特質及使命感的人，都能加入 Garena，在此實現他們的夢想與目標。歡迎應屆畢業生與新鮮人加入！\n\n◎ 你將負責 ......\n- 透過既有系統對Garena所有遊戲及週邊、核心服務做監控與事故管理\n- 配合各遊戲與網路機房維護，做維護通報及監控告警設置\n- 配合維運工程師做一線的障礙排查與可用性確認\n- 文件/流程管理/其他技術專案與一線技術運維服務\n- 配合維運工作程做既定流程的更新及運維任務\n- 配合遊戲的上線做政審、封包檢測支持\n- 配合營運做賽事的技術支援\n\n\n◎ 我們希望你具備 ......\n- 故障排除及疑難解答的經驗 \n- 基礎網路與系統知識\n- 清楚的邏輯與很強的責任感\n- 良好的團隊合作和溝通能力\n- 中等的英文溝通能力(信件及訊息回覆)\n\n\n◎ 想了解更多這個職位的相關資訊嗎……\n\\ NOC 團隊 /\n主要負責監控 Garena 所有的資料中心、網路連線與遊戲伺服器，確保用戶在遊戲上所遇到的技術問題能夠即時地被反應與處理。\n\n\\ 工作型態 /\n配合自動化監控平台，確保各網路、服務與Server狀況良好，用最快的速度作初步測試、用最快的速度通知負責人、用最快的速度更新遊戲現況，擔任第一線的技術人員，確保遊戲品質！\n\n\\ 值班亮點 /\n夜班同仁享有津貼，休假可於勞基法規範內彈性安排！夜間時段除例行監控外，亦是優化作業流程的好時機~ 加入夜班團隊後，將有機會參與監控自動化工具的開發專案，逐步累積多元技術的實務經驗！\n\n\\ 職涯學習與成長 /\n在 NOC 的團隊，你可以學到遊戲的架構，跨國的監控平台架構，網頁的撰寫，DB 的調校，系統與網路的管理，以及 ITIL 的管理模式。任何你在 IT 裡面想學的東西，我們都可以滿足你。",
+      "mrtDist": 0.21,
+      "jobAddress": "松高路11號16樓",
+      "jobAddrNo": 6001001007,
+      "jobAddrNoDesc": "台北市信義區",
+      "jobName": "Garena - 系統監控工程師 ( 夜班 ) / NOC Engineer",
+      "jobNameSnippet": "Garena - 系統監控工程師 ( 夜班 ) / NOC Engineer",
+      "jobNo": "15093450",
+      "jobRo": 1,
+      "jobType": 1,
+      "lat": 25.0396038,
+      "lon": 121.5650179,
+      "link": {
+        "job": "https://www.104.com.tw/job/8zi6i",
+        "cust": "https://www.104.com.tw/company/1a2x6bkof5",
+        "applyAnalyze": "https://www.104.com.tw/jobs/apply/analysis/8zi6i?channel=104rpt"
+      },
+      "major": [
+        "資訊工程相關",
+        "資訊管理相關"
+      ],
+      "mrt": "99001005018",
+      "mrtDesc": "捷運市政府站",
+      "optionEdu": [
+        4
+      ],
+      "period": 0,
+      "remoteWorkType": 0,
+      "s10": 10,
+      "salaryHigh": 0,
+      "salaryLow": 0,
+      "tags": {
+        "zoneForeign": {
+          "desc": "外商公司",
+          "param": 5
+        },
+        "wf9": {
+          "desc": "",
+          "param": "wf9"
+        },
+        "wf31": {
+          "desc": "",
+          "param": "wf31"
+        },
+        "wf10": {
+          "desc": "",
+          "param": "wf10"
+        },
+        "wf7": {
+          "desc": "",
+          "param": "wf7"
+        },
+        "wf8": {
+          "desc": "",
+          "param": "wf8"
+        },
+        "wf1": {
+          "desc": "",
+          "param": "wf1"
+        },
+        "wf18": {
+          "desc": "",
+          "param": "wf18"
+        },
+        "wf12": {
+          "desc": "",
+          "param": "wf12"
+        },
+        "wf30": {
+          "desc": "",
+          "param": "wf30"
+        },
+        "wf28": {
+          "desc": "",
+          "param": "wf28"
+        },
+        "wf26": {
+          "desc": "",
+          "param": "wf26"
+        },
+        "landmark": {
+          "desc": "距捷運市政府站約210公尺"
+        }
+      },
+      "s9": [
+        4
+      ],
+      "s5": 0,
+      "d3": "將提供夜班津貼",
+      "hrBehaviorPR": 0.9173710003906389,
+      "jobCat": [
+        2007002006,
+        2007002005
+      ],
+      "labels": [
+        "indexjob@ij048",
+        "college@student_invited",
+        "c@wf9",
+        "c@wf31",
+        "c@wf10",
+        "indexjob@ij010",
+        "c@wf7",
+        "c@graduates_welcome",
+        "c@wf8",
+        "c@graduates_keyword",
+        "c@wf1",
+        "c@graduates_welcome_keyword",
+        "c@wf18",
+        "c@wf12",
+        "c@wf30",
+        "indexjob@ij005",
+        "c@wf28",
+        "c@wf26"
+      ],
+      "languageRequirements": [
+        {
+          "language": 1,
+          "ability": {
+            "listening": 8,
+            "speaking": 8,
+            "reading": 8,
+            "writing": 8
+          }
+        }
+      ],
+      "acceptRole": [
+        2,
+        64
+      ],
+      "employeeCount": 350,
+      "pcSkills": [
+        {
+          "code": "12001001007",
+          "description": "Linux"
+        },
+        {
+          "code": "12001003045",
+          "description": "Python"
+        }
+      ],
+      "pddScore": 0.07546371,
+      "custLogo": "https://static.104.com.tw/b_profile/cust_picture/5857/130000000125857/logo.gif?v=20260521171728",
+      "jobSwitch": "on",
+      "isSave": null,
+      "interactionRecord": {
+        "lastProcessedResumeAtTime": 1781595407,
+        "lastCustReplyTimestamp": 1781697879,
+        "nowTimestamp": 1782031814
+      },
+      "isApplied": null,
+      "applyDate": null,
+      "userApplyCount": null
+    }
+  ],
+  "metadata": {
+    "pagination": {
+      "count": 32,
+      "currentPage": 1,
+      "lastPage": 100,
+      "total": 9208
+    },
+    "isPreciseHotJob": false,
+    "filterQuery": {
+      "order": 15,
+      "asc": 0,
+      "keyword": "python",
+      "fz": 8,
+      "kwop": 7,
+      "excludeKwFz": 4,
+      "excludeKwKwop": 8,
+      "enableJobNoTopOrder": 1,
+      "ro": [
+        "0"
+      ],
+      "scstrict": 0,
+      "scneg": 0,
+      "page": 1,
+      "pagesize": 30
+    },
+    "offJobs": [],
+    "personalBoost": 0
+  }
+}

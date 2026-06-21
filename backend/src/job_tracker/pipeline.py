@@ -12,9 +12,9 @@ from job_tracker.services import job_matching
 from job_tracker.services.external_apply import requires_external_apply
 
 
-async def run_batch(target: ResumeTarget, keyword: str, batch: int = 0) -> list[JobMatch]:
-    """跑一批：爬 20 筆 → 契合度分析排序 → 標記外部投遞。"""
-    jobs = await crawl_jobs(keyword, batch=batch)
+async def run_batch(target: ResumeTarget, keyword: str, page: int = 1) -> list[JobMatch]:
+    """跑一批：爬一頁職缺 → 契合度分析排序 → 標記外部投遞。"""
+    jobs = await crawl_jobs(keyword, page=page)
     matches = await job_matching.match_batch(target, jobs)
     for m in matches:
         m.requires_external_apply = requires_external_apply(m.job.description)

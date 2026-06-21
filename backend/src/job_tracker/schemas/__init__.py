@@ -1,9 +1,13 @@
 """API 與資料層共用的 Pydantic 模型。對應前端 TS 型別。"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class ResumeTarget(BaseModel):
@@ -30,7 +34,7 @@ class Job(BaseModel):
     url: str
     salary: str | None = None
     description: str = ""
-    crawled_at: datetime = Field(default_factory=datetime.utcnow)
+    crawled_at: datetime = Field(default_factory=_utcnow)
 
 
 class JobMatch(BaseModel):
@@ -56,4 +60,4 @@ class Application(BaseModel):
     job_id: str
     status: ApplicationStatus = ApplicationStatus.PENDING
     cover_letter: str | None = None
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)

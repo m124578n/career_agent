@@ -75,7 +75,7 @@ User 決定投不投
 
 | 層 | 選擇 | 理由 |
 |----|------|------|
-| 爬蟲 | **Playwright** | 有經驗；104 有反爬，Playwright 比較穩 |
+| 爬蟲 | **httpx（純 HTTP）** | 實測 104 搜尋有 JSON API，帶 `Referer` header 即可取得，不需瀏覽器。Playwright 留給 P2 需登入的「誰看過我」功能再用 |
 | Backend | **FastAPI** | 最熟 |
 | LLM | **Claude API / OpenAI** | 職缺契合度分析、求職信生成 |
 | 資料庫 | **MongoDB** | 職缺結構不固定，document DB 較彈性 |
@@ -118,8 +118,8 @@ User 決定投不投
 4. **履歷客製化（招募方偏好）的真實性**
    猜 HR 偏好缺乏資料支撐，容易變成「聽起來很厲害但沒根據」的功能。先做有明確邏輯的關鍵字優化，偏好猜測列為實驗性 P2。
 
-5. **Playwright 在 SaaS 容器的資源**
-   Playwright 連帶 Chromium 吃記憶體、image 也大，免費 tier 可能不夠或會冷啟動變慢。Dockerfile 要裝瀏覽器相依（用官方 `mcr.microsoft.com/playwright/python` 基底較省事）。若 Zeabur 免費資源吃緊，爬蟲可考慮拆成本地/排程跑，只把結果存進 Atlas。
+5. **（已解除）爬蟲改純 HTTP**
+   原本擔心 Playwright + Chromium 在 SaaS 容器吃資源、image 過大。實測 104 搜尋有 JSON API，純 httpx 即可，部署無瀏覽器負擔。只有 P2「誰看過我」(需登入) 才可能要 Playwright，到時再評估本機/排程執行。
 
 ---
 
