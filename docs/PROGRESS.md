@@ -92,6 +92,12 @@
 - API `GET /api/usage`；前端側欄底部顯示總 token / 呼叫次數（每 15 秒更新）
 - 實測：診斷一次記錄 965 tokens（claude-sonnet-4-6）寫入 Mongo
 
+### 資料庫 ✅ 已上 MongoDB Atlas
+- `.env` 的 `MONGO_URI` 指向 Atlas（`mongodb+srv://...career-agent...`），已驗證 ping/讀寫 OK
+- 本機 `docker-compose` 的 Mongo 仍保留供離線開發；正式用 Atlas M0（免費）
+- ⚠️ 部署到 Zeabur 時：Atlas 要把 Zeabur 出口 IP 加進 Network Access 白名單
+  （或暫用 0.0.0.0/0 + 強密碼），否則連不上
+
 ## 🔲 待辦（backlog）
 
 - **M6 外部投遞提醒**：規則已有（`external_apply`），卡片已標「需官網投遞」，可再做提醒清單
