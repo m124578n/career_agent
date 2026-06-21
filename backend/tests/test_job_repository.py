@@ -87,6 +87,16 @@ async def test_matches_isolated_by_user(match_repo: MatchRepository):
     assert [m.job.job_id for m in u2] == ["2"]
 
 
+async def test_clear_removes_only_that_users_matches(match_repo: MatchRepository):
+    await match_repo.set_match("u1", make_match("1", 50))
+    await match_repo.set_match("u1", make_match("2", 60))
+    await match_repo.set_match("u2", make_match("3", 70))
+
+    await match_repo.clear("u1")
+    assert await match_repo.list_matches("u1") == []
+    assert len(await match_repo.list_matches("u2")) == 1  # u2 不受影響
+
+
 async def test_set_cover_letter_persists_on_match(match_repo: MatchRepository):
     await match_repo.set_match("u1", make_match("1", 70))
     await match_repo.set_cover_letter("u1", "1", "敬啟者，求職信內容。")

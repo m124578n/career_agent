@@ -54,6 +54,8 @@ async def analyze(
 ) -> list[JobMatch]:
     """爬取 + 逐筆契合度分析（對標履歷）並存入 DB，回傳排序結果。受每日額度限制。"""
     await ensure_quota(user, quota)
+    if req.offset == 0:
+        await match_repo.clear(user)  # 新搜尋 → 清掉先前結果
     limit = min(req.limit, _MAX_ANALYZE)
     matches = await analyze_jobs(
         user,

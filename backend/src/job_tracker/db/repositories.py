@@ -64,6 +64,10 @@ class MatchRepository:
         ]
         return sorted(matches, key=lambda m: m.score, reverse=True)
 
+    async def clear(self, user: str) -> None:
+        """清空該使用者的所有分析結果（開始新搜尋時用）。"""
+        await self._col.delete_many({"user": user})
+
     async def set_cover_letter(self, user: str, job_id: str, text: str) -> None:
         """把生成的求職信存到該使用者的 match 上（標記已寫過）。"""
         await self._col.update_one(

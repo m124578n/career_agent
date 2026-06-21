@@ -126,6 +126,21 @@ export function JobList() {
                   </>
                 ) : null}
               </span>
+              {offset > 0 &&
+                (noMore ? (
+                  <Text fz="xs" c="dimmed">
+                    沒有更多了
+                  </Text>
+                ) : (
+                  <Button
+                    size="xs"
+                    variant="default"
+                    disabled={!canRun}
+                    onClick={runNext}
+                  >
+                    分析下一批（第 {offset + 1}–{offset + 5} 筆）
+                  </Button>
+                ))}
             </div>
             <div
               className="jt-panel-body"
@@ -147,25 +162,6 @@ export function JobList() {
                   {matches.map((m) => (
                     <MatchCard key={m.job.job_id} match={m} />
                   ))}
-                  {/* 翻下一批（分析過至少一批後才出現） */}
-                  {offset > 0 && (
-                    <Group justify="center" mt={6}>
-                      {noMore ? (
-                        <Text fz="xs" c="dimmed">
-                          沒有更多職缺了
-                        </Text>
-                      ) : (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          disabled={!canRun}
-                          onClick={runNext}
-                        >
-                          分析下一批（第 {offset + 1}–{offset + 5} 筆）
-                        </Button>
-                      )}
-                    </Group>
-                  )}
                 </Stack>
               ) : (
                 <div className="jt-empty">

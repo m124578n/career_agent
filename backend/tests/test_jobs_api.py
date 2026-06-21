@@ -58,8 +58,11 @@ def test_analyze_endpoint_delegates_and_counts_quota(monkeypatch):
 
     db = AsyncMongoMockClient()["test"]
     quota = QuotaRepository(db)
+    match_repo = MatchRepository(db)
+    # 先有一筆舊結果，offset=0 的新搜尋應清空它
+    asyncio.run(match_repo.set_match("dev@local", _match("old", 30)))
     app.dependency_overrides[deps.get_job_repo] = lambda: JobRepository(db)
-    app.dependency_overrides[deps.get_match_repo] = lambda: MatchRepository(db)
+    app.dependency_overrides[deps.get_match_repo] = lambda: match_repo
     app.dependency_overrides[deps.get_quota_repo] = lambda: quota
     try:
         resp = TestClient(app).post(
@@ -80,3 +83,5 @@ def test_analyze_endpoint_delegates_and_counts_quota(monkeypatch):
     assert resp.json()[0]["score"] == 88
     # 以實際分析筆數計入額度（2 筆）
     assert asyncio.run(quota.used_today("dev@local")) == 2
+    # 舊結果被清空（fake 不存 match，故清完為空）
+    assert asyncio.run(match_repo.list_matches("dev@local")) == []
