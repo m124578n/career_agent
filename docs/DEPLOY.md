@@ -6,10 +6,18 @@
 
 ---
 
-## 0. 前置：MongoDB Atlas（已完成）
+## 0. 前置
 
+### MongoDB Atlas（已完成）
 - 連線字串放在後端環境變數 `MONGO_URI`。
 - ⚠️ **Network Access**：把後端平台（Zeabur）的出口 IP 加白名單；不確定 IP 就先用 `0.0.0.0/0` + 強密碼。
+
+### Google OAuth Client ID（登入用）
+1. Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID → **Web application**。
+2. **Authorized JavaScript origins** 填前端網址：`http://localhost:5173`（dev）+ 你的 Cloudflare 網址（prod）。
+3. 拿到的 **Client ID** 兩邊都要填：後端 `GOOGLE_CLIENT_ID`、前端 `VITE_GOOGLE_CLIENT_ID`（同一個值）。
+4. 後端 `GOOGLE_CLIENT_ID` **留空 = 停用登入**（本機開發方便）；正式環境一定要填。
+5. `DAILY_CALL_LIMIT` 控制每人每日 LLM 呼叫上限（預設 50）。
 
 ---
 
@@ -29,6 +37,8 @@
    | `FOUNDRY_BASE_URL` | `https://<resource>.services.ai.azure.com/anthropic` |
    | `FOUNDRY_MODEL` | `claude-sonnet-4-6` |
    | `ALLOWED_ORIGINS` | 前端正式網址（部署完前端後回填，見步驟 3） |
+   | `GOOGLE_CLIENT_ID` | Google OAuth Client ID（登入用） |
+   | `DAILY_CALL_LIMIT` | `50`（每人每日 LLM 呼叫上限） |
    | `LOG_LEVEL` | `INFO` |
 
 5. `PORT` 由 Zeabur 自動帶入，Dockerfile 已處理。
@@ -48,6 +58,7 @@
    | 變數 | 值 |
    |------|----|
    | `VITE_API_BASE_URL` | 後端網址 + `/api`，例：`https://career-agent-api.zeabur.app/api` |
+   | `VITE_GOOGLE_CLIENT_ID` | 與後端 `GOOGLE_CLIENT_ID` 同一個 |
 
 4. SPA 路由已用 `frontend/public/_redirects` 處理（所有路徑 → index.html）。
 5. 部署後記下前端網址，例：`https://career-agent.pages.dev`。

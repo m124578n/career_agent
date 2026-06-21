@@ -19,6 +19,12 @@ export interface UsageSummary {
   by_model: Record<string, number>;
 }
 
+export interface QuotaInfo {
+  used: number;
+  limit: number;
+  remaining: number;
+}
+
 export interface Job {
   job_id: string;
   code: string;

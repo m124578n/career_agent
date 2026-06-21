@@ -1,28 +1,47 @@
-// 打 backend 的薄封裝。所有路徑走 /api（由 Vite proxy 轉到 FastAPI）。
+// 打 backend 的薄封裝。所有路徑走 BASE（dev 走 Vite proxy /api；prod 用 VITE_API_BASE_URL）。
 
 import type {
   JobMatch,
+  QuotaInfo,
   ResumeDiagnosis,
   ResumeTarget,
   UsageSummary,
 } from "../types";
+
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
+
+let authToken: string | null = null;
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+let onUnauthorized: (() => void) | null = null;
+export function setOnUnauthorized(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    ...((init?.headers as Record<string, string>) ?? {}),
+  };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
+  const resp = await fetch(`${BASE}${path}`, { ...init, headers });
+  if (resp.status === 401) {
+    onUnauthorized?.();
+    throw new Error("未授權，請重新登入");
+  }
+  if (!resp.ok) {
+    throw new Error(`API ${resp.status}: ${await resp.text()}`);
+  }
+  return resp.json() as Promise<T>;
+}
 
 export interface AnalyzeRequest {
   keyword: string;
   target: ResumeTarget;
   limit?: number;
   page?: number;
-}
-
-// dev：留空 → "/api" 走 Vite proxy。prod：設 VITE_API_BASE_URL 為後端網址 + /api
-const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(`${BASE}${path}`, init);
-  if (!resp.ok) {
-    throw new Error(`API ${resp.status}: ${await resp.text()}`);
-  }
-  return resp.json() as Promise<T>;
 }
 
 export const api = {
@@ -54,4 +73,5 @@ export const api = {
       body: JSON.stringify(req),
     }),
   usage: () => request<UsageSummary>("/usage"),
+  quota: () => request<QuotaInfo>("/usage/quota"),
 };

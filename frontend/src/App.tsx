@@ -1,4 +1,4 @@
-import { AppShell, NavLink, Stack } from "@mantine/core";
+import { Anchor, AppShell, Avatar, Group, NavLink, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   Navigate,
@@ -7,6 +7,7 @@ import {
   NavLink as RouterNavLink,
 } from "react-router-dom";
 import { api } from "./api/client";
+import { useAuth } from "./state/auth";
 import { ResumeSetup } from "./pages/ResumeSetup";
 import { JobList } from "./pages/JobList";
 
@@ -61,7 +62,7 @@ export function App() {
         </Stack>
 
         <div style={{ marginTop: "auto" }}>
-          <UsageFooter />
+          <AccountFooter />
         </div>
       </AppShell.Navbar>
 
@@ -76,35 +77,65 @@ export function App() {
   );
 }
 
-function UsageFooter() {
-  const { data } = useQuery({
+function AccountFooter() {
+  const { enabled, user, logout } = useAuth();
+  const { data: quota } = useQuery({
+    queryKey: ["quota"],
+    queryFn: api.quota,
+    refetchInterval: 15000,
+  });
+  const { data: usage } = useQuery({
     queryKey: ["usage"],
     queryFn: api.usage,
     refetchInterval: 15000,
   });
+
   return (
-    <div
-      style={{
-        borderTop: "1px solid var(--jt-border)",
-        paddingTop: 12,
-        paddingLeft: 6,
-      }}
+    <Stack
+      gap={12}
+      style={{ borderTop: "1px solid var(--jt-border)", paddingTop: 12 }}
+      px={6}
     >
-      <div className="jt-eyebrow">TOKENS 用量</div>
-      <div
-        style={{
-          fontFamily: "var(--mantine-font-family-monospace)",
-          fontSize: 18,
-          fontWeight: 600,
-          color: "var(--jt-text)",
-          marginTop: 4,
-        }}
-      >
-        {(data?.total_tokens ?? 0).toLocaleString()}
+      {/* 今日額度 */}
+      <div>
+        <div className="jt-eyebrow">今日額度</div>
+        <div
+          style={{
+            fontFamily: "var(--mantine-font-family-monospace)",
+            fontSize: 17,
+            fontWeight: 600,
+            color: "var(--jt-text)",
+            marginTop: 4,
+          }}
+        >
+          {quota ? `${quota.used} / ${quota.limit}` : "—"}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--jt-dim)" }}>
+          剩餘 {quota?.remaining ?? "—"} 次（每日重置）
+        </div>
       </div>
-      <div style={{ fontSize: 11, color: "var(--jt-dim)" }}>
-        {data?.calls ?? 0} 次呼叫
-      </div>
-    </div>
+
+      {/* 全域 token（成本檢視） */}
+      <Text fz={11} c="dimmed" ff="monospace">
+        累計 {(usage?.total_tokens ?? 0).toLocaleString()} tokens
+      </Text>
+
+      {/* 使用者 + 登出 */}
+      {enabled && user && (
+        <Group gap={8} wrap="nowrap">
+          <Avatar src={user.picture} size={26} radius="xl">
+            {user.email[0]?.toUpperCase()}
+          </Avatar>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <Text fz={12} truncate c="var(--jt-text)">
+              {user.name ?? user.email}
+            </Text>
+            <Anchor fz={11} c="tangerine.5" onClick={logout} style={{ cursor: "pointer" }}>
+              登出
+            </Anchor>
+          </div>
+        </Group>
+      )}
+    </Stack>
   );
 }

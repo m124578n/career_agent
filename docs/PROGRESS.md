@@ -105,9 +105,17 @@
 - 前端 `VITE_API_BASE_URL` 環境變數控制 API 網址；`public/_redirects` 處理 SPA 路由
 - 步驟見 [DEPLOY.md](DEPLOY.md)（Zeabur 後端 + Cloudflare Pages 前端 + Atlas）
 
+### 認證 + 多人 + 額度 ✅ 完成
+- **Google 登入**：`auth.current_user` 驗 Google ID token（`google-auth`）；`GOOGLE_CLIENT_ID` 未設時停用（本機/測試）
+- **每日額度**：`QuotaRepository` 每人每日 LLM 呼叫數；超過 429（預設 50/日）。診斷/求職信=1、分析=實際筆數（單次上限 10）
+- **資料隔離**：`MatchRepository` 契合度結果按 user 分開（獨立 `matches` collection）
+- **API `GET /api/usage/quota`**（used/limit/remaining）；所有 `/api` 需登入
+- **前端**：`@react-oauth/google` 登入閘門、Bearer header、401 自動登出；側欄顯示今日額度 + 使用者 + 登出
+- 55 測試全綠；dev 模式（無 client id）免登入照常用，已截圖驗證
+
 ## 🔲 待辦（backlog）
 
-- **實際上線**：照 DEPLOY.md 在 Zeabur / Cloudflare 建 service、填環境變數、串 CORS
+- **實際上線**：照 DEPLOY.md 在 Zeabur / Cloudflare 建 service、填環境變數、串 CORS + Google OAuth
 - **M6 外部投遞提醒**：規則已有（`external_apply`），卡片已標「需官網投遞」，可再做提醒清單
 - **批次體驗**：翻下一批、已看/已投標記；求職進度看板
 - **求職信端點**：`cover_letter` 服務有了，缺 API 端點
