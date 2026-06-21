@@ -4,9 +4,13 @@ from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
 
 from job_tracker.api import deps
-from job_tracker.db.repositories import JobRepository, QuotaRepository
+from job_tracker.db.repositories import (
+    JobRepository,
+    MatchRepository,
+    QuotaRepository,
+)
 from job_tracker.main import app
-from job_tracker.schemas import Job
+from job_tracker.schemas import Job, JobMatch
 from job_tracker.services import cover_letter
 
 
@@ -31,10 +35,18 @@ def _body(job_id: str) -> dict:
     }
 
 
-def test_cover_letter_endpoint_returns_text(monkeypatch):
+def test_cover_letter_endpoint_returns_and_saves(monkeypatch):
     db = AsyncMongoMockClient()["test"]
     repo = JobRepository(db)
+    match_repo = MatchRepository(db)
     asyncio.run(repo.upsert_job(make_job("1")))
+    # 先有一筆 match 供存求職信
+    asyncio.run(
+        match_repo.set_match(
+            "dev@local",
+            JobMatch(job=make_job("1"), score=80, reasons=[], gaps=[]),
+        )
+    )
 
     async def fake_generate(target, job, detail=None, *, client=None):
         assert job.job_id == "1"
@@ -43,6 +55,7 @@ def test_cover_letter_endpoint_returns_text(monkeypatch):
     monkeypatch.setattr(cover_letter, "generate", fake_generate)
 
     app.dependency_overrides[deps.get_job_repo] = lambda: repo
+    app.dependency_overrides[deps.get_match_repo] = lambda: match_repo
     app.dependency_overrides[deps.get_quota_repo] = lambda: QuotaRepository(db)
     try:
         resp = TestClient(app).post("/api/applications/cover-letter", json=_body("1"))
@@ -51,6 +64,9 @@ def test_cover_letter_endpoint_returns_text(monkeypatch):
 
     assert resp.status_code == 200
     assert resp.json()["cover_letter"].startswith("敬啟者")
+    # 已存到 match
+    saved = asyncio.run(match_repo.list_matches("dev@local"))[0]
+    assert saved.cover_letter == "敬啟者，這是一封求職信。"
 
 
 def test_cover_letter_endpoint_404_for_missing_job():

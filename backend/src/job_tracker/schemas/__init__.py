@@ -66,6 +66,7 @@ class JobMatch(BaseModel):
     reasons: list[str]
     gaps: list[str]
     requires_external_apply: bool = False
+    cover_letter: str | None = None  # 已生成的求職信（M5），有值代表寫過
 
 
 class ApplicationStatus(str, Enum):

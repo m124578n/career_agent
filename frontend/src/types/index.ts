@@ -43,4 +43,5 @@ export interface JobMatch {
   reasons: string[];
   gaps: string[];
   requires_external_apply: boolean;
+  cover_letter?: string | null;
 }

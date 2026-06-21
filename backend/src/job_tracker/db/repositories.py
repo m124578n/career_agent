@@ -64,6 +64,12 @@ class MatchRepository:
         ]
         return sorted(matches, key=lambda m: m.score, reverse=True)
 
+    async def set_cover_letter(self, user: str, job_id: str, text: str) -> None:
+        """把生成的求職信存到該使用者的 match 上（標記已寫過）。"""
+        await self._col.update_one(
+            {"_id": f"{user}|{job_id}"}, {"$set": {"cover_letter": text}}
+        )
+
 
 class QuotaRepository:
     """每位使用者每日 LLM 呼叫次數（防止濫用）。"""

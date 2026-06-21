@@ -148,12 +148,18 @@ export function JobList() {
 function MatchCard({ match }: { match: JobMatch }) {
   const { job, score, reasons, gaps, requires_external_apply } = match;
   const { target } = useResume();
+  const qc = useQueryClient();
   const [opened, { open, close }] = useDisclosure(false);
-  const [draft, setDraft] = useState("");
+  // 已存的求職信當作初始內容（重開直接看，不必重生）
+  const [draft, setDraft] = useState(match.cover_letter ?? "");
+  const hasLetter = !!draft;
 
   const letterMut = useMutation({
     mutationFn: api.coverLetter,
-    onSuccess: (d) => setDraft(d.cover_letter),
+    onSuccess: (d) => {
+      setDraft(d.cover_letter);
+      qc.invalidateQueries({ queryKey: ["matches"] }); // 讓清單反映「已寫」
+    },
   });
 
   const generate = () => {
@@ -218,13 +224,18 @@ function MatchCard({ match }: { match: JobMatch }) {
       </div>
 
       <Group justify="space-between" mt={2}>
-        {requires_external_apply ? (
-          <span className="jt-chip">⚑ 需至官網投遞</span>
-        ) : (
-          <span />
-        )}
+        <Group gap={8}>
+          {requires_external_apply && (
+            <span className="jt-chip">⚑ 需至官網投遞</span>
+          )}
+          {hasLetter && (
+            <span className="jt-chip" style={{ color: "var(--jt-teal)", borderColor: "rgba(52,214,200,0.4)" }}>
+              ✎ 已寫求職信
+            </span>
+          )}
+        </Group>
         <Button size="xs" variant="default" onClick={openLetter}>
-          生成求職信
+          {hasLetter ? "查看求職信" : "生成求職信"}
         </Button>
       </Group>
 
