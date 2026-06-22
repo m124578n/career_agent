@@ -148,7 +148,10 @@ export function JobList() {
                       wrap="nowrap"
                       px={10}
                       py={6}
-                      onClick={() => setSelectedId(s.search_id)}
+                      onClick={() => {
+                        setSelectedId(s.search_id);
+                        setNoMore(false);
+                      }}
                       style={{
                         cursor: "pointer",
                         borderRadius: 8,
