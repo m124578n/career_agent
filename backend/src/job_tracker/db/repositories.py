@@ -83,6 +83,37 @@ class MatchRepository:
             {"_id": f"{search_id}|{job_id}"}, {"$set": {"cover_letter": text}}
         )
 
+    async def add_candidate(self, search_id, user, job, relevant) -> None:
+        _id = f"{search_id}|{job.job_id}"
+        if await self._col.find_one({"_id": _id}):
+            return  # 已存在不覆蓋（重複爬到同職缺）
+        doc = JobMatch(job=job, status="candidate", relevant=relevant).model_dump(mode="json")
+        doc.update({"_id": _id, "search_id": search_id, "user": user, "job_id": job.job_id})
+        await self._col.insert_one(doc)
+
+    async def set_pending(self, search_id, job_ids) -> None:
+        await self._col.update_many(
+            {"search_id": search_id, "job_id": {"$in": list(job_ids)}},
+            {"$set": {"status": "pending"}},
+        )
+
+    async def set_result(self, search_id, job_id, analysis) -> None:
+        await self._col.update_one(
+            {"_id": f"{search_id}|{job_id}"},
+            {"$set": {
+                "score": analysis.score,
+                "reasons": analysis.reasons,
+                "gaps": analysis.gaps,
+                "requires_external_apply": analysis.requires_external_apply,
+                "status": "done",
+            }},
+        )
+
+    async def set_failed(self, search_id, job_id) -> None:
+        await self._col.update_one(
+            {"_id": f"{search_id}|{job_id}"}, {"$set": {"status": "failed"}}
+        )
+
 
 class SearchRepository:
     """搜尋歷史（每次「爬取並分析」一筆）。"""

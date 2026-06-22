@@ -94,3 +94,35 @@ async def test_set_cover_letter_persists(match_repo: MatchRepository):
     await match_repo.set_cover_letter("s1", "1", "敬啟者，求職信內容。")
     m = await match_repo.get_match("s1", "1")
     assert m.cover_letter == "敬啟者，求職信內容。"
+
+
+async def test_add_candidate_and_status_flow(match_repo: MatchRepository):
+    from job_tracker.schemas import JobMatch
+    job = make_job("1", "c1")
+    await match_repo.add_candidate("s1", "u1", job, relevant=True)
+    m = await match_repo.get_match("s1", "1")
+    assert m.status == "candidate" and m.relevant is True and m.score == 0
+
+    await match_repo.set_pending("s1", ["1"])
+    assert (await match_repo.get_match("s1", "1")).status == "pending"
+
+    analysis = JobMatch(job=job, score=88, reasons=["r"], gaps=["g"],
+                        requires_external_apply=True)
+    await match_repo.set_result("s1", "1", analysis)
+    done = await match_repo.get_match("s1", "1")
+    assert done.status == "done" and done.score == 88
+    assert done.requires_external_apply is True
+
+
+async def test_add_candidate_is_idempotent(match_repo: MatchRepository):
+    job = make_job("1", "c1")
+    await match_repo.add_candidate("s1", "u1", job, relevant=True)
+    await match_repo.add_candidate("s1", "u1", job, relevant=False)  # 不覆蓋
+    assert (await match_repo.get_match("s1", "1")).relevant is True
+
+
+async def test_set_failed(match_repo: MatchRepository):
+    job = make_job("1", "c1")
+    await match_repo.add_candidate("s1", "u1", job, relevant=True)
+    await match_repo.set_failed("s1", "1")
+    assert (await match_repo.get_match("s1", "1")).status == "failed"
