@@ -59,14 +59,17 @@ class MatchAnalysis(BaseModel):
 
 
 class JobMatch(BaseModel):
-    """職缺契合度分析（M4），= 職缺 + LLM 分析 + 規則判斷。"""
+    """職缺契合度分析。candidate/pending 階段尚無分數，用 status 區分。"""
 
     job: Job
-    score: float = Field(ge=0, le=100, description="契合度 0~100")
-    reasons: list[str]
-    gaps: list[str]
+    score: float = Field(default=0.0, ge=0, le=100, description="契合度 0~100")
+    reasons: list[str] = Field(default_factory=list)
+    gaps: list[str] = Field(default_factory=list)
     requires_external_apply: bool = False
-    cover_letter: str | None = None  # 已生成的求職信（M5），有值代表寫過
+    cover_letter: str | None = None
+    # candidate=爬到待選 / pending=排隊分析 / done=完成 / failed=失敗
+    status: str = "done"
+    relevant: bool = True  # 關鍵字是否命中（廣告→False，前端預設勾選用）
 
 
 class SearchRun(BaseModel):
@@ -76,9 +79,10 @@ class SearchRun(BaseModel):
     user: str
     keyword: str
     target: ResumeTarget
+    area: str | None = None  # 縣市代碼，逗號分隔多選；None=全台
     created_at: datetime = Field(default_factory=_utcnow)
-    next_offset: int = 0  # 下一批的 job 列表起點
-    count: int = 0         # 累積成功分析筆數
+    next_page: int = 1       # 已爬到第幾頁，爬下一頁用
+    count: int = 0           # 候選總數
 
 
 class ApplicationStatus(str, Enum):
