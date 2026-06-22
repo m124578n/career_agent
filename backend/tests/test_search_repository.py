@@ -34,14 +34,20 @@ async def test_list_sorted_desc(db):
     assert [r.search_id for r in runs] == [b.search_id, a.search_id]  # 新到舊
 
 
-async def test_advance_updates_offset_and_count(db):
+async def test_create_with_area(db):
+    repo = SearchRepository(db)
+    run = await repo.create("u1", "python", _target(), area="6001001000")
+    assert (await repo.get(run.search_id)).area == "6001001000"
+
+
+async def test_advance_page(db):
     repo = SearchRepository(db)
     run = await repo.create("u1", "python", _target())
-    await repo.advance(run.search_id, next_offset=5, count_delta=3)
-    await repo.advance(run.search_id, next_offset=10, count_delta=2)
+    await repo.advance_page(run.search_id, next_page=2, count_delta=30)
+    await repo.advance_page(run.search_id, next_page=3, count_delta=28)
     got = await repo.get(run.search_id)
-    assert got.next_offset == 10
-    assert got.count == 5
+    assert got.next_page == 3
+    assert got.count == 58
 
 
 async def test_delete_cascades_matches(db):

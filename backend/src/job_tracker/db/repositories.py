@@ -122,8 +122,9 @@ class SearchRepository:
         self._col = db["searches"]
         self._matches = db["matches"]
 
-    async def create(self, user: str, keyword: str, target: ResumeTarget) -> SearchRun:
-        run = SearchRun(search_id=uuid4().hex, user=user, keyword=keyword, target=target)
+    async def create(self, user, keyword, target, area=None) -> SearchRun:
+        run = SearchRun(search_id=uuid4().hex, user=user, keyword=keyword,
+                        target=target, area=area)
         doc = run.model_dump(mode="json")
         doc["_id"] = run.search_id
         await self._col.insert_one(doc)
@@ -137,10 +138,10 @@ class SearchRepository:
         cur = self._col.find({"user": user}).sort("created_at", -1)
         return [SearchRun(**doc) async for doc in cur]
 
-    async def advance(self, search_id: str, next_offset: int, count_delta: int) -> None:
+    async def advance_page(self, search_id, next_page, count_delta) -> None:
         await self._col.update_one(
             {"_id": search_id},
-            {"$set": {"next_offset": next_offset}, "$inc": {"count": count_delta}},
+            {"$set": {"next_page": next_page}, "$inc": {"count": count_delta}},
         )
 
     async def delete(self, search_id: str) -> None:
