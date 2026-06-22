@@ -64,7 +64,13 @@ export function JobList() {
     },
   });
   const analyzeMut = useMutation({
-    mutationFn: () => api.analyzeSelected(selectedId!, [...picked]),
+    // 只送「仍是候選」的職缺：picked 可能含已分析過的 id，
+    // 若一併送出會被後端 set_pending 打回重跑、重複耗額度。
+    mutationFn: () =>
+      api.analyzeSelected(
+        selectedId!,
+        candidates.filter((c) => picked.has(c.job.job_id)).map((c) => c.job.job_id)
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["search-matches", selectedId] }),
   });
   const delMut = useMutation({
