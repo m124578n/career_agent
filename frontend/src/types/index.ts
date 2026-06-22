@@ -44,6 +44,8 @@ export interface JobMatch {
   gaps: string[];
   requires_external_apply: boolean;
   cover_letter?: string | null;
+  status: "candidate" | "pending" | "done" | "failed";
+  relevant: boolean;
 }
 
 export interface SearchRun {
@@ -52,7 +54,8 @@ export interface SearchRun {
   keyword: string;
   target: ResumeTarget;
   created_at: string;
-  next_offset: number;
+  next_page: number;
+  area: string | null;
   count: number;
 }
 
