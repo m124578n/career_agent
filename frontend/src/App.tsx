@@ -10,10 +10,12 @@ import { api } from "./api/client";
 import { useAuth } from "./state/auth";
 import { ResumeSetup } from "./pages/ResumeSetup";
 import { JobList } from "./pages/JobList";
+import { Applications } from "./pages/Applications";
 
 const NAV = [
   { to: "/resume", label: "履歷與目標", tag: "01" },
   { to: "/jobs", label: "職缺契合度", tag: "02" },
+  { to: "/applications", label: "追蹤清單", tag: "03" },
 ];
 
 export function App() {
@@ -71,6 +73,7 @@ export function App() {
           <Route path="/" element={<Navigate to="/resume" replace />} />
           <Route path="/resume" element={<ResumeSetup />} />
           <Route path="/jobs" element={<JobList />} />
+          <Route path="/applications" element={<Applications />} />
         </Routes>
       </AppShell.Main>
     </AppShell>
