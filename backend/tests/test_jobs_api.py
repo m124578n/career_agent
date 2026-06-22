@@ -107,3 +107,43 @@ async def test_analyze_over_quota_is_429(monkeypatch):
     finally:
         app.dependency_overrides.clear()
     assert resp.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_analyze_skips_already_done(monkeypatch):
+    """已分析（done）的職缺重送不重跑、不重複計額度（後端正確性邊界）。"""
+    db = AsyncMongoMockClient()["test"]
+    _wire(db, monkeypatch, [("1", True)])
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            sid = (await client.post("/api/jobs/searches", json=_PAYLOAD)).json()["search_id"]
+            await client.post(f"/api/jobs/searches/{sid}/analyze", json={"job_ids": ["1"]})
+            if _runner_instance and hasattr(_runner_instance, "_task"):
+                await _runner_instance._task
+            # 再送同一個已 done 的 id → 非候選 → 400，不重跑
+            resp2 = await client.post(f"/api/jobs/searches/{sid}/analyze", json={"job_ids": ["1"]})
+    finally:
+        app.dependency_overrides.clear()
+    assert resp2.status_code == 400
+    assert await QuotaRepository(db).used_today("dev@local") == 1  # 沒重複計額度
+
+
+@pytest.mark.asyncio
+async def test_analyze_allows_retry_failed(monkeypatch):
+    """失敗（failed）的職缺可重試（重新分析）。"""
+    db = AsyncMongoMockClient()["test"]
+    _wire(db, monkeypatch, [("1", True)])
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            sid = (await client.post("/api/jobs/searches", json=_PAYLOAD)).json()["search_id"]
+            await MatchRepository(db).set_failed(sid, "1")  # 模擬前次分析失敗
+            resp = await client.post(f"/api/jobs/searches/{sid}/analyze", json={"job_ids": ["1"]})
+            if _runner_instance and hasattr(_runner_instance, "_task"):
+                await _runner_instance._task
+            matches = (await client.get(f"/api/jobs/searches/{sid}/matches")).json()
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.json()["queued"] == 1  # failed 可重試
+    assert [m for m in matches if m["status"] == "done"][0]["job"]["job_id"] == "1"

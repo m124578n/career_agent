@@ -86,10 +86,12 @@ async def analyze_selected(
     valid = []
     for jid in req.job_ids:
         m = await match_repo.get_match(search_id, jid)
-        if m is not None:
+        # 只收候選或失敗（可重試）的：擋掉 done/pending，
+        # 避免重跑已完成的（覆蓋結果、重複計額度）或重複排隊進行中的
+        if m is not None and m.status in ("candidate", "failed"):
             valid.append(jid)
     if not valid:
-        raise HTTPException(status_code=400, detail="沒有可分析的職缺")
+        raise HTTPException(status_code=400, detail="沒有可分析的候選職缺")
     limit = get_settings().daily_call_limit
     if await quota.used_today(user) + len(valid) > limit:
         raise HTTPException(status_code=429, detail=f"今日額度不足（每日 {limit} 次）")
