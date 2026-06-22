@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
 
 from job_tracker.api import deps
-from job_tracker.db.repositories import TokenUsageRepository
+from job_tracker.db.repositories import QuotaRepository, TokenUsageRepository
 from job_tracker.main import app
 
 
@@ -52,7 +52,14 @@ def test_global_usage_allowed_for_admin_in_dev():
 
 
 def test_quota_reports_is_admin():
-    resp = TestClient(app).get("/api/usage/quota")
+    # 用 mongomock 取代真 db，避免測試依賴外部 Atlas
+    app.dependency_overrides[deps.get_quota_repo] = lambda: QuotaRepository(
+        AsyncMongoMockClient()["test"]
+    )
+    try:
+        resp = TestClient(app).get("/api/usage/quota")
+    finally:
+        app.dependency_overrides.clear()
     assert resp.status_code == 200
     body = resp.json()
     assert body["is_admin"] is True  # dev 模式
