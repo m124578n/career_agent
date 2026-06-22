@@ -1,80 +1,74 @@
-import asyncio
-
 from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
 
 from job_tracker.api import deps
 from job_tracker.db.repositories import (
-    JobRepository,
+    ApplicationRepository,
     MatchRepository,
-    QuotaRepository,
+    SearchRepository,
 )
 from job_tracker.main import app
-from job_tracker.schemas import Job, JobMatch
-from job_tracker.services import cover_letter
+from job_tracker.schemas import Job, JobMatch, ResumeTarget
 
 
-def make_job(job_id: str = "1") -> Job:
-    return Job(
-        job_id=job_id,
-        code="abc",
-        title="Backend Engineer",
-        company="某公司",
-        url="https://www.104.com.tw/job/abc",
-    )
+def _seed(db):
+    """放一筆 search + match，供加入追蹤。"""
+    import asyncio
+
+    async def go():
+        sr = SearchRepository(db)
+        mr = MatchRepository(db)
+        run = await sr.create("dev@local", "python",
+                              ResumeTarget(target_title="後端", resume_text="x"))
+        job = Job(job_id="1", code="c1", title="工程師", company="某公司",
+                  url="https://www.104.com.tw/job/c1")
+        await mr.set_match(run.search_id, "dev@local",
+                           JobMatch(job=job, score=80, reasons=["r"], gaps=["g"],
+                                    cover_letter="信"))
+        return run.search_id
+
+    return asyncio.run(go())
 
 
-def _body(job_id: str) -> dict:
-    return {
-        "target": {
-            "target_title": "後端工程師",
-            "expected_salary": 70000,
-            "resume_text": "Python 經驗",
-        },
-        "job_id": job_id,
-    }
+def _wire(db):
+    app.dependency_overrides[deps.get_application_repo] = lambda: ApplicationRepository(db)
+    app.dependency_overrides[deps.get_search_repo] = lambda: SearchRepository(db)
+    app.dependency_overrides[deps.get_match_repo] = lambda: MatchRepository(db)
 
 
-def test_cover_letter_endpoint_returns_and_saves(monkeypatch):
+def test_add_list_update_delete_flow():
     db = AsyncMongoMockClient()["test"]
-    repo = JobRepository(db)
-    match_repo = MatchRepository(db)
-    asyncio.run(repo.upsert_job(make_job("1")))
-    # 先有一筆 match 供存求職信
-    asyncio.run(
-        match_repo.set_match(
-            "dev@local",
-            JobMatch(job=make_job("1"), score=80, reasons=[], gaps=[]),
-        )
-    )
-
-    async def fake_generate(target, job, detail=None, *, client=None):
-        assert job.job_id == "1"
-        return "敬啟者，這是一封求職信。"
-
-    monkeypatch.setattr(cover_letter, "generate", fake_generate)
-
-    app.dependency_overrides[deps.get_job_repo] = lambda: repo
-    app.dependency_overrides[deps.get_match_repo] = lambda: match_repo
-    app.dependency_overrides[deps.get_quota_repo] = lambda: QuotaRepository(db)
+    sid = _seed(db)
+    _wire(db)
     try:
-        resp = TestClient(app).post("/api/applications/cover-letter", json=_body("1"))
+        client = TestClient(app)
+        added = client.post("/api/applications",
+                            json={"search_id": sid, "job_id": "1"})
+        listed = client.get("/api/applications")
+        patched = client.patch("/api/applications/1", json={"status": "applied"})
+        removed = client.delete("/api/applications/1")
+        empty = client.get("/api/applications")
     finally:
         app.dependency_overrides.clear()
 
-    assert resp.status_code == 200
-    assert resp.json()["cover_letter"].startswith("敬啟者")
-    # 已存到 match
-    saved = asyncio.run(match_repo.list_matches("dev@local"))[0]
-    assert saved.cover_letter == "敬啟者，這是一封求職信。"
+    assert added.status_code == 200
+    assert added.json()["status"] == "to_apply"
+    assert added.json()["cover_letter"] == "信"   # 求職信快照
+    assert added.json()["job"]["company"] == "某公司"
+    assert [a["job_id"] for a in listed.json()] == ["1"]
+    assert patched.json()["status"] == "applied"
+    assert len(patched.json()["events"]) == 1
+    assert removed.status_code == 200
+    assert empty.json() == []
 
 
-def test_cover_letter_endpoint_404_for_missing_job():
+def test_add_missing_match_is_404():
     db = AsyncMongoMockClient()["test"]
-    app.dependency_overrides[deps.get_job_repo] = lambda: JobRepository(db)
-    app.dependency_overrides[deps.get_quota_repo] = lambda: QuotaRepository(db)
+    sid = _seed(db)
+    _wire(db)
     try:
-        resp = TestClient(app).post("/api/applications/cover-letter", json=_body("nope"))
+        resp = TestClient(app).post("/api/applications",
+                                    json={"search_id": sid, "job_id": "nope"})
     finally:
         app.dependency_overrides.clear()
     assert resp.status_code == 404
