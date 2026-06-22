@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 async def analyze_jobs(
+    search_id: str,
     user: str,
     keyword: str,
     target: ResumeTarget,
@@ -67,7 +68,7 @@ async def analyze_jobs(
                 match = await job_matching.analyze(
                     target, job, detail, client=llm_client
                 )
-                await match_repo.set_match(user, match)
+                await match_repo.set_match(search_id, user, match)
                 matches.append(match)
             except Exception:
                 logger.warning("跳過分析失敗的職缺 %s", job.job_id, exc_info=True)

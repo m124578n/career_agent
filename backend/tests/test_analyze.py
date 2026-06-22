@@ -48,11 +48,11 @@ async def test_analyze_jobs_stores_and_sorts(monkeypatch):
     transport = httpx.MockTransport(_handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
         matches = await analyze_jobs(
-            "u1", "python", target, job_repo, match_repo, http_client=http_client
+            "s1", "u1", "python", target, job_repo, match_repo, http_client=http_client
         )
 
     assert [m.score for m in matches] == [80, 50]
-    stored = await match_repo.list_matches("u1")
+    stored = await match_repo.list_by_search("s1")
     assert [m.score for m in stored] == [80, 50]
     # 薪資用詳情 API 的完整字串覆蓋（fixture 詳情為「待遇面議」）
     assert all(m.job.salary == "待遇面議" for m in stored)
@@ -75,6 +75,7 @@ async def test_analyze_jobs_skips_failed(monkeypatch):
     transport = httpx.MockTransport(_handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
         matches = await analyze_jobs(
+            "s2",
             "u1",
             "python",
             target,
