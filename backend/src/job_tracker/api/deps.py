@@ -6,9 +6,11 @@ from job_tracker.auth import current_user  # re-export 供 routers 使用
 from job_tracker.config import get_settings
 from job_tracker.db import get_db
 from job_tracker.db.repositories import (
+    ApplicationRepository,
     JobRepository,
     MatchRepository,
     QuotaRepository,
+    SearchRepository,
     TokenUsageRepository,
 )
 
@@ -17,6 +19,8 @@ __all__ = [
     "get_job_repo",
     "get_match_repo",
     "get_quota_repo",
+    "get_search_repo",
+    "get_application_repo",
     "get_usage_repo",
     "ensure_quota",
 ]
@@ -32,6 +36,14 @@ def get_match_repo() -> MatchRepository:
 
 def get_quota_repo() -> QuotaRepository:
     return QuotaRepository(get_db())
+
+
+def get_search_repo() -> SearchRepository:
+    return SearchRepository(get_db())
+
+
+def get_application_repo() -> ApplicationRepository:
+    return ApplicationRepository(get_db())
 
 
 def get_usage_repo() -> TokenUsageRepository:
