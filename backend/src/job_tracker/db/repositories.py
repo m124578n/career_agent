@@ -8,7 +8,16 @@ from uuid import uuid4
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from job_tracker.schemas import Job, JobDetail, JobMatch, ResumeTarget, SearchRun
+from job_tracker.schemas import (
+    Application,
+    ApplicationEvent,
+    ApplicationStatus,
+    Job,
+    JobDetail,
+    JobMatch,
+    ResumeTarget,
+    SearchRun,
+)
 
 
 class JobRepository:
@@ -160,3 +169,51 @@ class TokenUsageRepository:
             "total_tokens": total,
             "by_model": by_model,
         }
+
+
+class ApplicationRepository:
+    """求職追蹤清單（以 user|job_id 去重）。"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self._col = db["applications"]
+
+    @staticmethod
+    def _id(user: str, job_id: str) -> str:
+        return f"{user}|{job_id}"
+
+    async def add(self, app: Application) -> Application:
+        _id = self._id(app.user, app.job_id)
+        existing = await self._col.find_one({"_id": _id})
+        if existing:
+            return Application(**existing)  # 去重：已在追蹤就回現有
+        doc = app.model_dump(mode="json")
+        doc["_id"] = _id
+        await self._col.insert_one(doc)
+        return app
+
+    async def list(self, user: str) -> list[Application]:
+        cur = self._col.find({"user": user}).sort("created_at", -1)
+        return [Application(**doc) async for doc in cur]
+
+    async def get(self, user: str, job_id: str) -> Application | None:
+        doc = await self._col.find_one({"_id": self._id(user, job_id)})
+        return Application(**doc) if doc else None
+
+    async def set_status(
+        self, user: str, job_id: str, status: ApplicationStatus
+    ) -> Application | None:
+        ev = ApplicationEvent(type="status", note=f"→ {status.value}")
+        now = ev.ts
+        res = await self._col.update_one(
+            {"_id": self._id(user, job_id)},
+            {
+                "$set": {"status": status.value, "updated_at": now.isoformat()},
+                "$push": {"events": ev.model_dump(mode="json")},
+            },
+        )
+        if res.matched_count == 0:
+            return None
+        return await self.get(user, job_id)
+
+    async def remove(self, user: str, job_id: str) -> None:
+        await self._col.delete_one({"_id": self._id(user, job_id)})
