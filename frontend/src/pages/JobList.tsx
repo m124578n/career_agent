@@ -1,10 +1,12 @@
 import {
   Box,
   Button,
+  Checkbox,
   CopyButton,
   Group,
   Loader,
   Modal,
+  MultiSelect,
   Stack,
   Text,
   Textarea,
@@ -17,39 +19,53 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useResume } from "../state/resume";
-import { AnalyzingSteps } from "../components/AnalyzingSteps";
+import { REGIONS } from "../constants/regions";
 import type { JobMatch } from "../types";
 
 export function JobList() {
   const { target } = useResume();
   const [keyword, setKeyword] = useState("");
+  const [area, setArea] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [noMore, setNoMore] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const qc = useQueryClient();
 
   const searchesQ = useQuery({ queryKey: ["searches"], queryFn: api.listSearches });
+
   const matchesQ = useQuery({
     queryKey: ["search-matches", selectedId],
     queryFn: () => api.searchMatches(selectedId!),
     enabled: !!selectedId,
+    refetchInterval: (q) =>
+      (q.state.data ?? []).some((m) => m.status === "pending") ? 2500 : false,
   });
+  const matches = matchesQ.data ?? [];
+  const candidates = matches.filter((m) => m.status === "candidate");
+  const results = matches.filter((m) => m.status !== "candidate");
 
   const createMut = useMutation({
     mutationFn: api.createSearch,
     onSuccess: (data) => {
       setSelectedId(data.search_id);
-      setNoMore(data.matches.length === 0);
+      setPicked(new Set(data.candidates.filter((c) => c.relevant).map((c) => c.job.job_id)));
       qc.invalidateQueries({ queryKey: ["searches"] });
       qc.invalidateQueries({ queryKey: ["search-matches", data.search_id] });
     },
   });
-  const nextMut = useMutation({
-    mutationFn: () => api.nextBatch(selectedId!),
+  const crawlMut = useMutation({
+    mutationFn: () => api.crawlNext(selectedId!),
     onSuccess: (data) => {
-      setNoMore(data.length === 0);
+      setPicked((p) => {
+        const n = new Set(p);
+        data.candidates.filter((c) => c.relevant).forEach((c) => n.add(c.job.job_id));
+        return n;
+      });
       qc.invalidateQueries({ queryKey: ["search-matches", selectedId] });
-      qc.invalidateQueries({ queryKey: ["searches"] });
     },
+  });
+  const analyzeMut = useMutation({
+    mutationFn: () => api.analyzeSelected(selectedId!, [...picked]),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["search-matches", selectedId] }),
   });
   const delMut = useMutation({
     mutationFn: api.deleteSearch,
@@ -59,30 +75,29 @@ export function JobList() {
     },
   });
 
-  const busy = createMut.isPending || nextMut.isPending;
+  const toggle = (id: string) =>
+    setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const pickedCandidates = candidates.filter((c) => picked.has(c.job.job_id));
+
+  const busy = createMut.isPending || crawlMut.isPending;
   const canRun = !!target && keyword.trim().length > 0 && !busy;
   const run = () => {
-    if (target) {
-      setNoMore(false);
-      createMut.mutate({ keyword: keyword.trim(), target });
-    }
+    if (target) createMut.mutate({ keyword: keyword.trim(), target, area: area.join(",") || null });
   };
-  const runNext = () => !busy && selectedId && nextMut.mutate();
 
   const searches = searchesQ.data ?? [];
-  const matches = matchesQ.data ?? [];
 
   return (
     <Box p={{ base: "lg", md: 40 }} maw={1180} mx="auto">
       <Stack gap={6} mb={28}>
         <span className="jt-eyebrow">
-          職缺 <b>×</b> 契合度
+          職缺 <b>&times;</b> 契合度
         </span>
         <Title order={1} fz={{ base: 28, md: 34 }} fw={700} lts="-0.02em">
           職缺契合度
         </Title>
         <Text c="dimmed" fz="sm" maw={580}>
-          輸入關鍵字爬取 104 職缺，逐筆比對你的履歷並排序。每次分析前 5 筆（含節流，需稍候）。
+          輸入關鍵字爬取 104 職缺，勾選有興趣的候選後送出分析，逐筆比對你的履歷並排序。
         </Text>
       </Stack>
 
@@ -103,14 +118,24 @@ export function JobList() {
           {/* 控制列 */}
           <div className="jt-panel" style={{ marginBottom: 20 }}>
             <div className="jt-panel-body">
-              <Group align="flex-end" gap={12} wrap="nowrap">
+              <Group align="flex-end" gap={12} wrap="wrap">
                 <TextInput
                   label="搜尋關鍵字"
                   placeholder="例：Python 後端 / AI 工程師"
                   value={keyword}
                   onChange={(e) => setKeyword(e.currentTarget.value)}
                   onKeyDown={(e) => e.key === "Enter" && canRun && run()}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, minWidth: 180 }}
+                />
+                <MultiSelect
+                  label="地區（縣市）"
+                  placeholder="不選=全台"
+                  data={REGIONS}
+                  value={area}
+                  onChange={setArea}
+                  clearable
+                  searchable
+                  style={{ minWidth: 200 }}
                 />
                 <Button
                   color="tangerine"
@@ -119,7 +144,7 @@ export function JobList() {
                   loading={busy}
                   onClick={run}
                 >
-                  爬取並分析
+                  爬取候選
                 </Button>
               </Group>
               <Text fz="xs" c="dimmed" mt={8}>
@@ -128,9 +153,9 @@ export function JobList() {
                   ? ` · 期望 ${target.expected_salary.toLocaleString()}`
                   : ""}
               </Text>
-              {(createMut.isError || nextMut.isError) && (
+              {(createMut.isError || crawlMut.isError) && (
                 <Text fz="xs" c="tangerine.5" mt={6}>
-                  分析失敗：請確認後端與關鍵字後再試。
+                  爬取失敗：請確認後端與關鍵字後再試。
                 </Text>
               )}
             </div>
@@ -150,7 +175,7 @@ export function JobList() {
                       py={6}
                       onClick={() => {
                         setSelectedId(s.search_id);
-                        setNoMore(false);
+                        setPicked(new Set());
                       }}
                       style={{
                         cursor: "pointer",
@@ -190,58 +215,98 @@ export function JobList() {
             </div>
           )}
 
+          {/* 候選清單 */}
+          {candidates.length > 0 && (
+            <div className="jt-panel" style={{ marginBottom: 20 }}>
+              <div className="jt-panel-head">
+                <span className="jt-eyebrow">候選 // CANDIDATES · {candidates.length}</span>
+                <Group gap={8}>
+                  <Button size="xs" variant="default" onClick={() => crawlMut.mutate()}
+                          disabled={busy} loading={crawlMut.isPending}>爬下一頁</Button>
+                  <Button size="xs" color="tangerine"
+                          disabled={pickedCandidates.length === 0 || analyzeMut.isPending}
+                          loading={analyzeMut.isPending}
+                          onClick={() => analyzeMut.mutate()}>
+                    分析選中（{pickedCandidates.length}）
+                  </Button>
+                </Group>
+              </div>
+              <div className="jt-panel-body">
+                <Stack gap={8}>
+                  {candidates.map((c) => (
+                    <Group key={c.job.job_id} gap={10} wrap="nowrap">
+                      <Checkbox
+                        checked={picked.has(c.job.job_id)}
+                        onChange={() => toggle(c.job.job_id)}
+                      />
+                      <a className="jt-job-title" href={c.job.url} target="_blank" rel="noreferrer"
+                         style={{ flex: 1 }}>{c.job.title}</a>
+                      <Text fz="xs" c="dimmed">{c.job.company}</Text>
+                      {c.job.salary && <Text fz="xs" c="dimmed">{c.job.salary}</Text>}
+                      {!c.relevant && (
+                        <span className="jt-chip" style={{ color: "var(--jt-dim)" }}>廣告？</span>
+                      )}
+                    </Group>
+                  ))}
+                </Stack>
+              </div>
+            </div>
+          )}
+
           {/* 結果 */}
           <div className="jt-panel">
             <div className="jt-panel-head">
               <span className="jt-eyebrow">
                 排序結果 // RANKED
-                {matches.length ? (
+                {results.length ? (
                   <>
                     {" · "}
-                    <b>{matches.length}</b> 筆
+                    <b>{results.length}</b> 筆
                   </>
                 ) : null}
               </span>
-              {!!selectedId &&
-                (noMore ? (
-                  <Text fz="xs" c="dimmed">
-                    沒有更多了
-                  </Text>
-                ) : (
-                  <Button
-                    size="xs"
-                    variant="default"
-                    disabled={busy}
-                    onClick={runNext}
-                  >
-                    分析下一批（第 {matches.length + 1} 筆起）
-                  </Button>
-                ))}
             </div>
             <div
               className="jt-panel-body"
-              data-center={!matches.length && !busy}
+              data-center={!results.length && !busy}
             >
-              {busy ? (
-                <AnalyzingSteps
-                  steps={[
-                    "爬取 104 職缺…",
-                    "讀取職缺詳情（含節流）…",
-                    "逐筆比對契合度…",
-                    "排序與整理結果…",
-                  ]}
-                />
-              ) : matchesQ.isLoading ? (
+              {matchesQ.isLoading ? (
                 <div className="jt-empty">載入中…</div>
-              ) : matches.length ? (
+              ) : results.length ? (
                 <Stack gap={12}>
-                  {matches.map((m) => (
-                    <MatchCard key={m.job.job_id} match={m} searchId={selectedId!} />
-                  ))}
+                  {results.map((m) =>
+                    m.status === "done" ? (
+                      <MatchCard key={m.job.job_id} match={m} searchId={selectedId!} />
+                    ) : m.status === "failed" ? (
+                      <div key={m.job.job_id} className="jt-jobcard">
+                        <Group justify="space-between">
+                          <div>
+                            <div className="jt-job-title">{m.job.title}</div>
+                            <div className="jt-job-meta">{m.job.company} · 分析失敗</div>
+                          </div>
+                          <Button size="xs" variant="default"
+                                  onClick={() => api.analyzeSelected(selectedId!, [m.job.job_id])
+                                    .then(() => qc.invalidateQueries({ queryKey: ["search-matches", selectedId] }))}>
+                            重試
+                          </Button>
+                        </Group>
+                      </div>
+                    ) : (
+                      <div key={m.job.job_id} className="jt-jobcard">
+                        <Group gap={10}>
+                          <Loader size="xs" color="teal" />
+                          <div>
+                            <div className="jt-job-title">{m.job.title}</div>
+                            <div className="jt-job-meta">{m.job.company} · 分析中…</div>
+                          </div>
+                        </Group>
+                      </div>
+                    )
+                  )}
                 </Stack>
               ) : (
                 <div className="jt-empty">
-                  尚無結果 // 輸入關鍵字後執行「爬取並分析」
+                  尚無結果 // 輸入關鍵字後執行「爬取候選」，勾選後「分析選中」
                 </div>
               )}
             </div>
