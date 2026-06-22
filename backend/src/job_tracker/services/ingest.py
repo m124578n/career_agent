@@ -22,7 +22,8 @@ async def ingest_jobs(
     owns_client = client is None
     client = client or httpx.AsyncClient()
     try:
-        jobs = await crawl_jobs(keyword, page=page, client=client)
+        pairs = await crawl_jobs(keyword, page=page, client=client)
+        jobs = [job for job, _relevant in pairs]
         for job in jobs:
             await repo.upsert_job(job)
 

@@ -13,6 +13,7 @@ from job_tracker.db.repositories import (
     SearchRepository,
     TokenUsageRepository,
 )
+from job_tracker.services.analyze import AnalysisRunner, AsyncioRunner
 
 __all__ = [
     "current_user",
@@ -22,6 +23,7 @@ __all__ = [
     "get_search_repo",
     "get_application_repo",
     "get_usage_repo",
+    "get_analysis_runner",
     "ensure_quota",
 ]
 
@@ -48,6 +50,13 @@ def get_application_repo() -> ApplicationRepository:
 
 def get_usage_repo() -> TokenUsageRepository:
     return TokenUsageRepository(get_db())
+
+
+_runner = AsyncioRunner()
+
+
+def get_analysis_runner() -> AnalysisRunner:
+    return _runner
 
 
 async def ensure_quota(user: str, quota: QuotaRepository) -> None:
