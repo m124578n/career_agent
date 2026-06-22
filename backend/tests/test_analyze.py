@@ -1,93 +1,74 @@
-import json
-from pathlib import Path
-
 import httpx
+import pytest
 from mongomock_motor import AsyncMongoMockClient
 
-from job_tracker.db.repositories import JobRepository, MatchRepository
-from job_tracker.schemas import JobMatch, ResumeTarget
-from job_tracker.services import analyze as analyze_mod
-from job_tracker.services import job_matching
-from job_tracker.services.analyze import analyze_jobs
-
-FIXTURES = Path(__file__).parent / "fixtures"
-SEARCH = json.loads((FIXTURES / "104_search.json").read_text(encoding="utf-8"))
-DETAIL = json.loads((FIXTURES / "104_detail.json").read_text(encoding="utf-8"))
+from job_tracker.db.repositories import (
+    JobRepository, MatchRepository, QuotaRepository, SearchRepository,
+)
+from job_tracker.schemas import Job, JobMatch, ResumeTarget
+from job_tracker.services import analyze as analyze_svc
 
 
-def _handler(request: httpx.Request) -> httpx.Response:
-    url = str(request.url)
-    if "search/api/jobs" in url:
-        # 只有 page=1 有資料，避免累積時重複抓同一批 fixture
-        if "page=1" in url:
-            return httpx.Response(200, json=SEARCH)
-        return httpx.Response(200, json={"data": [], "metadata": {}})
-    return httpx.Response(200, json=DETAIL)
+def _target():
+    return ResumeTarget(target_title="後端", resume_text="Python")
 
 
-def _no_throttle(monkeypatch):
-    async def no_sleep(_s):
-        return None
+def _search_resp():
+    return httpx.Response(200, json={"data": [
+        {"jobNo": "1", "jobName": "Python 工程師", "custName": "A",
+         "link": {"job": "https://www.104.com.tw/job/abc"},
+         "descSnippet": "[[[Python]]]", "salaryLow": 0, "salaryHigh": 0},
+    ]})
 
-    monkeypatch.setattr(analyze_mod.asyncio, "sleep", no_sleep)
+
+def _detail_resp():
+    return httpx.Response(200, json={"data": {
+        "jobDetail": {"jobDescription": "JD", "salary": "月薪50,000元", "addressRegion": "台北"},
+        "condition": {"workExp": "3年", "edu": "大學", "major": [], "specialty": []},
+    }})
 
 
-async def test_analyze_jobs_stores_and_sorts(monkeypatch):
-    _no_throttle(monkeypatch)
-    scores = iter([50, 80])
-
-    async def fake_analyze(target, job, detail, *, client=None):
-        return JobMatch(job=job, score=next(scores), reasons=["r"], gaps=["g"])
-
-    monkeypatch.setattr(analyze_mod.job_matching, "analyze", fake_analyze)
-
+async def test_crawl_candidates_stores_candidates():
     db = AsyncMongoMockClient()["test"]
-    job_repo = JobRepository(db)
-    match_repo = MatchRepository(db)
-    target = ResumeTarget(target_title="X", resume_text="Y")
-    transport = httpx.MockTransport(_handler)
-    async with httpx.AsyncClient(transport=transport) as http_client:
-        matches = await analyze_jobs(
-            "s1", "u1", "python", target, job_repo, match_repo, http_client=http_client
-        )
-
-    assert [m.score for m in matches] == [80, 50]
-    stored = await match_repo.list_by_search("s1")
-    assert [m.score for m in stored] == [80, 50]
-    # 薪資用詳情 API 的完整字串覆蓋（fixture 詳情為「待遇面議」）
-    assert all(m.job.salary == "待遇面議" for m in stored)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: _search_resp()))
+    out = await analyze_svc.crawl_candidates(
+        "s1", "u1", "python", None, 1, JobRepository(db), MatchRepository(db),
+        http_client=client)
+    await client.aclose()
+    assert [m.job.job_id for m in out] == ["1"]
+    stored = await MatchRepository(db).get_match("s1", "1")
+    assert stored.status == "candidate" and stored.relevant is True
 
 
-async def test_analyze_jobs_skips_failed(monkeypatch):
-    _no_throttle(monkeypatch)
-    calls = {"n": 0}
-
-    async def flaky_analyze(target, job, detail, *, client=None):
-        calls["n"] += 1
-        if calls["n"] == 1:
-            raise RuntimeError("LLM 暫時失敗")
-        return JobMatch(job=job, score=70, reasons=[], gaps=[])
-
-    monkeypatch.setattr(analyze_mod.job_matching, "analyze", flaky_analyze)
-
+async def test_analyze_one_done_and_quota(monkeypatch):
     db = AsyncMongoMockClient()["test"]
-    target = ResumeTarget(target_title="X", resume_text="Y")
-    transport = httpx.MockTransport(_handler)
-    async with httpx.AsyncClient(transport=transport) as http_client:
-        matches = await analyze_jobs(
-            "s2",
-            "u1",
-            "python",
-            target,
-            JobRepository(db),
-            MatchRepository(db),
-            http_client=http_client,
-        )
+    mr, jr, qr = MatchRepository(db), JobRepository(db), QuotaRepository(db)
+    job = Job(job_id="1", code="abc", title="t", company="co", url="https://x/abc")
+    await mr.add_candidate("s1", "u1", job, relevant=True)
 
-    # 第一筆失敗被跳過，仍回傳第二筆
-    assert len(matches) == 1
-    assert matches[0].score == 70
+    async def fake_match(target, job, detail, client=None):
+        return JobMatch(job=job, score=77, reasons=["r"], gaps=["g"])
+    monkeypatch.setattr(analyze_svc.job_matching, "analyze", fake_match)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: _detail_resp()))
+    await analyze_svc.analyze_one("s1", "u1", "1", _target(), jr, mr, qr,
+                                  http_client=client)
+    await client.aclose()
+    done = await mr.get_match("s1", "1")
+    assert done.status == "done" and done.score == 77
+    assert await qr.used_today("u1") == 1
 
 
-# 保留 job_matching 參考供匯入檢查
-_ = job_matching
+async def test_analyze_one_failure_marks_failed():
+    db = AsyncMongoMockClient()["test"]
+    mr, jr, qr = MatchRepository(db), JobRepository(db), QuotaRepository(db)
+    job = Job(job_id="1", code="abc", title="t", company="co", url="https://x/abc")
+    await mr.add_candidate("s1", "u1", job, relevant=True)
+
+    def boom(r): raise httpx.ConnectError("fail")
+    client = httpx.AsyncClient(transport=httpx.MockTransport(boom))
+    await analyze_svc.analyze_one("s1", "u1", "1", _target(), jr, mr, qr,
+                                  http_client=client)
+    await client.aclose()
+    assert (await mr.get_match("s1", "1")).status == "failed"
+    assert await qr.used_today("u1") == 0  # 失敗不計額度

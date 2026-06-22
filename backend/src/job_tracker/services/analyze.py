@@ -1,81 +1,98 @@
-"""職缺契合度流程：爬搜尋 + 逐筆詳情（節流、容錯）→ LLM 分析 → 存 DB → 排序。
+"""職缺契合度流程（兩階段、非同步逐筆）。
 
-單筆失敗（詳情 403、LLM 偶發解析失敗等）會跳過，不影響整批。
+爬取：crawl_candidates 抓 104 一頁、存 candidate placeholder。
+分析：analyze_one 對單筆抓詳情（經全域 semaphore 節流）→ LLM → 寫結果。
+背景執行用可注入的 AnalysisRunner（預設 asyncio.create_task 逐筆序列）。
 """
 
 import asyncio
 import logging
-import random
+from typing import Awaitable, Protocol
 
 import httpx
 
 from job_tracker.crawler import crawl_jobs, fetch_job_detail
-from job_tracker.db.repositories import JobRepository, MatchRepository
+from job_tracker.db.repositories import (
+    JobRepository, MatchRepository, QuotaRepository,
+)
 from job_tracker.schemas import JobMatch, ResumeTarget
 from job_tracker.services import job_matching
 
 logger = logging.getLogger(__name__)
 
+# 全域：限制同時對 104 詳情 API 的併發，避免多背景任務一起打被鎖
+DETAIL_SEMAPHORE = asyncio.Semaphore(2)
 
-async def analyze_jobs(
+
+async def crawl_candidates(
     search_id: str,
     user: str,
     keyword: str,
-    target: ResumeTarget,
+    area: str | None,
+    page: int,
     job_repo: JobRepository,
     match_repo: MatchRepository,
     *,
-    offset: int = 0,
-    limit: int = 5,
+    http_client: httpx.AsyncClient | None = None,
+) -> list[JobMatch]:
+    owns = http_client is None
+    http_client = http_client or httpx.AsyncClient()
+    try:
+        pairs = await crawl_jobs(keyword, page=page, area=area, client=http_client)
+        for job, relevant in pairs:
+            await match_repo.add_candidate(search_id, user, job, relevant)
+        logger.info("crawl_candidates s=%s page=%d -> %d", search_id, page, len(pairs))
+        return [await match_repo.get_match(search_id, j.job_id) for j, _ in pairs]
+    finally:
+        if owns:
+            await http_client.aclose()
+
+
+async def analyze_one(
+    search_id: str,
+    user: str,
+    job_id: str,
+    target: ResumeTarget,
+    job_repo: JobRepository,
+    match_repo: MatchRepository,
+    quota: QuotaRepository,
+    *,
     http_client: httpx.AsyncClient | None = None,
     llm_client=None,
-    min_delay: float = 2.0,
-    max_delay: float = 5.0,
-) -> list[JobMatch]:
-    """分析搜尋結果中 [offset, offset+limit) 這批職缺（翻下一批用 offset 累進）。"""
-    owns_http = http_client is None
+) -> None:
+    owns = http_client is None
     http_client = http_client or httpx.AsyncClient()
-    matches: list[JobMatch] = []
     try:
-        # 累積足夠職缺以涵蓋這個視窗（104 每頁約 30 筆；跨頁時多抓幾頁）
-        jobs: list = []
-        page = 1
-        while len(jobs) < offset + limit and page <= 5:
-            batch = await crawl_jobs(keyword, page=page, client=http_client)
-            if not batch:
-                break
-            jobs.extend(batch)
-            page += 1
-        window = jobs[offset : offset + limit]
-        logger.info(
-            "analyze start user=%s keyword=%r offset=%d limit=%d window=%d",
-            user,
-            keyword,
-            offset,
-            limit,
-            len(window),
-        )
-        for i, job in enumerate(window):
-            try:
-                if i > 0:  # 請求間節流，避免被鎖
-                    await asyncio.sleep(random.uniform(min_delay, max_delay))
-                detail = await fetch_job_detail(job.code, client=http_client)
-                if detail.salary:
-                    # 用 104 詳情的完整薪資字串（含 月薪/年薪/以上/面議 等）
-                    job.salary = detail.salary
-                await job_repo.upsert_job(job)
-                await job_repo.set_detail(job.job_id, detail)
-                match = await job_matching.analyze(
-                    target, job, detail, client=llm_client
-                )
-                await match_repo.set_match(search_id, user, match)
-                matches.append(match)
-            except Exception:
-                logger.warning("跳過分析失敗的職缺 %s", job.job_id, exc_info=True)
-                continue
-
-        logger.info("analyze done user=%s -> %d matches", user, len(matches))
-        return sorted(matches, key=lambda m: m.score, reverse=True)
+        cand = await match_repo.get_match(search_id, job_id)
+        if cand is None:
+            return
+        job = cand.job
+        async with DETAIL_SEMAPHORE:
+            detail = await fetch_job_detail(job.code, client=http_client)
+        if detail.salary:
+            job.salary = detail.salary
+        await job_repo.upsert_job(job)
+        await job_repo.set_detail(job_id, detail)
+        analysis = await job_matching.analyze(target, job, detail, client=llm_client)
+        await match_repo.set_result(search_id, job_id, analysis)
+        await quota.add(user, 1)  # 每筆 done 才計額度
+    except Exception:
+        logger.warning("分析失敗 job=%s", job_id, exc_info=True)
+        await match_repo.set_failed(search_id, job_id)
     finally:
-        if owns_http:
+        if owns:
             await http_client.aclose()
+
+
+class AnalysisRunner(Protocol):
+    def submit(self, coros: list[Awaitable]) -> None: ...
+
+
+class AsyncioRunner:
+    """預設 runner：背景逐筆序列跑（彼此間靠各自節流 + 全域 semaphore 護 104）。"""
+
+    def submit(self, coros: list[Awaitable]) -> None:
+        async def _run_all():
+            for c in coros:
+                await c
+        asyncio.create_task(_run_all())
