@@ -23,31 +23,53 @@ import type { JobMatch } from "../types";
 export function JobList() {
   const { target } = useResume();
   const [keyword, setKeyword] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [noMore, setNoMore] = useState(false);
   const qc = useQueryClient();
 
-  const [offset, setOffset] = useState(0);
-  const [noMore, setNoMore] = useState(false);
+  const searchesQ = useQuery({ queryKey: ["searches"], queryFn: api.listSearches });
+  const matchesQ = useQuery({
+    queryKey: ["search-matches", selectedId],
+    queryFn: () => api.searchMatches(selectedId!),
+    enabled: !!selectedId,
+  });
 
-  const matchesQ = useQuery({ queryKey: ["matches"], queryFn: api.listMatches });
-  const analyzeMut = useMutation({
-    mutationFn: api.analyzeJobs,
-    onSuccess: (data, vars) => {
-      setOffset((vars.offset ?? 0) + data.length);
+  const createMut = useMutation({
+    mutationFn: api.createSearch,
+    onSuccess: (data) => {
+      setSelectedId(data.search_id);
+      setNoMore(data.matches.length === 0);
+      qc.invalidateQueries({ queryKey: ["searches"] });
+      qc.invalidateQueries({ queryKey: ["search-matches", data.search_id] });
+    },
+  });
+  const nextMut = useMutation({
+    mutationFn: () => api.nextBatch(selectedId!),
+    onSuccess: (data) => {
       setNoMore(data.length === 0);
-      qc.invalidateQueries({ queryKey: ["matches"] });
+      qc.invalidateQueries({ queryKey: ["search-matches", selectedId] });
+      qc.invalidateQueries({ queryKey: ["searches"] });
+    },
+  });
+  const delMut = useMutation({
+    mutationFn: api.deleteSearch,
+    onSuccess: (_d, sid) => {
+      if (sid === selectedId) setSelectedId(null);
+      qc.invalidateQueries({ queryKey: ["searches"] });
     },
   });
 
-  const canRun = !!target && keyword.trim().length > 0 && !analyzeMut.isPending;
-  const doAnalyze = (off: number) =>
-    target &&
-    analyzeMut.mutate({ keyword: keyword.trim(), target, offset: off, limit: 5 });
+  const busy = createMut.isPending || nextMut.isPending;
+  const canRun = !!target && keyword.trim().length > 0 && !busy;
   const run = () => {
-    setNoMore(false);
-    doAnalyze(0); // 新搜尋 → 從頭
+    if (target) {
+      setNoMore(false);
+      createMut.mutate({ keyword: keyword.trim(), target });
+    }
   };
-  const runNext = () => doAnalyze(offset); // 翻下一批
+  const runNext = () => !busy && selectedId && nextMut.mutate();
 
+  const searches = searchesQ.data ?? [];
   const matches = matchesQ.data ?? [];
 
   return (
@@ -94,7 +116,7 @@ export function JobList() {
                   color="tangerine"
                   size="md"
                   disabled={!canRun}
-                  loading={analyzeMut.isPending}
+                  loading={busy}
                   onClick={run}
                 >
                   爬取並分析
@@ -106,13 +128,64 @@ export function JobList() {
                   ? ` · 期望 ${target.expected_salary.toLocaleString()}`
                   : ""}
               </Text>
-              {analyzeMut.isError && (
+              {(createMut.isError || nextMut.isError) && (
                 <Text fz="xs" c="tangerine.5" mt={6}>
                   分析失敗：請確認後端與關鍵字後再試。
                 </Text>
               )}
             </div>
           </div>
+
+          {/* 歷史 chips */}
+          {searches.length > 0 && (
+            <div className="jt-panel" style={{ marginBottom: 20 }}>
+              <div className="jt-panel-body">
+                <Group gap={8} wrap="wrap">
+                  {searches.map((s) => (
+                    <Group
+                      key={s.search_id}
+                      gap={4}
+                      wrap="nowrap"
+                      px={10}
+                      py={6}
+                      onClick={() => setSelectedId(s.search_id)}
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 8,
+                        border: "1px solid var(--jt-border)",
+                        background:
+                          s.search_id === selectedId
+                            ? "rgba(52,214,200,0.12)"
+                            : "transparent",
+                      }}
+                    >
+                      <Text fz="xs">
+                        {s.keyword} ·{" "}
+                        {new Date(s.created_at).toLocaleString("zh-TW", {
+                          month: "numeric",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}{" "}
+                        · {s.count} 筆
+                      </Text>
+                      <Text
+                        fz="xs"
+                        c="dimmed"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          delMut.mutate(s.search_id);
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        ✕
+                      </Text>
+                    </Group>
+                  ))}
+                </Group>
+              </div>
+            </div>
+          )}
 
           {/* 結果 */}
           <div className="jt-panel">
@@ -126,7 +199,7 @@ export function JobList() {
                   </>
                 ) : null}
               </span>
-              {offset > 0 &&
+              {!!selectedId &&
                 (noMore ? (
                   <Text fz="xs" c="dimmed">
                     沒有更多了
@@ -135,18 +208,18 @@ export function JobList() {
                   <Button
                     size="xs"
                     variant="default"
-                    disabled={!canRun}
+                    disabled={busy}
                     onClick={runNext}
                   >
-                    分析下一批（第 {offset + 1}–{offset + 5} 筆）
+                    分析下一批（第 {matches.length + 1} 筆起）
                   </Button>
                 ))}
             </div>
             <div
               className="jt-panel-body"
-              data-center={!matches.length && !analyzeMut.isPending}
+              data-center={!matches.length && !busy}
             >
-              {analyzeMut.isPending ? (
+              {busy ? (
                 <AnalyzingSteps
                   steps={[
                     "爬取 104 職缺…",
@@ -160,7 +233,7 @@ export function JobList() {
               ) : matches.length ? (
                 <Stack gap={12}>
                   {matches.map((m) => (
-                    <MatchCard key={m.job.job_id} match={m} />
+                    <MatchCard key={m.job.job_id} match={m} searchId={selectedId!} />
                   ))}
                 </Stack>
               ) : (
@@ -176,9 +249,8 @@ export function JobList() {
   );
 }
 
-function MatchCard({ match }: { match: JobMatch }) {
+function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
   const { job, score, reasons, gaps, requires_external_apply } = match;
-  const { target } = useResume();
   const qc = useQueryClient();
   const [opened, { open, close }] = useDisclosure(false);
   // 已存的求職信當作初始內容（重開直接看，不必重生）
@@ -189,17 +261,25 @@ function MatchCard({ match }: { match: JobMatch }) {
     mutationFn: api.coverLetter,
     onSuccess: (d) => {
       setDraft(d.cover_letter);
-      qc.invalidateQueries({ queryKey: ["matches"] }); // 讓清單反映「已寫」
+      qc.invalidateQueries({ queryKey: ["search-matches", searchId] });
     },
   });
 
   const generate = () => {
-    if (target) letterMut.mutate({ target, job_id: job.job_id });
+    letterMut.mutate({ search_id: searchId, job_id: job.job_id });
   };
   const openLetter = () => {
     open();
     if (!draft && !letterMut.isPending) generate();
   };
+
+  const appsQ = useQuery({ queryKey: ["applications"], queryFn: api.listApplications });
+  const tracked = (appsQ.data ?? []).some((a) => a.job_id === job.job_id);
+
+  const trackMut = useMutation({
+    mutationFn: () => api.addApplication({ search_id: searchId, job_id: job.job_id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["applications"] }),
+  });
 
   // 生成中的經過秒數（讓使用者知道在跑、別關視窗）
   const [, setTick] = useState(0);
@@ -306,6 +386,14 @@ function MatchCard({ match }: { match: JobMatch }) {
               }}
             />
             <Group justify="flex-end">
+              <Button
+                variant="light"
+                color="teal"
+                disabled={tracked || trackMut.isPending}
+                onClick={() => trackMut.mutate()}
+              >
+                {tracked ? "✓ 已在追蹤清單" : "加入追蹤"}
+              </Button>
               <Button variant="subtle" color="gray" onClick={generate}>
                 重新生成
               </Button>
