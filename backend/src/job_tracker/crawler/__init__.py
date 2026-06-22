@@ -32,11 +32,14 @@ async def crawl_jobs(
     keyword: str,
     *,
     page: int = 1,
+    area: str | None = None,
     client: httpx.AsyncClient | None = None,
-) -> list[Job]:
-    """以關鍵字搜尋 104，回傳指定頁的職缺。
+) -> list[tuple[Job, bool]]:
+    """以關鍵字搜尋 104，回傳指定頁的職缺及是否命中關鍵字。
 
     `client` 可注入（測試用 MockTransport）；未提供則自建並於結束關閉。
+    每筆回傳 (Job, relevant)，relevant 標記該職缺是否真正命中關鍵字
+    （104 會夾帶廣告職缺）。
     """
     params = {
         "ro": 0,
@@ -47,14 +50,21 @@ async def crawl_jobs(
         "mode": "s",
         "jobsource": "index_s",
     }
+    if area:
+        params["area"] = area
     owns_client = client is None
     client = client or httpx.AsyncClient()
     try:
         resp = await client.get(SEARCH_URL, params=params, headers=_HEADERS)
         resp.raise_for_status()
-        jobs = parse_jobs(resp.json())
-        logger.info("crawl keyword=%r page=%d -> %d jobs", keyword, page, len(jobs))
-        return jobs
+        payload = resp.json()
+        out = [
+            (_parse_job(raw), _is_relevant(raw, keyword))
+            for raw in payload.get("data", [])
+        ]
+        logger.info("crawl keyword=%r page=%d area=%s -> %d jobs",
+                    keyword, page, area, len(out))
+        return out
     finally:
         if owns_client:
             await client.aclose()
@@ -102,6 +112,19 @@ async def crawl_job_details(
         if owns_client:
             await client.aclose()
     return results
+
+
+def _is_relevant(raw: dict, keyword: str) -> bool:
+    """104 會把與關鍵字無關的廣告職缺混入結果。命中關鍵字者 104 會在 snippet
+    標 [[[關鍵字]]]；否則退而求其次看關鍵字 token 是否字面出現。"""
+    snip = (raw.get("jobNameSnippet", "") or "") + (raw.get("descSnippet", "") or "")
+    if "[[[" in snip:
+        return True
+    tokens = [t for t in keyword.lower().split() if t]
+    if not tokens:
+        return True
+    hay = ((raw.get("jobName", "") or "") + " " + (raw.get("description", "") or "")).lower()
+    return any(t in hay for t in tokens)
 
 
 def parse_jobs(payload: dict) -> list[Job]:

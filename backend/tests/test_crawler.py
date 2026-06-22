@@ -6,6 +6,7 @@ import httpx
 from job_tracker import crawler
 from job_tracker.crawler import (
     _format_salary,
+    _is_relevant,
     crawl_job_details,
     crawl_jobs,
     fetch_job_detail,
@@ -85,13 +86,16 @@ async def test_crawl_jobs_sends_referer_and_parses():
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
-        jobs = await crawl_jobs("python", client=client)
+        results = await crawl_jobs("python", client=client)
 
     # 沒帶 Referer 會被 104 擋（403），所以必須送
     assert captured["referer"] == "https://www.104.com.tw/jobs/search/"
     assert captured["keyword"] == "python"
-    assert len(jobs) == 2
-    assert jobs[0].job_id == "14724003"
+    assert len(results) == 2
+    # crawl_jobs 回 list[tuple[Job, bool]]
+    job, relevant = results[0]
+    assert job.job_id == "14724003"
+    assert relevant is True  # descSnippet 有 [[[Python]]]
 
 
 async def test_fetch_job_detail_uses_job_specific_referer():
@@ -132,3 +136,46 @@ async def test_crawl_job_details_throttles_between_requests(monkeypatch):
     # 3 個請求 → 之間延遲 2 次（首個請求前不延遲）
     assert len(sleeps) == 2
     assert all(2.0 <= s <= 5.0 for s in sleeps)
+
+
+# --- _is_relevant 測試 ---
+
+
+def test_is_relevant_by_snippet_hit():
+    raw = {"jobName": "工程師", "descSnippet": "會 [[[Python]]] 尤佳", "description": ""}
+    assert _is_relevant(raw, "python") is True
+
+
+def test_is_relevant_by_literal():
+    raw = {"jobName": "Python 後端", "descSnippet": "", "description": ""}
+    assert _is_relevant(raw, "python") is True
+
+
+def test_not_relevant_is_ad():
+    raw = {"jobName": "房仲業務", "jobNameSnippet": "房仲業務",
+           "descSnippet": "誠徵房仲", "description": "不動產銷售"}
+    assert _is_relevant(raw, "python") is False
+
+
+# --- crawl_jobs area + relevant 測試 ---
+
+
+async def test_crawl_jobs_passes_area_and_returns_relevance():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["area"] = request.url.params.get("area")
+        return httpx.Response(200, json={"data": [
+            {"jobNo": "1", "jobName": "Python 工程師", "custName": "A",
+             "link": {"job": "https://www.104.com.tw/job/abc"},
+             "descSnippet": "[[[Python]]]", "salaryLow": 0, "salaryHigh": 0},
+            {"jobNo": "2", "jobName": "房仲業務", "custName": "B",
+             "link": {"job": "https://www.104.com.tw/job/xyz"},
+             "descSnippet": "誠徵房仲", "description": "不動產", "salaryLow": 0, "salaryHigh": 0},
+        ]})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    out = await crawl_jobs("python", page=1, area="6001001000", client=client)
+    await client.aclose()
+    assert captured["area"] == "6001001000"
+    assert [(j.job_id, rel) for j, rel in out] == [("1", True), ("2", False)]
