@@ -91,8 +91,14 @@ class AnalysisRunner(Protocol):
 class AsyncioRunner:
     """預設 runner：背景逐筆序列跑（彼此間靠各自節流 + 全域 semaphore 護 104）。"""
 
+    def __init__(self) -> None:
+        # 保存背景 task 引用，避免 fire-and-forget task 被 GC 中途回收（Python 已知陷阱）
+        self._tasks: set[asyncio.Task] = set()
+
     def submit(self, coros: list[Awaitable]) -> None:
         async def _run_all():
             for c in coros:
                 await c
-        asyncio.create_task(_run_all())
+        task = asyncio.create_task(_run_all())
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)

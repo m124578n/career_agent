@@ -1,9 +1,8 @@
 import httpx
-import pytest
 from mongomock_motor import AsyncMongoMockClient
 
 from job_tracker.db.repositories import (
-    JobRepository, MatchRepository, QuotaRepository, SearchRepository,
+    JobRepository, MatchRepository, QuotaRepository,
 )
 from job_tracker.schemas import Job, JobMatch, ResumeTarget
 from job_tracker.services import analyze as analyze_svc
