@@ -1,6 +1,6 @@
 # 104 Job Tracker — 開發進度
 
-> 最後更新：2026-06-21
+> 最後更新：2026-06-22
 > 規劃文件：[../104-job-tracker-規劃.md](../104-job-tracker-規劃.md)
 > 架構 spec：[superpowers/specs/2026-06-21-104-job-tracker-架構-design.md](superpowers/specs/2026-06-21-104-job-tracker-架構-design.md)
 
@@ -124,13 +124,24 @@
    履歷診斷與職缺分析都套用。
 3. ✅ **翻下一批**：`analyze_jobs` 改 offset 累進；前端「分析下一批（第 N–M 筆）」按鈕。
 
-## 🔲 待辦（backlog）
+## ✅ 搜尋歷史 + 求職追蹤清單（2026-06-22 完成核心，TDD subagent-driven）
 
-- **求職進度追蹤清單 / 看板**（使用者回報 2026-06-21，對應規劃文件的「求職進度看板」）
-  - 把實際應徵的職缺「加入追蹤清單」（從契合度結果一鍵加入）
-  - 每筆應徵記錄後續：面試時間、面試過程筆記
-  - 面試通常多階段（初面/二面/主管面/HR…）→ 每筆應徵一條**時間軸**，可新增階段、記時間與筆記
-  - 需新資料模型：`applications`（按 user）含 status + 多個 stage（時間/類型/筆記）；CRUD 端點 + 前端追蹤頁
+對應 spec [superpowers/specs/2026-06-22-search-history-and-tracking-design.md](superpowers/specs/2026-06-22-search-history-and-tracking-design.md)、
+plan [superpowers/plans/2026-06-22-search-history-and-tracking.md](superpowers/plans/2026-06-22-search-history-and-tracking.md)。後端 78 測試全綠。
+
+- **搜尋歷史（search runs）**：每次「爬取並分析」＝一筆 `SearchRun`（存 keyword + target 快照 + next_offset + count），
+  不再 destructive clear。可在歷史 chips 間切換回顧、在舊歷史上「分析下一批」、手動刪除單筆（cascade 刪其 matches）。
+  - 資料模型：`SearchRepository`（searches collection）；`MatchRepository` 改以 `search_id|job_id` 為主鍵綁定到 search。
+  - 端點：`POST/GET /api/jobs/searches`、`POST /searches/{id}/next`、`GET /searches/{id}/matches`、
+    `DELETE /searches/{id}`、`POST /searches/{id}/cover-letter`（求職信端點從 applications 移來，並驗證 search 擁有權）。
+- **求職追蹤清單**：求職信 modal 生成完成後「加入追蹤」（job 與求職信**快照**寫入，來源 search 刪了也不影響）。
+  - 資料模型：`ApplicationRepository`（applications collection，以 `user|job_id` 去重），五階段狀態 +
+    `events` 時間軸骨架（本期只記狀態變更）。
+  - 端點：`POST/GET /api/applications`、`PATCH /applications/{job_id}`（改狀態、append event）、`DELETE`。
+  - 前端：`/applications` 五欄看板（待投遞 → 已投遞 → 面試中 → Offer → 結束），下拉改狀態、移除。
+- **下個 sub-project（未做）**：面試多輪**時間軸**、**面試筆記**、看板**拖拉** UI（events 資料骨架已備）。
+
+## 🔲 待辦（backlog）
 - **實際上線**：照 DEPLOY.md 在 Zeabur / Cloudflare 建 service、填環境變數、串 CORS + Google OAuth
 - **M6 外部投遞提醒**：規則已有（`external_apply`），卡片已標「需官網投遞」，可再做提醒清單
 - **批次體驗**：翻下一批、已看/已投標記；求職進度看板
