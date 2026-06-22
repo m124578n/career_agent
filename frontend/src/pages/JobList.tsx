@@ -22,11 +22,24 @@ import { useResume } from "../state/resume";
 import { REGIONS } from "../constants/regions";
 import type { JobMatch } from "../types";
 
+// 持久化搜尋狀態，切到別頁再切回來不會被清空
+const KW_KEY = "jobtracker.job-keyword";
+const AREA_KEY = "jobtracker.job-area";
+const SEL_KEY = "jobtracker.selected-search";
+
 export function JobList() {
   const { target } = useResume();
-  const [keyword, setKeyword] = useState("");
-  const [area, setArea] = useState<string[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState(() => localStorage.getItem(KW_KEY) ?? "");
+  const [area, setArea] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(AREA_KEY) ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    localStorage.getItem(SEL_KEY)
+  );
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const qc = useQueryClient();
 
@@ -42,6 +55,28 @@ export function JobList() {
   const matches = matchesQ.data ?? [];
   const candidates = matches.filter((m) => m.status === "candidate");
   const results = matches.filter((m) => m.status !== "candidate");
+
+  // 持久化搜尋狀態（切頁不清空）
+  useEffect(() => {
+    localStorage.setItem(KW_KEY, keyword);
+  }, [keyword]);
+  useEffect(() => {
+    localStorage.setItem(AREA_KEY, JSON.stringify(area));
+  }, [area]);
+  useEffect(() => {
+    if (selectedId) localStorage.setItem(SEL_KEY, selectedId);
+    else localStorage.removeItem(SEL_KEY);
+  }, [selectedId]);
+  // 還原的選中搜尋若已被刪除（不在歷史列表），清掉避免空白／404
+  useEffect(() => {
+    if (
+      selectedId &&
+      searchesQ.data &&
+      !searchesQ.data.some((s) => s.search_id === selectedId)
+    ) {
+      setSelectedId(null);
+    }
+  }, [selectedId, searchesQ.data]);
 
   const createMut = useMutation({
     mutationFn: api.createSearch,
