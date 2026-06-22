@@ -1,6 +1,6 @@
 # 104 Job Tracker — 開發進度
 
-> 最後更新：2026-06-22
+> 最後更新：2026-06-23
 > 規劃文件：[../104-job-tracker-規劃.md](../104-job-tracker-規劃.md)
 > 架構 spec：[superpowers/specs/2026-06-21-104-job-tracker-架構-design.md](superpowers/specs/2026-06-21-104-job-tracker-架構-design.md)
 
@@ -140,6 +140,23 @@ plan [superpowers/plans/2026-06-22-search-history-and-tracking.md](superpowers/p
   - 端點：`POST/GET /api/applications`、`PATCH /applications/{job_id}`（改狀態、append event）、`DELETE`。
   - 前端：`/applications` 五欄看板（待投遞 → 已投遞 → 面試中 → Offer → 結束），下拉改狀態、移除。
 - **下個 sub-project（未做）**：面試多輪**時間軸**、**面試筆記**、看板**拖拉** UI（events 資料骨架已備）。
+
+## ✅ 候選勾選 + 非同步逐筆分析 + 選地區（2026-06-23 完成，TDD subagent-driven）
+
+對應 spec [superpowers/specs/2026-06-22-candidate-selection-async-analyze-design.md](superpowers/specs/2026-06-22-candidate-selection-async-analyze-design.md)、
+plan [superpowers/plans/2026-06-22-candidate-selection-async.md](superpowers/plans/2026-06-22-candidate-selection-async.md)。後端 89 測試全綠。
+
+把「爬取即分析」改成**兩階段**，解決 104 搜尋夾帶廣告職缺（房仲/行政等）白白燒額度的問題：
+
+- **爬取候選**：`POST /api/jobs/searches {keyword, target, area?}` 爬 104 一頁（~30 筆），存成 `candidate` placeholder，**不花額度、不呼叫 LLM**。每筆標 `relevant`（104 的 `[[[關鍵字]]]` 命中標記或關鍵字字面），廣告→false。`POST /searches/{id}/crawl-next` 爬下一頁。
+- **勾選**：前端候選清單（Checkbox），預設勾命中、廣告標「廣告？」不勾。
+- **非同步逐筆分析**：`POST /searches/{id}/analyze {job_ids}` 把選中標 `pending` 立即回 `{queued}`；背景 `AsyncioRunner` 逐筆（`analyze_one`：抓詳情經全域 `DETAIL_SEMAPHORE`→LLM→`done`/`failed`），每筆 done 才計 1 額度、失敗不計。前端 `refetchInterval` 輪詢，逐筆從 pending→done 浮現，failed 可重試。
+- **選地區**：縣市多選（`crawl_jobs` 帶 104 `area` 參數）。前端 `constants/regions.ts` 硬編 20 縣市代碼（新竹/嘉義縣市合併），已實測驗證。
+- 資料模型：`JobMatch` 加 `status`/`relevant`（分數 optional）；`SearchRun` 加 `area`/`next_page`；`MatchRepository` 加 candidate/status 方法。
+
+### ⚠️ 已知限制（待未來改進）
+1. **額度可能短暫超賣**：提交檢查「剩餘 ≥ 選中數」+ 每筆 done 才計的寬鬆策略；背景跑時併發送出可能微幅超量。要嚴格需改「提交時即佔額度」。
+2. **背景任務不持久化**：逐筆分析用記憶體 asyncio task，**server 重啟會中斷未完成的、卡在 pending**，靠前端重試補救。要韌性需上真正的 task queue。
 
 ## 🔲 待辦（backlog）
 - **實際上線**：照 DEPLOY.md 在 Zeabur / Cloudflare 建 service、填環境變數、串 CORS + Google OAuth
