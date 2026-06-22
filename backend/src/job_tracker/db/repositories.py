@@ -4,10 +4,11 @@
 """
 
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from job_tracker.schemas import Job, JobDetail, JobMatch
+from job_tracker.schemas import Job, JobDetail, JobMatch, ResumeTarget, SearchRun
 
 
 class JobRepository:
@@ -73,6 +74,39 @@ class MatchRepository:
         await self._col.update_one(
             {"_id": f"{user}|{job_id}"}, {"$set": {"cover_letter": text}}
         )
+
+
+class SearchRepository:
+    """搜尋歷史（每次「爬取並分析」一筆）。"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self._col = db["searches"]
+        self._matches = db["matches"]
+
+    async def create(self, user: str, keyword: str, target: ResumeTarget) -> SearchRun:
+        run = SearchRun(search_id=uuid4().hex, user=user, keyword=keyword, target=target)
+        doc = run.model_dump(mode="json")
+        doc["_id"] = run.search_id
+        await self._col.insert_one(doc)
+        return run
+
+    async def get(self, search_id: str) -> SearchRun | None:
+        doc = await self._col.find_one({"_id": search_id})
+        return SearchRun(**doc) if doc else None
+
+    async def list(self, user: str) -> list[SearchRun]:
+        cur = self._col.find({"user": user}).sort("created_at", -1)
+        return [SearchRun(**doc) async for doc in cur]
+
+    async def advance(self, search_id: str, next_offset: int, count_delta: int) -> None:
+        await self._col.update_one(
+            {"_id": search_id},
+            {"$set": {"next_offset": next_offset}, "$inc": {"count": count_delta}},
+        )
+
+    async def delete(self, search_id: str) -> None:
+        await self._col.delete_one({"_id": search_id})
+        await self._matches.delete_many({"search_id": search_id})
 
 
 class QuotaRepository:
