@@ -101,3 +101,67 @@ def test_delete_search(monkeypatch):
 
     assert resp.status_code == 200
     assert searches == []
+
+
+def test_cover_letter_generates_and_persists(monkeypatch):
+    db = AsyncMongoMockClient()["test"]
+
+    async def fake_analyze(search_id, user, keyword, target, job_repo, match_repo, **kw):
+        await match_repo.set_match(search_id, user, _match("9", 88))
+        return [_match("9", 88)]
+
+    async def fake_gen(target, job, detail):
+        return "敬啟者，這是求職信。"
+
+    _wire(db, monkeypatch, fake_analyze)
+    monkeypatch.setattr(jobs_router.cover_letter_svc, "generate", fake_gen)
+    try:
+        client = TestClient(app)
+        sid = client.post("/api/jobs/searches", json=_PAYLOAD).json()["search_id"]
+        resp = client.post(
+            f"/api/jobs/searches/{sid}/cover-letter", json={"job_id": "9"}
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    assert resp.json()["cover_letter"] == "敬啟者，這是求職信。"
+    # 存回該 search 的 match
+    m = asyncio.run(MatchRepository(db).get_match(sid, "9"))
+    assert m.cover_letter == "敬啟者，這是求職信。"
+    # 額度：建搜尋（1 筆）+ 求職信（1）
+    assert asyncio.run(QuotaRepository(db).used_today("dev@local")) == 2
+
+
+def test_cover_letter_unknown_search_is_404(monkeypatch):
+    db = AsyncMongoMockClient()["test"]
+
+    async def fake_analyze(search_id, user, keyword, target, job_repo, match_repo, **kw):
+        return []
+
+    _wire(db, monkeypatch, fake_analyze)
+    try:
+        resp = TestClient(app).post(
+            "/api/jobs/searches/nonexistent/cover-letter", json={"job_id": "9"}
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 404
+
+
+def test_cover_letter_unknown_match_is_404(monkeypatch):
+    db = AsyncMongoMockClient()["test"]
+
+    async def fake_analyze(search_id, user, keyword, target, job_repo, match_repo, **kw):
+        return []  # 不建立任何 match
+
+    _wire(db, monkeypatch, fake_analyze)
+    try:
+        client = TestClient(app)
+        sid = client.post("/api/jobs/searches", json=_PAYLOAD).json()["search_id"]
+        resp = client.post(
+            f"/api/jobs/searches/{sid}/cover-letter", json={"job_id": "nope"}
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 404
