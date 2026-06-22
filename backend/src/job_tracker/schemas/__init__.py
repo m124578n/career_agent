@@ -69,17 +69,43 @@ class JobMatch(BaseModel):
     cover_letter: str | None = None  # 已生成的求職信（M5），有值代表寫過
 
 
+class SearchRun(BaseModel):
+    """一次「爬取並分析」的搜尋紀錄（歷史）。"""
+
+    search_id: str
+    user: str
+    keyword: str
+    target: ResumeTarget
+    created_at: datetime = Field(default_factory=_utcnow)
+    next_offset: int = 0  # 下一批的 job 列表起點
+    count: int = 0         # 累積成功分析筆數
+
+
 class ApplicationStatus(str, Enum):
-    PENDING = "pending"
+    TO_APPLY = "to_apply"
     APPLIED = "applied"
-    EXTERNAL_REQUIRED = "external_required"
-    SKIPPED = "skipped"
+    INTERVIEWING = "interviewing"
+    OFFER = "offer"
+    CLOSED = "closed"
+
+
+class ApplicationEvent(BaseModel):
+    """追蹤時間軸上的一個事件（本期只記狀態變更）。"""
+
+    ts: datetime = Field(default_factory=_utcnow)
+    type: str
+    note: str = ""
 
 
 class Application(BaseModel):
-    """投遞紀錄。"""
+    """求職追蹤清單的一筆（以 user|job_id 去重）。"""
 
+    user: str
     job_id: str
-    status: ApplicationStatus = ApplicationStatus.PENDING
-    cover_letter: str | None = None
+    job: Job                       # 加入當下的職缺快照
+    source_search_id: str          # 從哪筆 search 加入
+    cover_letter: str | None = None  # 加入當下的求職信快照
+    status: ApplicationStatus = ApplicationStatus.TO_APPLY
+    created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
+    events: list[ApplicationEvent] = Field(default_factory=list)
