@@ -19,11 +19,14 @@ import { useResume } from "../state/resume";
 import { AnalyzingSteps } from "../components/AnalyzingSteps";
 
 export function ResumeSetup() {
-  const { setTarget } = useResume();
+  const { target, setTarget, diagnosis, setDiagnosis } = useResume();
   const [file, setFile] = useState<File | null>(null);
-  const [resumeText, setResumeText] = useState("");
-  const [title, setTitle] = useState("");
-  const [salary, setSalary] = useState<number | string>("");
+  // 從共用狀態還原，切到別頁再切回來不會被清空
+  const [resumeText, setResumeText] = useState(target?.resume_text ?? "");
+  const [title, setTitle] = useState(target?.target_title ?? "");
+  const [salary, setSalary] = useState<number | string>(
+    target?.expected_salary ?? ""
+  );
 
   // 履歷與目標就緒時，存進共用狀態供「職缺契合度」頁使用
   useEffect(() => {
@@ -40,12 +43,16 @@ export function ResumeSetup() {
     mutationFn: api.parseResume,
     onSuccess: (d) => setResumeText(d.text),
   });
-  const diagMut = useMutation({ mutationFn: api.diagnose });
+  const diagMut = useMutation({
+    mutationFn: api.diagnose,
+    onSuccess: (d) => setDiagnosis(d), // 存進共用狀態，切頁回來仍在
+  });
 
   const onFile = (f: File | null) => {
     setFile(f);
     setResumeText("");
     diagMut.reset();
+    setDiagnosis(null); // 換新履歷 → 清掉舊診斷
     if (f) parseMut.mutate(f);
   };
 
@@ -90,7 +97,7 @@ export function ResumeSetup() {
                   >
                     <Group gap={8} wrap="nowrap">
                       <Text fz="sm" fw={500} c="var(--jt-text)">
-                        {file ? file.name : "選擇履歷檔"}
+                        {file ? file.name : resumeText ? "已載入履歷" : "選擇履歷檔"}
                       </Text>
                       {parseMut.isPending && <Loader size={14} color="teal" />}
                     </Group>
@@ -143,19 +150,19 @@ export function ResumeSetup() {
           <div className="jt-panel-head">
             <span className="jt-eyebrow">
               診斷讀數 // READOUT
-              {diagMut.data && (
+              {diagnosis && (
                 <>
                   {"  "}
-                  <b>{diagMut.data.strengths.length} 優勢</b>
+                  <b>{diagnosis.strengths.length} 優勢</b>
                   {" · "}
-                  {diagMut.data.gaps.length} 待補強
+                  {diagnosis.gaps.length} 待補強
                 </>
               )}
             </span>
           </div>
           <div
             className="jt-panel-body"
-            data-center={!diagMut.data && !diagMut.isPending}
+            data-center={!diagnosis && !diagMut.isPending}
           >
             {diagMut.isPending ? (
               <AnalyzingSteps
@@ -171,10 +178,10 @@ export function ResumeSetup() {
               <div className="jt-empty">
                 診斷失敗 // 請稍後再試或確認後端設定
               </div>
-            ) : diagMut.data ? (
+            ) : diagnosis ? (
               <Diagnosis
-                strengths={diagMut.data.strengths}
-                gaps={diagMut.data.gaps}
+                strengths={diagnosis.strengths}
+                gaps={diagnosis.gaps}
               />
             ) : (
               <div className="jt-empty">
