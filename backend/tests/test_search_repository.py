@@ -44,7 +44,6 @@ async def test_advance_updates_offset_and_count(db):
     assert got.count == 5
 
 
-@pytest.mark.skip(reason="待 Task 3 改造 MatchRepository")
 async def test_delete_cascades_matches(db):
     from job_tracker.db.repositories import MatchRepository
     from job_tracker.schemas import Job, JobMatch

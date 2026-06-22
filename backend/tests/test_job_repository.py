@@ -67,39 +67,30 @@ def match_repo() -> MatchRepository:
     return MatchRepository(AsyncMongoMockClient()["test"])
 
 
-async def test_set_and_list_matches_sorted(match_repo: MatchRepository):
-    await match_repo.set_match("u1", make_match("1", 60))
-    await match_repo.set_match("u1", make_match("2", 90))
-
-    matches = await match_repo.list_matches("u1")
-    assert [m.score for m in matches] == [90, 60]  # 由高到低
+async def test_set_and_list_by_search_sorted(match_repo: MatchRepository):
+    await match_repo.set_match("s1", "u1", make_match("1", 60))
+    await match_repo.set_match("s1", "u1", make_match("2", 90))
+    matches = await match_repo.list_by_search("s1")
+    assert [m.score for m in matches] == [90, 60]
     assert matches[0].job.job_id == "2"
-    assert matches[0].reasons == ["理由"]
 
 
-async def test_matches_isolated_by_user(match_repo: MatchRepository):
-    await match_repo.set_match("u1", make_match("1", 50))
-    await match_repo.set_match("u2", make_match("2", 80))
-
-    u1 = await match_repo.list_matches("u1")
-    u2 = await match_repo.list_matches("u2")
-    assert [m.job.job_id for m in u1] == ["1"]
-    assert [m.job.job_id for m in u2] == ["2"]
+async def test_matches_isolated_by_search(match_repo: MatchRepository):
+    await match_repo.set_match("s1", "u1", make_match("1", 50))
+    await match_repo.set_match("s2", "u1", make_match("2", 80))
+    assert [m.job.job_id for m in await match_repo.list_by_search("s1")] == ["1"]
+    assert [m.job.job_id for m in await match_repo.list_by_search("s2")] == ["2"]
 
 
-async def test_clear_removes_only_that_users_matches(match_repo: MatchRepository):
-    await match_repo.set_match("u1", make_match("1", 50))
-    await match_repo.set_match("u1", make_match("2", 60))
-    await match_repo.set_match("u2", make_match("3", 70))
-
-    await match_repo.clear("u1")
-    assert await match_repo.list_matches("u1") == []
-    assert len(await match_repo.list_matches("u2")) == 1  # u2 不受影響
+async def test_get_match(match_repo: MatchRepository):
+    await match_repo.set_match("s1", "u1", make_match("1", 70))
+    m = await match_repo.get_match("s1", "1")
+    assert m is not None and m.score == 70
+    assert await match_repo.get_match("s1", "nope") is None
 
 
-async def test_set_cover_letter_persists_on_match(match_repo: MatchRepository):
-    await match_repo.set_match("u1", make_match("1", 70))
-    await match_repo.set_cover_letter("u1", "1", "敬啟者，求職信內容。")
-
-    m = (await match_repo.list_matches("u1"))[0]
+async def test_set_cover_letter_persists(match_repo: MatchRepository):
+    await match_repo.set_match("s1", "u1", make_match("1", 70))
+    await match_repo.set_cover_letter("s1", "1", "敬啟者，求職信內容。")
+    m = await match_repo.get_match("s1", "1")
     assert m.cover_letter == "敬啟者，求職信內容。"

@@ -45,34 +45,33 @@ class JobRepository:
 
 
 class MatchRepository:
-    """契合度分析結果，**按使用者隔離**（每人只看到自己的）。"""
+    """契合度分析結果，綁定到一筆 search（_id = search_id|job_id）。"""
 
     def __init__(self, db: AsyncIOMotorDatabase):
         self._col = db["matches"]
 
-    async def set_match(self, user: str, match: JobMatch) -> None:
+    async def set_match(self, search_id: str, user: str, match: JobMatch) -> None:
         doc = match.model_dump(mode="json")
+        doc["search_id"] = search_id
         doc["user"] = user
         doc["job_id"] = match.job.job_id
         await self._col.update_one(
-            {"_id": f"{user}|{match.job.job_id}"}, {"$set": doc}, upsert=True
+            {"_id": f"{search_id}|{match.job.job_id}"}, {"$set": doc}, upsert=True
         )
 
-    async def list_matches(self, user: str) -> list[JobMatch]:
-        """回傳該使用者已分析的職缺，依契合度由高到低排序。"""
+    async def list_by_search(self, search_id: str) -> list[JobMatch]:
         matches = [
-            JobMatch(**doc) async for doc in self._col.find({"user": user})
+            JobMatch(**doc) async for doc in self._col.find({"search_id": search_id})
         ]
         return sorted(matches, key=lambda m: m.score, reverse=True)
 
-    async def clear(self, user: str) -> None:
-        """清空該使用者的所有分析結果（開始新搜尋時用）。"""
-        await self._col.delete_many({"user": user})
+    async def get_match(self, search_id: str, job_id: str) -> JobMatch | None:
+        doc = await self._col.find_one({"_id": f"{search_id}|{job_id}"})
+        return JobMatch(**doc) if doc else None
 
-    async def set_cover_letter(self, user: str, job_id: str, text: str) -> None:
-        """把生成的求職信存到該使用者的 match 上（標記已寫過）。"""
+    async def set_cover_letter(self, search_id: str, job_id: str, text: str) -> None:
         await self._col.update_one(
-            {"_id": f"{user}|{job_id}"}, {"$set": {"cover_letter": text}}
+            {"_id": f"{search_id}|{job_id}"}, {"$set": {"cover_letter": text}}
         )
 
 
