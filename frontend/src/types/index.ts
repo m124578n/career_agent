@@ -45,3 +45,38 @@ export interface JobMatch {
   requires_external_apply: boolean;
   cover_letter?: string | null;
 }
+
+export interface SearchRun {
+  search_id: string;
+  user: string;
+  keyword: string;
+  target: ResumeTarget;
+  created_at: string;
+  next_offset: number;
+  count: number;
+}
+
+export type ApplicationStatus =
+  | "to_apply"
+  | "applied"
+  | "interviewing"
+  | "offer"
+  | "closed";
+
+export interface ApplicationEvent {
+  ts: string;
+  type: string;
+  note: string;
+}
+
+export interface Application {
+  user: string;
+  job_id: string;
+  job: Job;
+  source_search_id: string;
+  cover_letter?: string | null;
+  status: ApplicationStatus;
+  created_at: string;
+  updated_at: string;
+  events: ApplicationEvent[];
+}

@@ -1,10 +1,13 @@
 // 打 backend 的薄封裝。所有路徑走 BASE（dev 走 Vite proxy /api；prod 用 VITE_API_BASE_URL）。
 
 import type {
+  Application,
+  ApplicationStatus,
   JobMatch,
   QuotaInfo,
   ResumeDiagnosis,
   ResumeTarget,
+  SearchRun,
   UsageSummary,
 } from "../types";
 
@@ -40,13 +43,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
-export interface AnalyzeRequest {
-  keyword: string;
-  target: ResumeTarget;
-  limit?: number;
-  offset?: number;
-}
-
 export const api = {
   parseResume: (file: File) => {
     const form = new FormData();
@@ -62,19 +58,43 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(target),
     }),
-  listMatches: () => request<JobMatch[]>("/jobs/matches"),
-  analyzeJobs: (req: AnalyzeRequest) =>
-    request<JobMatch[]>("/jobs/analyze", {
+  createSearch: (req: { keyword: string; target: ResumeTarget }) =>
+    request<{ search_id: string; matches: JobMatch[] }>("/jobs/searches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req),
     }),
-  coverLetter: (req: { target: ResumeTarget; job_id: string }) =>
-    request<{ cover_letter: string }>("/applications/cover-letter", {
+  nextBatch: (searchId: string) =>
+    request<JobMatch[]>(`/jobs/searches/${searchId}/next`, { method: "POST" }),
+  listSearches: () => request<SearchRun[]>("/jobs/searches"),
+  searchMatches: (searchId: string) =>
+    request<JobMatch[]>(`/jobs/searches/${searchId}/matches`),
+  deleteSearch: (searchId: string) =>
+    request<{ ok: boolean }>(`/jobs/searches/${searchId}`, { method: "DELETE" }),
+  coverLetter: (req: { search_id: string; job_id: string }) =>
+    request<{ cover_letter: string }>(
+      `/jobs/searches/${req.search_id}/cover-letter`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: req.job_id }),
+      }
+    ),
+  addApplication: (req: { search_id: string; job_id: string }) =>
+    request<Application>("/applications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req),
     }),
+  listApplications: () => request<Application[]>("/applications"),
+  updateApplicationStatus: (jobId: string, status: ApplicationStatus) =>
+    request<Application>(`/applications/${jobId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    }),
+  removeApplication: (jobId: string) =>
+    request<{ ok: boolean }>(`/applications/${jobId}`, { method: "DELETE" }),
   usage: () => request<UsageSummary>("/usage"),
   globalUsage: () => request<UsageSummary>("/usage/global"),
   quota: () => request<QuotaInfo>("/usage/quota"),
