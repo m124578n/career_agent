@@ -1,5 +1,5 @@
 import {
-  Box, Button, Drawer, Group, Select, Stack, Switch, Text, Textarea,
+  Box, Button, Drawer, Group, Modal, Select, Stack, Switch, Table, Text, Textarea,
   TextInput, Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -37,6 +37,9 @@ export function Applications() {
             <div key={col.status} className="jt-panel" style={{ minWidth: 260, flex: 1 }}>
               <div className="jt-panel-head">
                 <span className="jt-eyebrow">{col.label} · {items.length}</span>
+                {col.status === "offer" && items.length >= 2 && (
+                  <CompareButton offers={items} />
+                )}
               </div>
               <div className="jt-panel-body">
                 <Stack gap={10}>
@@ -188,5 +191,39 @@ function AppDrawer({
         </div>
       </Stack>
     </Drawer>
+  );
+}
+
+function CompareButton({ offers }: { offers: Application[] }) {
+  const [opened, { open, close }] = useDisclosure(false);
+  return (
+    <>
+      <Button size="xs" variant="default" onClick={open}>比較</Button>
+      <Modal opened={opened} onClose={close} size="lg"
+             title={<span className="jt-eyebrow">OFFER 比較</span>}>
+        <Table withTableBorder withColumnBorders fz="xs">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>公司</Table.Th>
+              <Table.Th>薪資</Table.Th>
+              <Table.Th>職等</Table.Th>
+              <Table.Th>到職日</Table.Th>
+              <Table.Th>備註</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {offers.map((a) => (
+              <Table.Tr key={a.job_id}>
+                <Table.Td>{a.job.company}</Table.Td>
+                <Table.Td>{a.offer?.salary ?? "—"}</Table.Td>
+                <Table.Td>{a.offer?.level ?? "—"}</Table.Td>
+                <Table.Td>{a.offer?.start_date ?? "—"}</Table.Td>
+                <Table.Td>{a.offer?.note ?? "—"}</Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Modal>
+    </>
   );
 }
