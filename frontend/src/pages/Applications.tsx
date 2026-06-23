@@ -19,10 +19,21 @@ const COLUMNS: { status: ApplicationStatus; label: string }[] = [
 export function Applications() {
   const appsQ = useQuery({ queryKey: ["applications"], queryFn: api.listApplications });
   const apps = appsQ.data ?? [];
+  const [query, setQuery] = useState("");
+
+  // 關鍵字篩選（職稱／公司），純前端；幾十筆時用來快速定位
+  const kw = query.trim().toLowerCase();
+  const visible = kw
+    ? apps.filter(
+        (a) =>
+          a.job.title.toLowerCase().includes(kw) ||
+          a.job.company.toLowerCase().includes(kw)
+      )
+    : apps;
 
   return (
     <Box p={{ base: "lg", md: 40 }} maw={1400} mx="auto">
-      <Stack gap={6} mb={28}>
+      <Stack gap={6} mb={20}>
         <span className="jt-eyebrow">求職 <b>×</b> 追蹤</span>
         <Title order={1} fz={{ base: 28, md: 34 }} fw={700} lts="-0.02em">
           追蹤清單
@@ -30,9 +41,18 @@ export function Applications() {
         <Text c="dimmed" fz="sm">把職缺加入後，在這裡管理投遞與面試進度。</Text>
       </Stack>
 
+      <TextInput
+        mb={20}
+        size="sm"
+        placeholder="搜尋職稱或公司…"
+        value={query}
+        onChange={(e) => setQuery(e.currentTarget.value)}
+        style={{ maxWidth: 360 }}
+      />
+
       <Group align="flex-start" gap={14} wrap="nowrap" style={{ overflowX: "auto" }}>
         {COLUMNS.map((col) => {
-          const items = apps.filter((a) => a.status === col.status);
+          const items = visible.filter((a) => a.status === col.status);
           return (
             <div key={col.status} className="jt-panel" style={{ minWidth: 260, flex: 1 }}>
               <div className="jt-panel-head">
@@ -41,7 +61,10 @@ export function Applications() {
                   <CompareButton offers={items} />
                 )}
               </div>
-              <div className="jt-panel-body">
+              <div
+                className="jt-panel-body"
+                style={{ maxHeight: "calc(100vh - 280px)", overflowY: "auto" }}
+              >
                 <Stack gap={10}>
                   {items.length === 0 ? (
                     <Text fz="xs" c="dimmed">—</Text>
