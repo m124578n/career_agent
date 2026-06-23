@@ -42,6 +42,7 @@ export function JobList() {
     localStorage.getItem(SEL_KEY)
   );
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [resultLimit, setResultLimit] = useState(12); // 排序結果漸進顯示
   const qc = useQueryClient();
 
   // 耗額度的操作完成時主動刷新用量（取代高頻輪詢）
@@ -74,6 +75,7 @@ export function JobList() {
   useEffect(() => {
     if (selectedId) localStorage.setItem(SEL_KEY, selectedId);
     else localStorage.removeItem(SEL_KEY);
+    setResultLimit(12); // 切換搜尋時重置展開筆數
   }, [selectedId]);
   // 還原的選中搜尋若已被刪除（不在歷史列表），清掉避免空白／404
   useEffect(() => {
@@ -318,7 +320,10 @@ export function JobList() {
                   </Button>
                 </Group>
               </div>
-              <div className="jt-panel-body">
+              <div
+                className="jt-panel-body"
+                style={{ maxHeight: "55vh", overflowY: "auto" }}
+              >
                 <Stack gap={8}>
                   <Group gap={10} wrap="nowrap">
                     <Checkbox
@@ -371,7 +376,7 @@ export function JobList() {
                 <div className="jt-empty">載入中…</div>
               ) : results.length ? (
                 <Stack gap={12}>
-                  {results.map((m) =>
+                  {results.slice(0, resultLimit).map((m) =>
                     m.status === "done" ? (
                       <MatchCard key={m.job.job_id} match={m} searchId={selectedId!} />
                     ) : m.status === "failed" ? (
@@ -399,6 +404,12 @@ export function JobList() {
                         </Group>
                       </div>
                     )
+                  )}
+                  {results.length > resultLimit && (
+                    <Button variant="default" size="xs"
+                            onClick={() => setResultLimit((l) => l + 12)}>
+                      顯示更多（還有 {results.length - resultLimit} 筆）
+                    </Button>
                   )}
                 </Stack>
               ) : (
