@@ -83,3 +83,21 @@ async def test_set_offer_persists(repo: ApplicationRepository):
 async def test_set_offer_missing_returns_none(repo: ApplicationRepository):
     from job_tracker.schemas import OfferInfo
     assert await repo.set_offer("u1", "nope", OfferInfo()) is None
+
+
+async def test_set_result_writes_benefits():
+    from job_tracker.db.repositories import MatchRepository
+    from job_tracker.schemas import Job, JobMatch, MatchAnalysis
+    from mongomock_motor import AsyncMongoMockClient
+
+    db = AsyncMongoMockClient()["test"]
+    mr = MatchRepository(db)
+    job = Job(job_id="1", code="c1", title="t", company="co",
+              url="https://www.104.com.tw/job/c1")
+    await mr.set_match("s1", "u1", JobMatch(job=job, status="pending"))
+    analysis = JobMatch(job=job, score=80, reasons=["r"], gaps=["g"],
+                        benefits=["遠端一週三天"])
+    await mr.set_result("s1", "1", analysis)
+    got = await mr.get_match("s1", "1")
+    assert got.benefits == ["遠端一週三天"]
+    assert got.status == "done"

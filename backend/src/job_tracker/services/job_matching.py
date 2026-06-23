@@ -15,7 +15,9 @@ def _build_prompt(target: ResumeTarget, job: JobDetail) -> str:
         f"職缺需求：\n{job.description}\n"
         f"工作經驗：{job.work_exp}　學歷：{job.education}\n"
         f"技能：{', '.join(job.specialties)}\n\n"
-        "請評估契合度（0~100 分），並列出契合理由與待補強缺口。"
+        "請評估契合度（0~100 分），並列出契合理由與待補強缺口。\n"
+        "另外列出職缺 JD 中明確提到的福利（如特休、年終、遠端、彈性上班、股票等），"
+        "每項標籤化、不超過 8 字、最多 6 項；JD 沒提到就不要列、不要臆測。"
     )
 
 
@@ -35,6 +37,7 @@ async def analyze(
         score=analysis.score,
         reasons=analysis.reasons,
         gaps=analysis.gaps,
+        benefits=analysis.benefits,
         requires_external_apply=requires_external_apply(detail.description),
     )
 

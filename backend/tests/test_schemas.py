@@ -75,3 +75,19 @@ def test_offer_info_all_optional():
     o2 = OfferInfo(salary="月 60k＋年終 2 個月", accepted=True)
     assert o2.salary == "月 60k＋年終 2 個月"
     assert o2.accepted is True
+
+
+def test_match_analysis_benefits_defaults_empty():
+    from job_tracker.schemas import MatchAnalysis
+    a = MatchAnalysis(score=80, reasons=[], gaps=[])
+    assert a.benefits == []
+    a2 = MatchAnalysis(score=80, reasons=[], gaps=[], benefits=["特休優於法令"])
+    assert a2.benefits == ["特休優於法令"]
+
+
+def test_jobmatch_benefits_defaults_empty():
+    from job_tracker.schemas import Job, JobMatch
+    job = Job(job_id="1", code="c1", title="t", company="co",
+              url="https://www.104.com.tw/job/c1")
+    m = JobMatch(job=job)
+    assert m.benefits == []

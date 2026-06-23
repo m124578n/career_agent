@@ -43,6 +43,7 @@ export function JobList() {
   );
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [resultLimit, setResultLimit] = useState(12); // 排序結果漸進顯示
+  const [candOpen, setCandOpen] = useState(true);
   const qc = useQueryClient();
 
   // 耗額度的操作完成時主動刷新用量（取代高頻輪詢）
@@ -310,6 +311,10 @@ export function JobList() {
               <div className="jt-panel-head">
                 <span className="jt-eyebrow">候選 // CANDIDATES · {candidates.length}</span>
                 <Group gap={8}>
+                  <Button size="xs" variant="subtle" color="gray"
+                          onClick={() => setCandOpen((o) => !o)}>
+                    {candOpen ? "▾ 收合" : "▸ 展開"}
+                  </Button>
                   <Button size="xs" variant="default" onClick={() => crawlMut.mutate()}
                           disabled={busy} loading={crawlMut.isPending}>爬下一頁</Button>
                   <Button size="xs" color="tangerine"
@@ -320,6 +325,7 @@ export function JobList() {
                   </Button>
                 </Group>
               </div>
+              {candOpen && (
               <div
                 className="jt-panel-body"
                 style={{ maxHeight: "55vh", overflowY: "auto" }}
@@ -352,6 +358,7 @@ export function JobList() {
                   ))}
                 </Stack>
               </div>
+              )}
             </div>
           )}
 
@@ -359,7 +366,7 @@ export function JobList() {
           <div className="jt-panel">
             <div className="jt-panel-head">
               <span className="jt-eyebrow">
-                排序結果 // RANKED
+                分析結果 // RANKED
                 {results.length ? (
                   <>
                     {" · "}
@@ -427,10 +434,12 @@ export function JobList() {
 
 function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
   const { job, score, reasons, gaps, requires_external_apply } = match;
+  const benefits = match.benefits ?? [];
   const qc = useQueryClient();
   const [opened, { open, close }] = useDisclosure(false);
   // 已存的求職信當作初始內容（重開直接看，不必重生）
   const [draft, setDraft] = useState(match.cover_letter ?? "");
+  const [expanded, setExpanded] = useState(false);
   const hasLetter = !!draft;
 
   const letterMut = useMutation({
@@ -475,12 +484,7 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
     <div className="jt-jobcard">
       <div className="jt-job-head">
         <div>
-          <a
-            className="jt-job-title"
-            href={job.url}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a className="jt-job-title" href={job.url} target="_blank" rel="noreferrer">
             {job.title}
           </a>
           <div className="jt-job-meta">
@@ -494,51 +498,73 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
         </div>
       </div>
 
-      <div className="jt-meter">
-        <span style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
-      </div>
-
-      <div className="jt-tags">
-        {reasons.map((r, i) => (
-          <div key={`r${i}`} className="jt-tag" data-kind="pos">
-            <span className="m">[+]</span>
-            <span>{r}</span>
-          </div>
-        ))}
-        {gaps.map((g, i) => (
-          <div key={`g${i}`} className="jt-tag" data-kind="neg">
-            <span className="m">[!]</span>
-            <span>{g}</span>
-          </div>
-        ))}
-      </div>
-
-      {(requires_external_apply || hasLetter) && (
-        <Group gap={8}>
-          {requires_external_apply && (
-            <span className="jt-chip">⚑ 需至官網投遞</span>
-          )}
-          {hasLetter && (
-            <span className="jt-chip" style={{ color: "var(--jt-teal)", borderColor: "rgba(52,214,200,0.4)" }}>
-              ✎ 已寫求職信
+      {benefits.length > 0 && (
+        <Group gap={6}>
+          {benefits.map((b, i) => (
+            <span key={`b${i}`} className="jt-chip"
+                  style={{ color: "var(--jt-teal)", borderColor: "rgba(52,214,200,0.4)" }}>
+              {b}
             </span>
-          )}
+          ))}
         </Group>
       )}
-      <div style={{ borderTop: "1px solid var(--jt-border)", marginTop: 2 }} />
-      <Group justify="flex-end" gap={8}>
-        <Button
-          size="xs"
-          variant="light"
-          color="teal"
-          disabled={tracked || trackMut.isPending}
-          loading={trackMut.isPending}
-          onClick={() => trackMut.mutate()}
-        >
-          {tracked ? "✓ 已在追蹤清單" : "☆ 加入追蹤"}
-        </Button>
-        <Button size="xs" variant="default" onClick={openLetter}>
-          {hasLetter ? "查看求職信" : "生成求職信"}
+
+      {expanded && (
+        <>
+          <div className="jt-meter">
+            <span style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+          </div>
+
+          <div className="jt-tags">
+            {reasons.map((r, i) => (
+              <div key={`r${i}`} className="jt-tag" data-kind="pos">
+                <span className="m">[+]</span>
+                <span>{r}</span>
+              </div>
+            ))}
+            {gaps.map((g, i) => (
+              <div key={`g${i}`} className="jt-tag" data-kind="neg">
+                <span className="m">[!]</span>
+                <span>{g}</span>
+              </div>
+            ))}
+          </div>
+
+          {(requires_external_apply || hasLetter) && (
+            <Group gap={8}>
+              {requires_external_apply && (
+                <span className="jt-chip">⚑ 需至官網投遞</span>
+              )}
+              {hasLetter && (
+                <span className="jt-chip" style={{ color: "var(--jt-teal)", borderColor: "rgba(52,214,200,0.4)" }}>
+                  ✎ 已寫求職信
+                </span>
+              )}
+            </Group>
+          )}
+          <div style={{ borderTop: "1px solid var(--jt-border)", marginTop: 2 }} />
+          <Group justify="flex-end" gap={8}>
+            <Button
+              size="xs"
+              variant="light"
+              color="teal"
+              disabled={tracked || trackMut.isPending}
+              loading={trackMut.isPending}
+              onClick={() => trackMut.mutate()}
+            >
+              {tracked ? "✓ 已在追蹤清單" : "☆ 加入追蹤"}
+            </Button>
+            <Button size="xs" variant="default" onClick={openLetter}>
+              {hasLetter ? "查看求職信" : "生成求職信"}
+            </Button>
+          </Group>
+        </>
+      )}
+
+      <Group justify="center" mt={2}>
+        <Button size="xs" variant="subtle" color="gray"
+                onClick={() => setExpanded((e) => !e)}>
+          {expanded ? "▴ 收合" : "▾ 展開"}
         </Button>
       </Group>
 

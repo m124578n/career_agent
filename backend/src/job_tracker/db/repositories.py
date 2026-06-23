@@ -105,6 +105,7 @@ class MatchRepository:
                 "score": analysis.score,
                 "reasons": analysis.reasons,
                 "gaps": analysis.gaps,
+                "benefits": analysis.benefits,
                 "requires_external_apply": analysis.requires_external_apply,
                 "status": "done",
             }},
