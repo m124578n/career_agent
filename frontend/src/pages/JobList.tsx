@@ -16,7 +16,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useResume } from "../state/resume";
 import { REGIONS } from "../constants/regions";
@@ -43,6 +43,13 @@ export function JobList() {
   );
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const qc = useQueryClient();
+
+  // 耗額度的操作完成時主動刷新用量（取代高頻輪詢）
+  const refreshUsage = () => {
+    qc.invalidateQueries({ queryKey: ["quota"] });
+    qc.invalidateQueries({ queryKey: ["usage"] });
+    qc.invalidateQueries({ queryKey: ["usage-global"] });
+  };
 
   const searchesQ = useQuery({ queryKey: ["searches"], queryFn: api.listSearches });
 
@@ -78,6 +85,14 @@ export function JobList() {
       setSelectedId(null);
     }
   }, [selectedId, searchesQ.data]);
+  // 非同步分析從「有 pending」變「全部結束」時，token 才落定 → 刷一次用量
+  const hadPending = useRef(false);
+  useEffect(() => {
+    const has = matches.some((m) => m.status === "pending");
+    if (hadPending.current && !has) refreshUsage();
+    hadPending.current = has;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches]);
 
   const createMut = useMutation({
     mutationFn: api.createSearch,
@@ -107,7 +122,10 @@ export function JobList() {
         selectedId!,
         candidates.filter((c) => picked.has(c.job.job_id)).map((c) => c.job.job_id)
       ),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["search-matches", selectedId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["search-matches", selectedId] });
+      refreshUsage(); // 送出即可能扣次數，先刷 quota
+    },
   });
   const delMut = useMutation({
     mutationFn: api.deleteSearch,
@@ -389,6 +407,9 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
     onSuccess: (d) => {
       setDraft(d.cover_letter);
       qc.invalidateQueries({ queryKey: ["search-matches", searchId] });
+      qc.invalidateQueries({ queryKey: ["quota"] });
+      qc.invalidateQueries({ queryKey: ["usage"] });
+      qc.invalidateQueries({ queryKey: ["usage-global"] });
     },
   });
 

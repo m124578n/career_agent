@@ -82,20 +82,21 @@ export function App() {
 
 function AccountFooter() {
   const { enabled, user, logout } = useAuth();
+  // 用量改事件驅動刷新（耗額度的操作完成時 invalidate），輪詢僅作兜底拉長到 60s
   const { data: quota } = useQuery({
     queryKey: ["quota"],
     queryFn: api.quota,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
   });
   const { data: usage } = useQuery({
     queryKey: ["usage"],
     queryFn: api.usage,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
   });
   const { data: globalUsage } = useQuery({
     queryKey: ["usage-global"],
     queryFn: api.globalUsage,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
     enabled: !!quota?.is_admin, // 僅 admin 撈全站
   });
 
