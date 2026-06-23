@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useResume } from "../state/resume";
 import { REGIONS } from "../constants/regions";
+import { AnalyzingSteps } from "../components/AnalyzingSteps";
 import type { JobMatch } from "../types";
 
 // 持久化搜尋狀態，切到別頁再切回來不會被清空
@@ -252,6 +253,23 @@ export function JobList() {
                     </Group>
                   ))}
                 </Group>
+              </div>
+            </div>
+          )}
+
+          {/* 爬取中的進度顯示 */}
+          {createMut.isPending && (
+            <div className="jt-panel" style={{ marginBottom: 20 }}>
+              <div className="jt-panel-body">
+                <AnalyzingSteps
+                  steps={[
+                    "連線 104…",
+                    "爬取職缺清單…",
+                    "標記關鍵字命中…",
+                    "整理候選清單…",
+                  ]}
+                  intervalSec={2}
+                />
               </div>
             </div>
           )}
