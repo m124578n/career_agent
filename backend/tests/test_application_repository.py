@@ -58,3 +58,28 @@ async def test_remove(repo: ApplicationRepository):
     await repo.add(_app())
     await repo.remove("u1", "1")
     assert await repo.list("u1") == []
+
+
+async def test_add_note_appends_note_event(repo: ApplicationRepository):
+    await repo.add(_app())
+    updated = await repo.add_note("u1", "1", "一面聊得不錯")
+    assert len(updated.events) == 1
+    assert updated.events[0].type == "note"
+    assert updated.events[0].note == "一面聊得不錯"
+
+
+async def test_add_note_missing_returns_none(repo: ApplicationRepository):
+    assert await repo.add_note("u1", "nope", "x") is None
+
+
+async def test_set_offer_persists(repo: ApplicationRepository):
+    from job_tracker.schemas import OfferInfo
+    await repo.add(_app())
+    updated = await repo.set_offer("u1", "1", OfferInfo(salary="月 60k", level="P5"))
+    assert updated.offer.salary == "月 60k"
+    assert updated.offer.level == "P5"
+
+
+async def test_set_offer_missing_returns_none(repo: ApplicationRepository):
+    from job_tracker.schemas import OfferInfo
+    assert await repo.set_offer("u1", "nope", OfferInfo()) is None
