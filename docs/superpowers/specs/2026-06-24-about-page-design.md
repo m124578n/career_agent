@@ -59,8 +59,8 @@
   > 產品。曾在 Osense Technology 主導 AI 影片生成平台 OVideo，從零設計整條
   > pipeline、整合 GPT-4 / Claude / Gemini 等模型，並透過架構優化把營運成本
   > 減半、並發處理量擴展到 10 倍以上。熟悉 FastAPI 與 Django（曾在 iThome
-  > 鐵人賽發表 30 篇 Django 原始碼解析），近期投入 RAG 檢索與地端 LLM 部署。
-  > 我習慣把技術決策寫清楚、樂於分享，期待打造對使用者真正有用的 AI 產品。
+  > 鐵人賽發表 30 篇 Django 原始碼解析）。現階段以 Azure 雲端服務為主，投入
+  > 雲端架構與產品設計相關的工作，期待打造對使用者真正有用的 AI 產品。
 - **技能標籤**（可選，使用者可增刪）：Python、FastAPI、Django、LLM 整合、
   Prompt Engineering、RAG、Docker、Azure
 - **聯繫方式**（icon + 連結，逐項）：
