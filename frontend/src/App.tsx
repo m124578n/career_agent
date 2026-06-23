@@ -1,24 +1,18 @@
 import { Anchor, AppShell, Avatar, Group, NavLink, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Navigate,
-  Route,
-  Routes,
-  NavLink as RouterNavLink,
-} from "react-router-dom";
+import { Outlet, NavLink as RouterNavLink } from "react-router-dom";
 import { api } from "./api/client";
 import { useAuth } from "./state/auth";
-import { ResumeSetup } from "./pages/ResumeSetup";
-import { JobList } from "./pages/JobList";
-import { Applications } from "./pages/Applications";
+import { Footer } from "./components/Footer";
 
 const NAV = [
   { to: "/resume", label: "履歷與目標", tag: "01" },
   { to: "/jobs", label: "職缺契合度", tag: "02" },
   { to: "/applications", label: "追蹤清單", tag: "03" },
+  { to: "/about", label: "關於我", tag: "04" },
 ];
 
-export function App() {
+export function GatedLayout() {
   return (
     <AppShell navbar={{ width: 232, breakpoint: "sm" }} padding={0}>
       <AppShell.Navbar
@@ -65,16 +59,12 @@ export function App() {
 
         <div style={{ marginTop: "auto" }}>
           <AccountFooter />
+          <Footer />
         </div>
       </AppShell.Navbar>
 
       <AppShell.Main style={{ minHeight: "100dvh" }}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/resume" replace />} />
-          <Route path="/resume" element={<ResumeSetup />} />
-          <Route path="/jobs" element={<JobList />} />
-          <Route path="/applications" element={<Applications />} />
-        </Routes>
+        <Outlet />
       </AppShell.Main>
     </AppShell>
   );
