@@ -101,6 +101,16 @@ class ApplicationEvent(BaseModel):
     note: str = ""
 
 
+class OfferInfo(BaseModel):
+    """offer 細節，全欄位 optional；薪資為自由文字。"""
+
+    salary: str | None = None       # 自由文字，如「月 60k＋年終 2 個月」
+    level: str | None = None        # 職等 / title
+    start_date: str | None = None   # 到職日
+    accepted: bool | None = None    # 是否接受
+    note: str | None = None         # 補充
+
+
 class Application(BaseModel):
     """求職追蹤清單的一筆（以 user|job_id 去重）。"""
 
@@ -113,3 +123,4 @@ class Application(BaseModel):
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
     events: list[ApplicationEvent] = Field(default_factory=list)
+    offer: OfferInfo | None = None
