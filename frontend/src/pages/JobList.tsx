@@ -138,6 +138,16 @@ export function JobList() {
   const toggle = (id: string) =>
     setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const pickedCandidates = candidates.filter((c) => picked.has(c.job.job_id));
+  const allPicked = candidates.length > 0 && pickedCandidates.length === candidates.length;
+  const somePicked = pickedCandidates.length > 0 && !allPicked;
+  // 全選／取消全選：只動「候選」的 id，不影響其他狀態
+  const toggleAll = () =>
+    setPicked((p) => {
+      const n = new Set(p);
+      if (allPicked) candidates.forEach((c) => n.delete(c.job.job_id));
+      else candidates.forEach((c) => n.add(c.job.job_id));
+      return n;
+    });
 
   const busy = createMut.isPending || crawlMut.isPending;
   const canRun = !!target && keyword.trim().length > 0 && !busy;
@@ -310,6 +320,16 @@ export function JobList() {
               </div>
               <div className="jt-panel-body">
                 <Stack gap={8}>
+                  <Group gap={10} wrap="nowrap">
+                    <Checkbox
+                      checked={allPicked}
+                      indeterminate={somePicked}
+                      onChange={toggleAll}
+                    />
+                    <Text fz="xs" c="dimmed">
+                      全選（{pickedCandidates.length}/{candidates.length}）
+                    </Text>
+                  </Group>
                   {candidates.map((c) => (
                     <Group key={c.job.job_id} gap={10} wrap="nowrap">
                       <Checkbox
