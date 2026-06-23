@@ -501,8 +501,7 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
       {benefits.length > 0 && (
         <Group gap={6}>
           {benefits.map((b, i) => (
-            <span key={`b${i}`} className="jt-chip"
-                  style={{ color: "var(--jt-teal)", borderColor: "rgba(52,214,200,0.4)" }}>
+            <span key={`b${i}`} className="jt-chip jt-chip--teal">
               {b}
             </span>
           ))}
@@ -536,7 +535,7 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
                 <span className="jt-chip">⚑ 需至官網投遞</span>
               )}
               {hasLetter && (
-                <span className="jt-chip" style={{ color: "var(--jt-teal)", borderColor: "rgba(52,214,200,0.4)" }}>
+                <span className="jt-chip jt-chip--teal">
                   ✎ 已寫求職信
                 </span>
               )}

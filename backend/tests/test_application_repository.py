@@ -87,7 +87,7 @@ async def test_set_offer_missing_returns_none(repo: ApplicationRepository):
 
 async def test_set_result_writes_benefits():
     from job_tracker.db.repositories import MatchRepository
-    from job_tracker.schemas import Job, JobMatch, MatchAnalysis
+    from job_tracker.schemas import Job, JobMatch
     from mongomock_motor import AsyncMongoMockClient
 
     db = AsyncMongoMockClient()["test"]

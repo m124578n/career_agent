@@ -217,6 +217,10 @@ body {
   border-radius: 6px;
   padding: 3px 8px;
 }
+.jt-chip--teal {
+  color: var(--jt-teal);
+  border-color: rgba(52, 214, 200, 0.4);
+}
 .jt-tags {
   display: flex;
   flex-direction: column;
