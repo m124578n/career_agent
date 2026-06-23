@@ -4,6 +4,7 @@ import type {
   Application,
   ApplicationStatus,
   JobMatch,
+  OfferInfo,
   QuotaInfo,
   ResumeDiagnosis,
   ResumeTarget,
@@ -101,6 +102,18 @@ export const api = {
     }),
   removeApplication: (jobId: string) =>
     request<{ ok: boolean }>(`/applications/${jobId}`, { method: "DELETE" }),
+  addApplicationNote: (jobId: string, note: string) =>
+    request<Application>(`/applications/${jobId}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    }),
+  setApplicationOffer: (jobId: string, offer: OfferInfo) =>
+    request<Application>(`/applications/${jobId}/offer`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(offer),
+    }),
   usage: () => request<UsageSummary>("/usage"),
   globalUsage: () => request<UsageSummary>("/usage/global"),
   quota: () => request<QuotaInfo>("/usage/quota"),
