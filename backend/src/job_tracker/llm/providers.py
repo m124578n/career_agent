@@ -175,10 +175,12 @@ class _AnthropicBaseProvider:
         model = self._model()
         start = time.perf_counter()
         try:
+            # 不開 extended thinking：thinking token 會計入 max_tokens，
+            # 長輸入時會吃光預算導致正文被截斷（甚至 0 字）。求職信是生成
+            # 任務、不需推理，關掉後 max_tokens 全留給正文。
             resp = await client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
-                thinking={"type": "adaptive"},
                 system=system or _DEFAULT_SYSTEM,
                 messages=[{"role": "user", "content": prompt}],
             )
