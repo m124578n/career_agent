@@ -42,6 +42,7 @@ export interface JobMatch {
   score: number;
   reasons: string[];
   gaps: string[];
+  benefits: string[];
   requires_external_apply: boolean;
   cover_letter?: string | null;
   status: "candidate" | "pending" | "done" | "failed";
