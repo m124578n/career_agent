@@ -502,7 +502,7 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
         ))}
       </div>
 
-      <Group justify="space-between" mt={2}>
+      {(requires_external_apply || hasLetter) && (
         <Group gap={8}>
           {requires_external_apply && (
             <span className="jt-chip">⚑ 需至官網投遞</span>
@@ -513,6 +513,19 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
             </span>
           )}
         </Group>
+      )}
+      <div style={{ borderTop: "1px solid var(--jt-border)", marginTop: 2 }} />
+      <Group justify="flex-end" gap={8}>
+        <Button
+          size="xs"
+          variant="light"
+          color="teal"
+          disabled={tracked || trackMut.isPending}
+          loading={trackMut.isPending}
+          onClick={() => trackMut.mutate()}
+        >
+          {tracked ? "✓ 已在追蹤清單" : "☆ 加入追蹤"}
+        </Button>
         <Button size="xs" variant="default" onClick={openLetter}>
           {hasLetter ? "查看求職信" : "生成求職信"}
         </Button>
