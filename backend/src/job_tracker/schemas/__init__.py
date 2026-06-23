@@ -56,6 +56,9 @@ class MatchAnalysis(BaseModel):
     score: int = Field(ge=0, le=100, description="契合度 0~100")
     reasons: list[str] = Field(description="契合的理由")
     gaps: list[str] = Field(description="待補強/缺口")
+    benefits: list[str] = Field(
+        default_factory=list, description="JD 明確提到的福利，標籤化（≤8字，最多6項）"
+    )
 
 
 class JobMatch(BaseModel):
@@ -65,6 +68,7 @@ class JobMatch(BaseModel):
     score: float = Field(default=0.0, ge=0, le=100, description="契合度 0~100")
     reasons: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
+    benefits: list[str] = Field(default_factory=list)
     requires_external_apply: bool = False
     cover_letter: str | None = None
     # candidate=爬到待選 / pending=排隊分析 / done=完成 / failed=失敗
