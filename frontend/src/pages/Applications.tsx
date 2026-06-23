@@ -4,7 +4,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Application, ApplicationStatus, OfferInfo } from "../types";
 
@@ -109,6 +109,10 @@ function AppDrawer({
   const [draft, setDraft] = useState("");
   const [offer, setOffer] = useState<OfferInfo>(app.offer ?? {});
 
+  useEffect(() => {
+    setOffer(app.offer ?? {});
+  }, [app.offer]);
+
   const noteMut = useMutation({
     mutationFn: (note: string) => api.addApplicationNote(app.job_id, note),
     onSuccess: () => {
@@ -130,6 +134,9 @@ function AppDrawer({
     <Drawer opened={opened} onClose={onClose} position="right" size="md"
             title={<span className="jt-eyebrow">{app.job.company} · {app.job.title}</span>}>
       <Stack gap={16}>
+        <a className="jt-job-title" href={app.job.url} target="_blank" rel="noreferrer">
+          查看原職缺 ↗
+        </a>
         {app.status === "offer" && (
           <div>
             <div className="jt-eyebrow" style={{ marginBottom: 8 }}>OFFER</div>
@@ -158,7 +165,7 @@ function AppDrawer({
               <Text fz="xs" c="dimmed">—</Text>
             ) : (
               events.map((e, i) => (
-                <Group key={i} gap={8} wrap="nowrap" align="flex-start">
+                <Group key={`${e.ts}-${e.type}-${i}`} gap={8} wrap="nowrap" align="flex-start">
                   <Text fz="xs" c="dimmed" style={{ minWidth: 92 }}>
                     {new Date(e.ts).toLocaleString("zh-TW",
                       { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
