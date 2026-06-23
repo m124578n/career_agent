@@ -65,3 +65,15 @@ async def test_analyze_batch_sorts_by_score_desc(monkeypatch):
     pairs = [(make_job(str(i)), make_detail()) for i in range(3)]
     results = await job_matching.analyze_batch(make_target(), pairs)
     assert [r.score for r in results] == [90, 70, 40]
+
+
+async def test_analyze_passes_benefits_through(monkeypatch):
+    async def fake_parse(prompt, schema, **kwargs):
+        # prompt 應包含抽福利的指示
+        assert "福利" in prompt
+        return MatchAnalysis(score=70, reasons=[], gaps=[],
+                             benefits=["特休優於法令", "遠端一週三天"])
+
+    monkeypatch.setattr(llm, "parse", fake_parse)
+    m = await job_matching.analyze(make_target(), make_job(), make_detail())
+    assert m.benefits == ["特休優於法令", "遠端一週三天"]
