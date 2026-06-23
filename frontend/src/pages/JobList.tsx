@@ -43,6 +43,7 @@ export function JobList() {
   );
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [resultLimit, setResultLimit] = useState(12); // 排序結果漸進顯示
+  const [candOpen, setCandOpen] = useState(true);
   const qc = useQueryClient();
 
   // 耗額度的操作完成時主動刷新用量（取代高頻輪詢）
@@ -310,6 +311,10 @@ export function JobList() {
               <div className="jt-panel-head">
                 <span className="jt-eyebrow">候選 // CANDIDATES · {candidates.length}</span>
                 <Group gap={8}>
+                  <Button size="xs" variant="subtle" color="gray"
+                          onClick={() => setCandOpen((o) => !o)}>
+                    {candOpen ? "▾ 收合" : "▸ 展開"}
+                  </Button>
                   <Button size="xs" variant="default" onClick={() => crawlMut.mutate()}
                           disabled={busy} loading={crawlMut.isPending}>爬下一頁</Button>
                   <Button size="xs" color="tangerine"
@@ -320,6 +325,7 @@ export function JobList() {
                   </Button>
                 </Group>
               </div>
+              {candOpen && (
               <div
                 className="jt-panel-body"
                 style={{ maxHeight: "55vh", overflowY: "auto" }}
@@ -352,6 +358,7 @@ export function JobList() {
                   ))}
                 </Stack>
               </div>
+              )}
             </div>
           )}
 
