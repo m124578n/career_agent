@@ -113,8 +113,10 @@ function AppDrawer({
   const [offer, setOffer] = useState<OfferInfo>(app.offer ?? {});
 
   useEffect(() => {
-    setOffer(app.offer ?? {});
-  }, [app.offer]);
+    if (opened) setOffer(app.offer ?? {});
+    // 只在 Drawer 開啟時載入當下的 offer，避免加筆記等 refetch 清掉未存的編輯
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened]);
 
   const noteMut = useMutation({
     mutationFn: (note: string) => api.addApplicationNote(app.job_id, note),
