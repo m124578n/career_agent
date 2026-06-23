@@ -14,7 +14,7 @@ from job_tracker.db.repositories import (
     MatchRepository,
     SearchRepository,
 )
-from job_tracker.schemas import Application, ApplicationStatus
+from job_tracker.schemas import Application, ApplicationStatus, OfferInfo
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -26,6 +26,10 @@ class AddApplicationRequest(BaseModel):
 
 class UpdateStatusRequest(BaseModel):
     status: ApplicationStatus
+
+
+class AddNoteRequest(BaseModel):
+    note: str
 
 
 @router.post("")
@@ -69,6 +73,32 @@ async def update_status(
     app_repo: ApplicationRepository = Depends(get_application_repo),
 ) -> Application:
     updated = await app_repo.set_status(user, job_id, req.status)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="找不到該追蹤項目")
+    return updated
+
+
+@router.post("/{job_id}/notes")
+async def add_note(
+    job_id: str,
+    req: AddNoteRequest,
+    user: str = Depends(current_user),
+    app_repo: ApplicationRepository = Depends(get_application_repo),
+) -> Application:
+    updated = await app_repo.add_note(user, job_id, req.note)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="找不到該追蹤項目")
+    return updated
+
+
+@router.patch("/{job_id}/offer")
+async def set_offer(
+    job_id: str,
+    offer: OfferInfo,
+    user: str = Depends(current_user),
+    app_repo: ApplicationRepository = Depends(get_application_repo),
+) -> Application:
+    updated = await app_repo.set_offer(user, job_id, offer)
     if updated is None:
         raise HTTPException(status_code=404, detail="找不到該追蹤項目")
     return updated

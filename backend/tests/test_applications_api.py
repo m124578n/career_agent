@@ -72,3 +72,36 @@ def test_add_missing_match_is_404():
     finally:
         app.dependency_overrides.clear()
     assert resp.status_code == 404
+
+
+def test_add_note_and_set_offer_flow():
+    db = AsyncMongoMockClient()["test"]
+    sid = _seed(db)
+    _wire(db)
+    try:
+        client = TestClient(app)
+        client.post("/api/applications", json={"search_id": sid, "job_id": "1"})
+        noted = client.post("/api/applications/1/notes", json={"note": "一面 ok"})
+        offered = client.patch("/api/applications/1/offer",
+                               json={"salary": "月 60k", "level": "P5"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert noted.status_code == 200
+    note_events = [e for e in noted.json()["events"] if e["type"] == "note"]
+    assert note_events and note_events[0]["note"] == "一面 ok"
+    assert offered.status_code == 200
+    assert offered.json()["offer"]["salary"] == "月 60k"
+    assert offered.json()["offer"]["level"] == "P5"
+
+
+def test_note_on_missing_app_is_404():
+    db = AsyncMongoMockClient()["test"]
+    _seed(db)
+    _wire(db)
+    try:
+        resp = TestClient(app).post("/api/applications/nope/notes",
+                                    json={"note": "x"})
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 404

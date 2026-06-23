@@ -58,3 +58,20 @@ def test_searchrun_area_and_next_page():
     assert run.area is None
     assert run.next_page == 1
     assert run.count == 0
+
+
+def test_application_offer_defaults_none():
+    from job_tracker.schemas import Application, Job
+    job = Job(job_id="1", code="c1", title="工程師", company="某公司",
+              url="https://www.104.com.tw/job/c1")
+    app = Application(user="u1", job_id="1", job=job, source_search_id="s1")
+    assert app.offer is None
+
+
+def test_offer_info_all_optional():
+    from job_tracker.schemas import OfferInfo
+    o = OfferInfo()
+    assert o.salary is None and o.accepted is None
+    o2 = OfferInfo(salary="月 60k＋年終 2 個月", accepted=True)
+    assert o2.salary == "月 60k＋年終 2 個月"
+    assert o2.accepted is True

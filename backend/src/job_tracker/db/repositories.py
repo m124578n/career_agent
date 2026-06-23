@@ -15,6 +15,7 @@ from job_tracker.schemas import (
     Job,
     JobDetail,
     JobMatch,
+    OfferInfo,
     ResumeTarget,
     SearchRun,
 )
@@ -242,6 +243,36 @@ class ApplicationRepository:
                 "$set": {"status": status.value, "updated_at": now.isoformat()},
                 "$push": {"events": ev.model_dump(mode="json")},
             },
+        )
+        if res.matched_count == 0:
+            return None
+        return await self.get(user, job_id)
+
+    async def add_note(
+        self, user: str, job_id: str, note: str
+    ) -> Application | None:
+        ev = ApplicationEvent(type="note", note=note)
+        res = await self._col.update_one(
+            {"_id": self._id(user, job_id)},
+            {
+                "$set": {"updated_at": ev.ts.isoformat()},
+                "$push": {"events": ev.model_dump(mode="json")},
+            },
+        )
+        if res.matched_count == 0:
+            return None
+        return await self.get(user, job_id)
+
+    async def set_offer(
+        self, user: str, job_id: str, offer: OfferInfo
+    ) -> Application | None:
+        now = ApplicationEvent(type="offer").ts
+        res = await self._col.update_one(
+            {"_id": self._id(user, job_id)},
+            {"$set": {
+                "offer": offer.model_dump(mode="json"),
+                "updated_at": now.isoformat(),
+            }},
         )
         if res.matched_count == 0:
             return None

@@ -72,6 +72,14 @@ export interface ApplicationEvent {
   note: string;
 }
 
+export interface OfferInfo {
+  salary?: string | null;
+  level?: string | null;
+  start_date?: string | null;
+  accepted?: boolean | null;
+  note?: string | null;
+}
+
 export interface Application {
   user: string;
   job_id: string;
@@ -82,4 +90,5 @@ export interface Application {
   created_at: string;
   updated_at: string;
   events: ApplicationEvent[];
+  offer?: OfferInfo | null;
 }
