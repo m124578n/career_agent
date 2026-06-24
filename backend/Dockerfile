@@ -18,4 +18,5 @@ RUN uv sync --frozen --no-dev
 EXPOSE 8000
 
 # Zeabur 等平台會帶 PORT；exec 取代 shell 以正確接收 SIGTERM
-CMD ["sh", "-c", "exec uv run uvicorn job_tracker.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# --no-dev + --no-sync：啟動時不再同步/下載 dev 相依（避免冷啟動連 PyPI）
+CMD ["sh", "-c", "exec uv run --no-dev --no-sync uvicorn job_tracker.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
