@@ -1,6 +1,9 @@
-import { Anchor, Badge, Box, Group, Stack, Text, Title } from "@mantine/core";
+import { Anchor, Badge, Box, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { Link } from "react-router-dom";
 import { Footer } from "../components/Footer";
+
+// TODO: 開好贊助平台帳號後換成實際連結（綠界 ECPay / Portaly / GitHub Sponsors）
+const DONATE_URL = "#";
 
 const SKILLS = [
   "Python", "FastAPI", "Django", "LLM 整合",
@@ -70,6 +73,24 @@ export function About() {
                   </Anchor>
                 </Group>
               ))}
+            </Stack>
+
+            <div className="jt-eyebrow" style={{ margin: "22px 0 8px" }}>支持我 // SUPPORT</div>
+            <Stack gap={8}>
+              <Text fz="sm" c="dimmed">
+                覺得這個工具有幫助嗎？歡迎請我喝杯咖啡 ☕
+              </Text>
+              <Button
+                component="a"
+                href={DONATE_URL}
+                target="_blank"
+                rel="noreferrer"
+                color="orange"
+                radius="sm"
+                w="fit-content"
+              >
+                ☕ 請我喝咖啡
+              </Button>
             </Stack>
           </div>
         </div>
