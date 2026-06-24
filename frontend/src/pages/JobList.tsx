@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Box,
   Button,
   Checkbox,
@@ -12,7 +13,9 @@ import {
   Textarea,
   TextInput,
   Title,
+  UnstyledButton,
 } from "@mantine/core";
+import { IconX } from "../components/icons";
 import { useDisclosure } from "@mantine/hooks";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -239,50 +242,53 @@ export function JobList() {
             <div className="jt-panel" style={{ marginBottom: 20 }}>
               <div className="jt-panel-body">
                 <Group gap={8} wrap="wrap">
-                  {searches.map((s) => (
-                    <Group
-                      key={s.search_id}
-                      gap={4}
-                      wrap="nowrap"
-                      px={10}
-                      py={6}
-                      onClick={() => {
-                        setSelectedId(s.search_id);
-                        setPicked(new Set());
-                      }}
-                      style={{
-                        cursor: "pointer",
-                        borderRadius: 8,
-                        border: "1px solid var(--jt-border)",
-                        background:
-                          s.search_id === selectedId
-                            ? "rgba(52,214,200,0.12)"
-                            : "transparent",
-                      }}
-                    >
-                      <Text fz="xs">
-                        {s.keyword} ·{" "}
-                        {new Date(s.created_at).toLocaleString("zh-TW", {
-                          month: "numeric",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
-                        · {s.count} 筆
-                      </Text>
-                      <Text
-                        fz="xs"
-                        c="dimmed"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          delMut.mutate(s.search_id);
+                  {searches.map((s) => {
+                    const when = new Date(s.created_at).toLocaleString("zh-TW", {
+                      month: "numeric",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    return (
+                      <Group
+                        key={s.search_id}
+                        gap={2}
+                        wrap="nowrap"
+                        style={{
+                          borderRadius: 8,
+                          border: "1px solid var(--jt-border)",
+                          background:
+                            s.search_id === selectedId
+                              ? "rgba(52,214,200,0.12)"
+                              : "transparent",
                         }}
-                        style={{ cursor: "pointer" }}
                       >
-                        ✕
-                      </Text>
-                    </Group>
-                  ))}
+                        <UnstyledButton
+                          px={10}
+                          py={6}
+                          aria-label={`查看搜尋 ${s.keyword}`}
+                          onClick={() => {
+                            setSelectedId(s.search_id);
+                            setPicked(new Set());
+                          }}
+                        >
+                          <Text fz="xs">
+                            {s.keyword} · {when} · {s.count} 筆
+                          </Text>
+                        </UnstyledButton>
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="lg"
+                          mr={2}
+                          aria-label={`刪除搜尋 ${s.keyword}`}
+                          onClick={() => delMut.mutate(s.search_id)}
+                        >
+                          <IconX size={14} />
+                        </ActionIcon>
+                      </Group>
+                    );
+                  })}
                 </Group>
               </div>
             </div>

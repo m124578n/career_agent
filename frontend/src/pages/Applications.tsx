@@ -1,7 +1,8 @@
 import {
-  Box, Button, Drawer, Group, Modal, Select, Stack, Switch, Table, Text, Textarea,
-  TextInput, Title,
+  ActionIcon, Box, Button, Drawer, Group, Modal, Select, Stack, Switch, Table, Text,
+  Textarea, TextInput, Title,
 } from "@mantine/core";
+import { IconCoin, IconMessage, IconX } from "../components/icons";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -99,18 +100,41 @@ function AppCard({ app }: { app: Application }) {
 
   return (
     <>
-      <div className="jt-jobcard" style={{ cursor: "pointer" }} onClick={open}>
+      <div
+        className="jt-jobcard"
+        style={{ cursor: "pointer" }}
+        role="button"
+        tabIndex={0}
+        aria-label={`開啟 ${app.job.company} ${app.job.title} 詳情`}
+        onClick={open}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            open();
+          }
+        }}
+      >
         <Group justify="space-between" wrap="nowrap" mb={6}>
           <span className="jt-job-title">{app.job.title}</span>
-          <Text fz="xs" c="dimmed" style={{ cursor: "pointer" }}
-                onClick={(e) => { e.stopPropagation(); removeMut.mutate(); }}>
-            ✕
-          </Text>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="lg"
+            aria-label="從追蹤清單移除"
+            onClick={(e) => { e.stopPropagation(); removeMut.mutate(); }}
+          >
+            <IconX size={14} />
+          </ActionIcon>
         </Group>
         <div className="jt-job-meta">{app.job.company}</div>
-        <Group gap={8} mt={6}>
-          {noteCount > 0 && <Text fz="xs" c="dimmed">💬 {noteCount}</Text>}
-          {hasOffer && <Text fz="xs" c="dimmed">💰</Text>}
+        <Group gap={10} mt={6} c="var(--jt-dim)">
+          {noteCount > 0 && (
+            <Group gap={4} wrap="nowrap">
+              <IconMessage size={13} />
+              <Text fz="xs" c="dimmed">{noteCount}</Text>
+            </Group>
+          )}
+          {hasOffer && <IconCoin size={14} aria-label="已記錄 offer" />}
         </Group>
         <div onClick={(e) => e.stopPropagation()}>
           <Select

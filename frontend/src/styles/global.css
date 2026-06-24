@@ -5,7 +5,8 @@
   --jt-border: #2a2e36;
   --jt-text: #e6e8eb;
   --jt-muted: #9aa1ab;
-  --jt-dim: #6b727c;
+  /* 提亮到 ≥4.5:1（原 #6b727c 約 3.4:1，AA 未達標） */
+  --jt-dim: #868d97;
   --jt-accent: #ff6a3d;
   --jt-teal: #34d6c8;
 }
@@ -162,6 +163,11 @@ body {
 .jt-jobcard:hover {
   border-color: #3a3f49;
 }
+/* 鍵盤操作的卡片（role=button）需要可見焦點環 */
+.jt-jobcard[tabindex]:focus-visible {
+  outline: 2px solid var(--jt-teal);
+  outline-offset: 2px;
+}
 .jt-job-head {
   display: flex;
   align-items: flex-start;
@@ -262,4 +268,16 @@ body {
   letter-spacing: 0.16em;
   color: var(--jt-dim);
   text-transform: uppercase;
+}
+
+/* 尊重使用者「減少動態」偏好：關閉過場動畫 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

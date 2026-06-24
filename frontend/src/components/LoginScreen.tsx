@@ -1,4 +1,5 @@
 import { GoogleLogin } from "@react-oauth/google";
+import { notifications } from "@mantine/notifications";
 import { useAuth } from "../state/auth";
 import { Footer } from "./Footer";
 
@@ -33,7 +34,13 @@ export function LoginScreen() {
           <div style={{ display: "flex", justifyContent: "center" }}>
             <GoogleLogin
               onSuccess={(r) => r.credential && login(r.credential)}
-              onError={() => undefined}
+              onError={() =>
+                notifications.show({
+                  color: "red",
+                  title: "登入失敗",
+                  message: "Google 登入沒有完成，請再試一次。",
+                })
+              }
               theme="filled_black"
               shape="pill"
             />

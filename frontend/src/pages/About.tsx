@@ -1,4 +1,5 @@
 import { Anchor, Badge, Box, Button, Group, Stack, Text, Title } from "@mantine/core";
+import { IconCoffee } from "../components/icons";
 import { Link } from "react-router-dom";
 import { Footer } from "../components/Footer";
 
@@ -78,7 +79,7 @@ export function About() {
             <div className="jt-eyebrow" style={{ margin: "22px 0 8px" }}>支持我 // SUPPORT</div>
             <Stack gap={8}>
               <Text fz="sm" c="dimmed">
-                覺得這個工具有幫助嗎？歡迎請我喝杯咖啡 ☕
+                覺得這個工具有幫助嗎？歡迎請我喝杯咖啡。
               </Text>
               <Button
                 component="a"
@@ -88,8 +89,9 @@ export function About() {
                 color="orange"
                 radius="sm"
                 w="fit-content"
+                leftSection={<IconCoffee size={16} />}
               >
-                ☕ 請我喝咖啡
+                請我喝咖啡
               </Button>
             </Stack>
           </div>

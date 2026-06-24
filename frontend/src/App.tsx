@@ -1,4 +1,5 @@
-import { Anchor, AppShell, Avatar, Group, NavLink, Stack, Text } from "@mantine/core";
+import { AppShell, Avatar, Burger, Group, NavLink, Stack, Text, UnstyledButton } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, NavLink as RouterNavLink } from "react-router-dom";
 import { api } from "./api/client";
@@ -13,8 +14,33 @@ const NAV = [
 ];
 
 export function GatedLayout() {
+  // 行動版：navbar 預設收起，靠 header 的 Burger 開關
+  const [opened, { toggle, close }] = useDisclosure(false);
+
   return (
-    <AppShell navbar={{ width: 232, breakpoint: "sm" }} padding={0}>
+    <AppShell
+      header={{ height: { base: 52, sm: 0 } }}
+      navbar={{ width: 232, breakpoint: "sm", collapsed: { mobile: !opened } }}
+      padding={0}
+    >
+      <AppShell.Header
+        hiddenFrom="sm"
+        px="md"
+        style={{ background: "var(--jt-panel)", borderColor: "var(--jt-border)" }}
+      >
+        <Group h="100%" justify="space-between">
+          <Link to="/" className="jt-brand" style={{ textDecoration: "none" }}>
+            JobTracker<span className="dot">.</span>
+          </Link>
+          <Burger
+            opened={opened}
+            onClick={toggle}
+            size="sm"
+            aria-label={opened ? "關閉導覽選單" : "開啟導覽選單"}
+          />
+        </Group>
+      </AppShell.Header>
+
       <AppShell.Navbar
         p="md"
         style={{
@@ -24,7 +50,7 @@ export function GatedLayout() {
           flexDirection: "column",
         }}
       >
-        <Stack gap={2} mb="xl" px={6} pt={4}>
+        <Stack gap={2} mb="xl" px={6} pt={4} visibleFrom="sm">
           <Link to="/" className="jt-brand" style={{ textDecoration: "none" }}>
             JobTracker<span className="dot">.</span>
           </Link>
@@ -38,6 +64,7 @@ export function GatedLayout() {
               component={RouterNavLink}
               to={item.to}
               label={item.label}
+              onClick={close}
               leftSection={
                 <span
                   style={{
@@ -137,9 +164,9 @@ function AccountFooter() {
             <Text fz={12} truncate c="var(--jt-text)">
               {user.name ?? user.email}
             </Text>
-            <Anchor fz={11} c="tangerine.5" onClick={logout} style={{ cursor: "pointer" }}>
-              登出
-            </Anchor>
+            <UnstyledButton onClick={logout} aria-label="登出">
+              <Text fz={11} c="tangerine.5">登出</Text>
+            </UnstyledButton>
           </div>
         </Group>
       )}
