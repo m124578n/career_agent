@@ -23,9 +23,9 @@ export function About() {
     >
       <Box p={{ base: "lg", md: 40 }} maw={720} mx="auto" w="100%" style={{ flex: 1 }}>
         <Group justify="space-between" mb={24}>
-          <span className="jt-brand">
+          <Link to="/" className="jt-brand" style={{ textDecoration: "none" }}>
             JobTracker<span className="dot">.</span>
-          </span>
+          </Link>
           <Anchor component={Link} to="/" c="dimmed" fz="sm">
             ← 回首頁
           </Anchor>

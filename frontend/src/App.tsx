@@ -1,6 +1,6 @@
 import { Anchor, AppShell, Avatar, Group, NavLink, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { Outlet, NavLink as RouterNavLink } from "react-router-dom";
+import { Link, Outlet, NavLink as RouterNavLink } from "react-router-dom";
 import { api } from "./api/client";
 import { useAuth } from "./state/auth";
 import { Footer } from "./components/Footer";
@@ -25,9 +25,9 @@ export function GatedLayout() {
         }}
       >
         <Stack gap={2} mb="xl" px={6} pt={4}>
-          <span className="jt-brand">
+          <Link to="/" className="jt-brand" style={{ textDecoration: "none" }}>
             JobTracker<span className="dot">.</span>
-          </span>
+          </Link>
           <span className="jt-brandtag">AI 求職指揮艙</span>
         </Stack>
 
