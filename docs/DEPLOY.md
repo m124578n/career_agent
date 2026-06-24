@@ -78,6 +78,47 @@ ALLOWED_ORIGINS=https://career-agent.pages.dev
 
 ---
 
+## 日後版更（已上線後）
+
+部署採 **push `main` 自動觸發**：Zeabur 接 `backend/`、Cloudflare Pages 接 `frontend/`。
+
+### 一般版更（改程式碼）
+
+```bash
+# 1. 改完先在本機自我驗證（部署前必做，別拿線上 build 當測試）
+cd frontend && npm run build       # 前端能 build
+cd ../backend && uv run pytest -q  # 後端測試全綠
+
+# 2. commit + push 到 main
+git add -A && git commit -m "..."
+git push origin main
+```
+
+push 後兩邊各自自動 rebuild 部署，在 dashboard 看 build log。上線後快速驗證：
+
+```bash
+curl -s https://career-agent.zeabur.app/health                              # 後端活著
+curl -s -o /dev/null -w "%{http_code}" https://career-agent-at2.pages.dev/  # 前端 200
+```
+
+再開網站實際登入 + 跑一次診斷確認。
+
+### 例外：不是 push 就能生效的情況
+
+| 情況 | 怎麼做 |
+|------|--------|
+| 只改**環境變數**（API key、CORS、額度…） | 在 **Zeabur / Cloudflare dashboard** 改 + 重新部署，**push 沒用** |
+| **加新環境變數**（程式碼會讀新 env） | 先在 dashboard 設好變數，再 push code，避免上線讀到空值 |
+| 加**新前端 `VITE_` 變數** | Cloudflare 設好變數後**要重新 build**（Vite 是 build 時注入，非 runtime）|
+| 改錯要回滾 | 兩平台都留部署歷史，dashboard 點舊版本 **Rollback** |
+
+### 踩雷紀錄
+
+- **CORS preflight 噴 400**：`ALLOWED_ORIGINS` **結尾不可帶 `/`**。瀏覽器送的 Origin 永遠不帶斜線，逐字比對才會過（例：`https://career-agent-at2.pages.dev`，不是 `.../`）。
+- 重大改動可先開 branch / PR，Cloudflare 會給 preview URL 先看，沒問題再合 `main`。
+
+---
+
 ## 本地開發（對照）
 
 - 後端：`cd backend && uv run uvicorn job_tracker.main:app --reload`（讀 `backend/.env`）
