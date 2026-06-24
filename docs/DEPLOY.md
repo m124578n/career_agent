@@ -82,6 +82,8 @@ ALLOWED_ORIGINS=https://career-agent.pages.dev
 
 部署採 **push `main` 自動觸發**：Zeabur 接 `backend/`、Cloudflare Pages 接 `frontend/`。
 
+> **分支慣例**：日常開發在 `dev` 分支，驗證 OK 才合併進 `main`。只有 `main` 會觸發正式部署；push `dev` 不動後端，Cloudflare 則給 preview URL。
+
 ### 一般版更（改程式碼）
 
 ```bash
