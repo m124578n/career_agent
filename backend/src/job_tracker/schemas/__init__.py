@@ -89,6 +89,23 @@ class SearchRun(BaseModel):
     count: int = 0           # 候選總數
 
 
+class CrawlTask(BaseModel):
+    """一筆交給本機 agent 代打 104 的任務（search 或 detail）。"""
+
+    task_id: str
+    type: str  # "search" | "detail"
+    payload: dict  # search: {keyword, page, area}; detail: {code}
+    status: str = "pending"  # pending|claimed|done|failed|expired
+    search_id: str
+    user: str
+    job_id: str | None = None  # detail 任務綁定的職缺
+    raw_json: dict | None = None  # agent 回填的原始 104 JSON
+    error: str | None = None
+    created_at: datetime = Field(default_factory=_utcnow)
+    claimed_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 class ApplicationStatus(str, Enum):
     TO_APPLY = "to_apply"
     APPLIED = "applied"
