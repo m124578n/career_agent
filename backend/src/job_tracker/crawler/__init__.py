@@ -19,13 +19,44 @@ DETAIL_URL = "https://www.104.com.tw/job/ajax/content/{code}"
 
 _UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
+# 完整 Chrome 請求指紋。機房 IP 會被 104 的 WAF 嚴格檢查，補齊瀏覽器特徵
+# 有機會把可疑分數頂過門檻（純 IP 封鎖則無效，需改本機/代理出口）。
 _HEADERS = {
     "User-Agent": _UA,
     # 104 沒帶 Referer 會回 403，必要
     "Referer": "https://www.104.com.tw/jobs/search/",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+    "X-Requested-With": "XMLHttpRequest",
+    "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
 }
+
+# 暖身用：先以瀏覽器姿態載入搜尋頁，取得 WAF/session cookie 再打 API。
+_WARMUP_URL = "https://www.104.com.tw/jobs/search/"
+_WARMUP_HEADERS = {
+    "User-Agent": _UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+
+async def _warmup(client: httpx.AsyncClient) -> None:
+    """先載入搜尋頁取得 cookie（WAF 常要求先有 session）。失敗不擋主流程。"""
+    try:
+        await client.get(_WARMUP_URL, headers=_WARMUP_HEADERS)
+    except httpx.HTTPError as exc:
+        logger.warning("104 warmup failed (ignored): %s", exc)
 
 
 async def crawl_jobs(
@@ -53,8 +84,10 @@ async def crawl_jobs(
     if area:
         params["area"] = area
     owns_client = client is None
-    client = client or httpx.AsyncClient()
+    client = client or httpx.AsyncClient(follow_redirects=True)
     try:
+        if owns_client:
+            await _warmup(client)  # 真實執行先取 cookie；測試注入 client 則跳過
         resp = await client.get(SEARCH_URL, params=params, headers=_HEADERS)
         resp.raise_for_status()
         payload = resp.json()
