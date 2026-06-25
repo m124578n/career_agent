@@ -91,10 +91,7 @@ async def crawl_jobs(
         resp = await client.get(SEARCH_URL, params=params, headers=_HEADERS)
         resp.raise_for_status()
         payload = resp.json()
-        out = [
-            (_parse_job(raw), _is_relevant(raw, keyword))
-            for raw in payload.get("data", [])
-        ]
+        out = parse_search_payload(payload, keyword)
         logger.info("crawl keyword=%r page=%d area=%s -> %d jobs",
                     keyword, page, area, len(out))
         return out
@@ -158,6 +155,14 @@ def _is_relevant(raw: dict, keyword: str) -> bool:
         return True
     hay = ((raw.get("jobName", "") or "") + " " + (raw.get("description", "") or "")).lower()
     return any(t in hay for t in tokens)
+
+
+def parse_search_payload(payload: dict, keyword: str) -> list[tuple[Job, bool]]:
+    """把 104 搜尋 API 的原始 JSON 解析成 [(Job, relevant)]。供雲端解析 agent 回傳用。"""
+    return [
+        (_parse_job(raw), _is_relevant(raw, keyword))
+        for raw in payload.get("data", [])
+    ]
 
 
 def parse_jobs(payload: dict) -> list[Job]:

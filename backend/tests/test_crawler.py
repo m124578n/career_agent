@@ -12,6 +12,7 @@ from job_tracker.crawler import (
     fetch_job_detail,
     parse_job_detail,
     parse_jobs,
+    parse_search_payload,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "104_search.json"
@@ -179,3 +180,11 @@ async def test_crawl_jobs_passes_area_and_returns_relevance():
     await client.aclose()
     assert captured["area"] == "6001001000"
     assert [(j.job_id, rel) for j, rel in out] == [("1", True), ("2", False)]
+
+
+def test_parse_search_payload_returns_jobs_with_relevance():
+    out = parse_search_payload(load_payload(), "python")
+    assert len(out) == 2
+    job, rel = out[0]
+    assert job.job_id == "14724003"
+    assert rel is True  # descSnippet 有 [[[Python]]]
