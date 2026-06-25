@@ -118,18 +118,18 @@ export function JobList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
-  // 自動勾選 relevant 候選：候選首次到達且使用者尚未手動操作時，預選 relevant === true 的職缺
+  // 自動勾選 relevant 候選：每個搜尋只在候選首次到達時預選 relevant === true 的職缺，
+  // 之後即使使用者手動取消全選、candidates 參照因 poll 更新，也不會再覆蓋。
+  const autoPickedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (
-      selectedId &&
-      candidates.length > 0 &&
-      picked.size === 0
-    ) {
-      const relevant = new Set(
-        candidates.filter((c) => c.relevant).map((c) => c.job.job_id)
-      );
-      if (relevant.size > 0) setPicked(relevant);
-    }
+    if (!selectedId || candidates.length === 0) return;
+    if (autoPickedRef.current === selectedId) return; // 已對此搜尋自動勾選過
+    autoPickedRef.current = selectedId;
+    if (picked.size > 0) return; // 已有勾選（理論上首次不會，但保險起見）
+    const relevant = new Set(
+      candidates.filter((c) => c.relevant).map((c) => c.job.job_id)
+    );
+    if (relevant.size > 0) setPicked(relevant);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates, selectedId]);
 
