@@ -1,6 +1,6 @@
 # 104 Job Tracker — 開發進度
 
-> 最後更新：2026-06-23
+> 最後更新：2026-06-25
 > 規劃文件：[../104-job-tracker-規劃.md](../104-job-tracker-規劃.md)
 > 架構 spec：[superpowers/specs/2026-06-21-104-job-tracker-架構-design.md](superpowers/specs/2026-06-21-104-job-tracker-架構-design.md)
 
@@ -157,6 +157,32 @@ plan [superpowers/plans/2026-06-22-candidate-selection-async.md](superpowers/pla
 ### ⚠️ 已知限制（待未來改進）
 1. **額度可能短暫超賣**：提交檢查「剩餘 ≥ 選中數」+ 每筆 done 才計的寬鬆策略；背景跑時併發送出可能微幅超量。要嚴格需改「提交時即佔額度」。
 2. **背景任務不持久化**：逐筆分析用記憶體 asyncio task，**server 重啟會中斷未完成的、卡在 pending**，靠前端重試補救。要韌性需上真正的 task queue。
+
+## ✅ 本機爬蟲 agent 子系統（2026-06-25 完成，TDD subagent-driven）
+
+對應 spec [superpowers/specs/2026-06-25-local-crawler-agent-design.md](superpowers/specs/2026-06-25-local-crawler-agent-design.md)、
+plan [superpowers/plans/2026-06-25-local-crawler-agent.md](superpowers/plans/2026-06-25-local-crawler-agent.md)。後端 120 測試全綠。
+
+104 依**出口 IP** 封鎖爬蟲——實測確認同一份程式碼在住宅 IP 成功（200）、機房 IP 被拒（403），
+屬硬 IP 封鎖（WAF 層），加 header 偽裝或換瀏覽器爬蟲皆無效。
+解法：把「打 104」搬到家用住宅 IP 的**本機 agent**（`agent/` 目錄，獨立 Python script），
+雲端後端負責 API / DB / LLM / 排序，兩邊以 MongoDB 任務隊列銜接。
+
+- **任務隊列**：`crawl_tasks` collection（`CrawlTask` schema），兩種型別 `search` / `detail`。
+  雲端 enqueue 後前端顯示排隊狀態；agent 輪詢 `POST /api/agent/claim` 原子認領（`find_one_and_update`），
+  抓完回 `POST /api/agent/complete` 填入原始 JSON；雲端 complete 端點依型別解析
+  （`parse_search_payload` 存候選 / `parse_job_detail` 跑 LLM 分析）。
+- **agent 端點認證**：共享密鑰 `AGENT_SECRET`（`Authorization: Bearer <secret>`），與使用者 Google 登入分離。
+- **心跳 + 離線偵測**：agent 定期 `POST /api/agent/heartbeat`，後端記錄時戳；
+  `GET /api/agent/status` 依 30 秒閾值判定在線/離線；前端側欄顯示 agent 指示燈（綠/灰 + 脈動動畫）。
+- **過期回收**：`pending` 超過 24h 標 `expired`；`claimed` 逾時 5 分鐘釋放回 `pending`（claim 時順帶 reap）。
+- **搜尋/分析改非同步**：原 `crawl_jobs` / `analyze_one` 直連 104 的同步路徑改成 enqueue →
+  agent 抓取 → complete 回填。前端以 `crawl_status`（`queued` / `crawling` / `done` / `expired` / `failed`）
+  輪詢進度，並在 agent 離線時顯示排隊提示。
+- **離線排隊**：agent 不在線時任務留在 `pending`；agent 上線後自動認領跑完，不遺漏。
+- **agent 獨立**：`agent/` 下有自己的 `pyproject.toml`（httpx + click），
+  不 import 後端 `job_tracker` 套件，只負責打 104 回原始 JSON；解析/LLM 全在雲端。
+  3 個單元測試（MockTransport 模擬 104 回應）全綠。
 
 ## 🔲 待辦（backlog）
 - **實際上線**：照 DEPLOY.md 在 Zeabur / Cloudflare 建 service、填環境變數、串 CORS + Google OAuth
