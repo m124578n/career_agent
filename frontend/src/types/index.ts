@@ -58,6 +58,7 @@ export interface SearchRun {
   next_page: number;
   area: string | null;
   count: number;
+  crawl_status: string;
 }
 
 export type ApplicationStatus =

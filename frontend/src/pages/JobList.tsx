@@ -104,19 +104,14 @@ export function JobList() {
     mutationFn: api.createSearch,
     onSuccess: (data) => {
       setSelectedId(data.search_id);
-      setPicked(new Set(data.candidates.filter((c) => c.relevant).map((c) => c.job.job_id)));
       qc.invalidateQueries({ queryKey: ["searches"] });
       qc.invalidateQueries({ queryKey: ["search-matches", data.search_id] });
     },
   });
   const crawlMut = useMutation({
     mutationFn: () => api.crawlNext(selectedId!),
-    onSuccess: (data) => {
-      setPicked((p) => {
-        const n = new Set(p);
-        data.candidates.filter((c) => c.relevant).forEach((c) => n.add(c.job.job_id));
-        return n;
-      });
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["searches"] });
       qc.invalidateQueries({ queryKey: ["search-matches", selectedId] });
     },
   });
