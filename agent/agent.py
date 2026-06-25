@@ -28,19 +28,16 @@ _SEARCH_HEADERS = {
 }
 
 
-_warmed = False
-
-
 async def _warmup(client: httpx.AsyncClient) -> None:
-    global _warmed  # noqa: PLW0603
-    if _warmed:
-        return
+    """每次抓取前先 GET 搜尋頁取得新鮮的 WAF/session cookie。
+
+    註：曾為了少打 104 改成「整個 process 只暖一次」，但長時間跑著 cookie 會過期，
+    導致後續 detail 抓取被 104 回 403。改回每次抓取前都暖身（多一個 GET 但確保有效）。
+    """
     try:
         await client.get(WARMUP_URL, headers={"User-Agent": _UA})
-        log.info("已暖身（取得 104 cookie）")
     except httpx.HTTPError as exc:
         log.warning("暖身失敗（略過）：%s", exc)
-    _warmed = True
 
 
 def _task_summary(task: dict) -> str:
