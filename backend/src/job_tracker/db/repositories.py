@@ -12,6 +12,7 @@ from job_tracker.schemas import (
     Application,
     ApplicationEvent,
     ApplicationStatus,
+    CrawlTask,
     Job,
     JobDetail,
     JobMatch,
@@ -281,3 +282,31 @@ class ApplicationRepository:
 
     async def remove(self, user: str, job_id: str) -> None:
         await self._col.delete_one({"_id": self._id(user, job_id)})
+
+
+class CrawlTaskRepository:
+    """交給本機 agent 代打 104 的任務隊列。"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self._col = db["crawl_tasks"]
+
+    async def enqueue(self, task: CrawlTask) -> CrawlTask:
+        doc = task.model_dump(mode="json")
+        doc["_id"] = task.task_id
+        await self._col.insert_one(doc)
+        return task
+
+    async def claim(self) -> CrawlTask | None:
+        """原子認領一個 pending 任務（pending→claimed）。多 agent 也安全。"""
+        doc = await self._col.find_one_and_update(
+            {"status": "pending"},
+            {"$set": {"status": "claimed",
+                      "claimed_at": datetime.now(UTC).isoformat()}},
+            sort=[("created_at", 1)],
+            return_document=True,
+        )
+        return CrawlTask(**doc) if doc else None
+
+    async def get(self, task_id: str) -> CrawlTask | None:
+        doc = await self._col.find_one({"_id": task_id})
+        return CrawlTask(**doc) if doc else None
