@@ -25,11 +25,18 @@ _SEARCH_HEADERS = {
 }
 
 
+_warmed = False
+
+
 async def _warmup(client: httpx.AsyncClient) -> None:
+    global _warmed  # noqa: PLW0603
+    if _warmed:
+        return
     try:
         await client.get(WARMUP_URL, headers={"User-Agent": _UA})
     except httpx.HTTPError:
         pass
+    _warmed = True
 
 
 async def fetch_104(task: dict, client: httpx.AsyncClient) -> dict:

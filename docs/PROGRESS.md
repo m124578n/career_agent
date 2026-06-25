@@ -173,14 +173,14 @@ plan [superpowers/plans/2026-06-25-local-crawler-agent.md](superpowers/plans/202
   抓完回 `POST /api/agent/complete` 填入原始 JSON；雲端 complete 端點依型別解析
   （`parse_search_payload` 存候選 / `parse_job_detail` 跑 LLM 分析）。
 - **agent 端點認證**：共享密鑰 `AGENT_SECRET`（`Authorization: Bearer <secret>`），與使用者 Google 登入分離。
-- **心跳 + 離線偵測**：agent 定期 `POST /api/agent/heartbeat`，後端記錄時戳；
-  `GET /api/agent/status` 依 30 秒閾值判定在線/離線；前端側欄顯示 agent 指示燈（綠/灰 + 脈動動畫）。
+- **心跳 + 離線偵測**：agent 每次 `POST /api/agent/claim` 順帶更新心跳時戳（心跳併入 claim，無獨立端點）；
+  前端用的公開端點 `GET /api/jobs/agent-status` 依 30 秒閾值判定在線/離線，職缺頁顯示 agent 指示燈。
 - **過期回收**：`pending` 超過 24h 標 `expired`；`claimed` 逾時 5 分鐘釋放回 `pending`（claim 時順帶 reap）。
 - **搜尋/分析改非同步**：原 `crawl_jobs` / `analyze_one` 直連 104 的同步路徑改成 enqueue →
   agent 抓取 → complete 回填。前端以 `crawl_status`（`queued` / `crawling` / `done` / `expired` / `failed`）
   輪詢進度，並在 agent 離線時顯示排隊提示。
 - **離線排隊**：agent 不在線時任務留在 `pending`；agent 上線後自動認領跑完，不遺漏。
-- **agent 獨立**：`agent/` 下有自己的 `pyproject.toml`（httpx + click），
+- **agent 獨立**：`agent/` 下有自己的 `pyproject.toml`（httpx + python-dotenv），
   不 import 後端 `job_tracker` 套件，只負責打 104 回原始 JSON；解析/LLM 全在雲端。
   3 個單元測試（MockTransport 模擬 104 回應）全綠。
 

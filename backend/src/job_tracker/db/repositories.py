@@ -293,6 +293,7 @@ class CrawlTaskRepository:
 
     def __init__(self, db: AsyncIOMotorDatabase):
         self._col = db["crawl_tasks"]
+        self._searches = db["searches"]
 
     async def enqueue(self, task: CrawlTask) -> CrawlTask:
         doc = task.model_dump(mode="json")
@@ -317,7 +318,7 @@ class CrawlTaskRepository:
 
     async def complete(self, task_id: str, raw_json: dict) -> CrawlTask | None:
         doc = await self._col.find_one_and_update(
-            {"_id": task_id},
+            {"_id": task_id, "status": "claimed"},
             {"$set": {"status": "done", "raw_json": raw_json,
                       "completed_at": datetime.now(UTC).isoformat()}},
             return_document=True,
@@ -326,7 +327,7 @@ class CrawlTaskRepository:
 
     async def fail(self, task_id: str, error: str) -> CrawlTask | None:
         doc = await self._col.find_one_and_update(
-            {"_id": task_id},
+            {"_id": task_id, "status": "claimed"},
             {"$set": {"status": "failed", "error": error,
                       "completed_at": datetime.now(UTC).isoformat()}},
             return_document=True,
@@ -337,10 +338,26 @@ class CrawlTaskRepository:
         now = datetime.now(UTC)
         pending_cutoff = (now - timedelta(seconds=pending_ttl_sec)).isoformat()
         claimed_cutoff = (now - timedelta(seconds=claimed_ttl_sec)).isoformat()
+        # Collect search_ids of search-type tasks about to expire
+        expiring_filter = {
+            "type": "search",
+            "status": "pending",
+            "created_at": {"$lt": pending_cutoff},
+        }
+        search_ids = [
+            doc["search_id"]
+            async for doc in self._col.find(expiring_filter, {"search_id": 1})
+        ]
         await self._col.update_many(
             {"status": "pending", "created_at": {"$lt": pending_cutoff}},
             {"$set": {"status": "expired"}},
         )
+        # Propagate expired status to owning SearchRun documents
+        if search_ids:
+            await self._searches.update_many(
+                {"_id": {"$in": search_ids}},
+                {"$set": {"crawl_status": "expired"}},
+            )
         await self._col.update_many(
             {"status": "claimed", "claimed_at": {"$lt": claimed_cutoff}},
             {"$set": {"status": "pending", "claimed_at": None}},

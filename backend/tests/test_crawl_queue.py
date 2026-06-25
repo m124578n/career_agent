@@ -94,3 +94,34 @@ async def test_agent_status_offline_until_touch():
     await repo.touch()
     assert await repo.last_seen() is not None
     assert await repo.is_online(window_sec=30) is True
+
+
+@pytest.mark.asyncio
+async def test_reap_propagates_expired_to_search():
+    """pending search 任務過期時，其 SearchRun 的 crawl_status 也要變 expired，
+    否則前端會永遠停在「排隊中」輪詢。"""
+    db = AsyncMongoMockClient()["test"]
+    repo = CrawlTaskRepository(db)
+    await repo.enqueue(_task("old", type="search"))  # search_id="s1"
+    await db["searches"].insert_one({"_id": "s1", "crawl_status": "queued"})
+    old = (datetime.now(UTC) - timedelta(hours=25)).isoformat()
+    await db["crawl_tasks"].update_one({"_id": "old"}, {"$set": {"created_at": old}})
+    await repo.reap(pending_ttl_sec=24 * 3600, claimed_ttl_sec=300)
+    assert (await repo.get("old")).status == "expired"
+    search = await db["searches"].find_one({"_id": "s1"})
+    assert search["crawl_status"] == "expired"
+
+
+@pytest.mark.asyncio
+async def test_complete_on_non_claimed_is_noop():
+    """status guard：對已 done（非 claimed）的任務重送 complete 回 None、不覆寫，
+    避免 agent 逾時重送造成 advance_page／額度重複累加。"""
+    db = AsyncMongoMockClient()["test"]
+    repo = CrawlTaskRepository(db)
+    await repo.enqueue(_task("t1"))
+    await repo.claim()
+    first = await repo.complete("t1", {"data": [1]})
+    assert first is not None and first.status == "done"
+    again = await repo.complete("t1", {"data": [2, 3]})
+    assert again is None  # 已非 claimed → no-op
+    assert (await repo.get("t1")).raw_json == {"data": [1]}  # 未被覆寫

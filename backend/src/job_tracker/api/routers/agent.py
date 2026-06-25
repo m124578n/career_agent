@@ -1,7 +1,7 @@
 """本機爬蟲 agent 端點（機器對機器，共享密鑰認證）。
 
 agent 輪詢 claim 認領任務 → 用住宅 IP 抓 104 → complete 回填原始 JSON。
-complete 的派工處理（解析存候選 / 跑 LLM）在 services 層，見 process_completed_task。
+complete 端點依任務型別就地派工：search → 解析存候選；detail → 背景跑 LLM 分析。
 """
 
 from fastapi import APIRouter, Depends

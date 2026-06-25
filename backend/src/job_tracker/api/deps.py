@@ -1,5 +1,7 @@
 """共用的 FastAPI 依賴：repo providers、認證、每日額度檢查。"""
 
+import hmac
+
 from fastapi import Header, HTTPException
 
 from job_tracker.auth import current_user  # re-export 供 routers 使用
@@ -86,5 +88,5 @@ def verify_agent(authorization: str = Header(default="")) -> None:
     secret = get_settings().agent_secret
     if not secret:
         raise HTTPException(status_code=503, detail="agent 端點未啟用")
-    if authorization != f"Bearer {secret}":
+    if not hmac.compare_digest(authorization, f"Bearer {secret}"):
         raise HTTPException(status_code=401, detail="agent 密鑰錯誤")
