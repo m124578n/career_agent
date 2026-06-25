@@ -87,7 +87,7 @@ ALLOWED_ORIGINS=https://career-agent.pages.dev
 
 - **後端** enqueue 爬蟲任務到 MongoDB（非同步）。
 - **Agent**（開發機）每隔一段時間呼叫 `/api/agent/claim`，拉出待爬任務。
-- **Agent** 以住宅 IP 連 104，抓職缺資訊，POST `/api/agent/callback` 回傳結果。
+- **Agent** 以住宅 IP 連 104，抓職缺資訊，POST `/api/agent/complete` 回傳結果。
 - Agent 離線時，任務會排隊；Agent 上線後自動執行。
 
 ### 設定步驟
