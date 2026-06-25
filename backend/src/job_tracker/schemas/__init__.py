@@ -87,6 +87,7 @@ class SearchRun(BaseModel):
     created_at: datetime = Field(default_factory=_utcnow)
     next_page: int = 1       # 已爬到第幾頁，爬下一頁用
     count: int = 0           # 候選總數
+    crawl_status: str = "done"  # queued|crawling|done|expired|failed（搜尋頁爬取狀態）
 
 
 class CrawlTask(BaseModel):

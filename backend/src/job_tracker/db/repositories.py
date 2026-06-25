@@ -127,7 +127,7 @@ class SearchRepository:
 
     async def create(self, user, keyword, target, area=None) -> SearchRun:
         run = SearchRun(search_id=uuid4().hex, user=user, keyword=keyword,
-                        target=target, area=area)
+                        target=target, area=area, crawl_status="queued")
         doc = run.model_dump(mode="json")
         doc["_id"] = run.search_id
         await self._col.insert_one(doc)
@@ -140,6 +140,10 @@ class SearchRepository:
     async def list(self, user: str) -> list[SearchRun]:
         cur = self._col.find({"user": user}).sort("created_at", -1)
         return [SearchRun(**doc) async for doc in cur]
+
+    async def set_crawl_status(self, search_id: str, status: str) -> None:
+        await self._col.update_one({"_id": search_id},
+                                   {"$set": {"crawl_status": status}})
 
     async def advance_page(self, search_id, next_page, count_delta) -> None:
         await self._col.update_one(
