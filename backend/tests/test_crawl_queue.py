@@ -36,3 +36,24 @@ async def test_claim_is_atomic_no_double_claim():
 async def test_claim_returns_none_when_empty():
     repo = CrawlTaskRepository(AsyncMongoMockClient()["test"])
     assert await repo.claim() is None
+
+
+@pytest.mark.asyncio
+async def test_complete_stores_raw_and_marks_done():
+    repo = CrawlTaskRepository(AsyncMongoMockClient()["test"])
+    await repo.enqueue(_task("t1"))
+    await repo.claim()
+    done = await repo.complete("t1", {"data": [{"jobNo": "1"}]})
+    assert done.status == "done"
+    assert done.raw_json == {"data": [{"jobNo": "1"}]}
+    assert done.completed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_fail_marks_failed_with_error():
+    repo = CrawlTaskRepository(AsyncMongoMockClient()["test"])
+    await repo.enqueue(_task("t1"))
+    await repo.claim()
+    failed = await repo.fail("t1", "403 Forbidden")
+    assert failed.status == "failed"
+    assert failed.error == "403 Forbidden"

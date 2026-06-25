@@ -310,3 +310,21 @@ class CrawlTaskRepository:
     async def get(self, task_id: str) -> CrawlTask | None:
         doc = await self._col.find_one({"_id": task_id})
         return CrawlTask(**doc) if doc else None
+
+    async def complete(self, task_id: str, raw_json: dict) -> CrawlTask | None:
+        doc = await self._col.find_one_and_update(
+            {"_id": task_id},
+            {"$set": {"status": "done", "raw_json": raw_json,
+                      "completed_at": datetime.now(UTC).isoformat()}},
+            return_document=True,
+        )
+        return CrawlTask(**doc) if doc else None
+
+    async def fail(self, task_id: str, error: str) -> CrawlTask | None:
+        doc = await self._col.find_one_and_update(
+            {"_id": task_id},
+            {"$set": {"status": "failed", "error": error,
+                      "completed_at": datetime.now(UTC).isoformat()}},
+            return_document=True,
+        )
+        return CrawlTask(**doc) if doc else None
