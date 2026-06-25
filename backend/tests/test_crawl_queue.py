@@ -2,7 +2,7 @@ import pytest
 from datetime import UTC, datetime, timedelta
 from mongomock_motor import AsyncMongoMockClient
 
-from job_tracker.db.repositories import CrawlTaskRepository
+from job_tracker.db.repositories import CrawlTaskRepository, AgentStatusRepository
 from job_tracker.schemas import CrawlTask
 
 
@@ -84,3 +84,13 @@ async def test_reap_requeues_stale_claimed():
     t = await repo.get("stuck")
     assert t.status == "pending"
     assert t.claimed_at is None
+
+
+@pytest.mark.asyncio
+async def test_agent_status_offline_until_touch():
+    repo = AgentStatusRepository(AsyncMongoMockClient()["test"])
+    assert await repo.last_seen() is None
+    assert await repo.is_online(window_sec=30) is False
+    await repo.touch()
+    assert await repo.last_seen() is not None
+    assert await repo.is_online(window_sec=30) is True

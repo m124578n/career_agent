@@ -341,3 +341,29 @@ class CrawlTaskRepository:
             {"status": "claimed", "claimed_at": {"$lt": claimed_cutoff}},
             {"$set": {"status": "pending", "claimed_at": None}},
         )
+
+
+class AgentStatusRepository:
+    """記錄本機 agent 最近一次心跳，供前端判斷在線/離線。"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self._col = db["agent_status"]
+
+    async def touch(self) -> None:
+        await self._col.update_one(
+            {"_id": "agent"},
+            {"$set": {"last_seen": datetime.now(UTC).isoformat()}},
+            upsert=True,
+        )
+
+    async def last_seen(self) -> datetime | None:
+        doc = await self._col.find_one({"_id": "agent"})
+        if not doc or "last_seen" not in doc:
+            return None
+        return datetime.fromisoformat(doc["last_seen"])
+
+    async def is_online(self, window_sec: int) -> bool:
+        seen = await self.last_seen()
+        if seen is None:
+            return False
+        return (datetime.now(UTC) - seen).total_seconds() <= window_sec
