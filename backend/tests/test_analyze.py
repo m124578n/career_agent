@@ -1,9 +1,8 @@
+import pytest
 import httpx
 from mongomock_motor import AsyncMongoMockClient
 
-from job_tracker.db.repositories import (
-    JobRepository, MatchRepository, QuotaRepository,
-)
+from job_tracker.db.repositories import JobRepository, MatchRepository, QuotaRepository
 from job_tracker.schemas import Job, JobMatch, ResumeTarget
 from job_tracker.services import analyze as analyze_svc
 
@@ -71,3 +70,18 @@ async def test_analyze_one_failure_marks_failed():
     await client.aclose()
     assert (await mr.get_match("s1", "1")).status == "failed"
     assert await qr.used_today("u1") == 0  # 失敗不計額度
+
+
+@pytest.mark.asyncio
+async def test_store_candidates_from_raw_adds_candidates():
+    db = AsyncMongoMockClient()["test"]
+    match_repo = MatchRepository(db)
+    raw = {"data": [
+        {"jobNo": "1", "jobName": "Python 工程師", "custName": "A",
+         "link": {"job": "https://www.104.com.tw/job/abc"},
+         "descSnippet": "[[[Python]]]", "salaryLow": 0, "salaryHigh": 0},
+    ]}
+    out = await analyze_svc.store_candidates_from_raw("s1", "u@x", "python", raw, match_repo)
+    assert len(out) == 1
+    assert out[0].job.job_id == "1"
+    assert out[0].status == "candidate"
