@@ -155,3 +155,36 @@ async def test_analyze_allows_retry_failed(monkeypatch):
     task = await CrawlTaskRepository(db).claim()
     assert task.type == "detail" and task.job_id == "1"
     assert (await match_repo.get_match(run.search_id, "1")).status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_get_single_search_returns_crawl_status(monkeypatch):
+    db = AsyncMongoMockClient()["test"]
+    search_repo = SearchRepository(db)
+    run = await search_repo.create("dev@local", "python",
+                                   {"target_title": "後端", "expected_salary": None,
+                                    "resume_text": "x"})
+    app.dependency_overrides[deps.get_search_repo] = lambda: search_repo
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get(f"/api/jobs/searches/{run.search_id}")
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.json()["crawl_status"] == "queued"
+
+
+@pytest.mark.asyncio
+async def test_agent_status_endpoint(monkeypatch):
+    db = AsyncMongoMockClient()["test"]
+    from job_tracker.db.repositories import AgentStatusRepository, CrawlTaskRepository
+    app.dependency_overrides[deps.get_agent_status_repo] = lambda: AgentStatusRepository(db)
+    app.dependency_overrides[deps.get_crawl_task_repo] = lambda: CrawlTaskRepository(db)
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/api/jobs/agent-status")
+    finally:
+        app.dependency_overrides.clear()
+    body = resp.json()
+    assert body["online"] is False and body["pending"] == 0

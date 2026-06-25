@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from job_tracker.api.deps import (
-    current_user, ensure_quota, get_crawl_task_repo, get_job_repo,
-    get_match_repo, get_quota_repo, get_search_repo,
+    current_user, ensure_quota, get_agent_status_repo, get_crawl_task_repo,
+    get_job_repo, get_match_repo, get_quota_repo, get_search_repo,
 )
 from job_tracker.config import get_settings
 from job_tracker.db.repositories import (
-    CrawlTaskRepository, JobRepository, MatchRepository, QuotaRepository,
-    SearchRepository,
+    AgentStatusRepository, CrawlTaskRepository, JobRepository,
+    MatchRepository, QuotaRepository, SearchRepository,
 )
 from job_tracker.schemas import CrawlTask, JobMatch, ResumeTarget, SearchRun
 from job_tracker.services import cover_letter as cover_letter_svc
@@ -120,6 +120,15 @@ async def list_searches(
     return await search_repo.list(user)
 
 
+@router.get("/searches/{search_id}")
+async def get_search(
+    search_id: str,
+    user: str = Depends(current_user),
+    search_repo: SearchRepository = Depends(get_search_repo),
+) -> SearchRun:
+    return await _ensure_owned(search_id, user, search_repo)
+
+
 @router.delete("/searches/{search_id}")
 async def delete_search(
     search_id: str,
@@ -151,3 +160,15 @@ async def generate_cover_letter(
     await match_repo.set_cover_letter(search_id, req.job_id, text)
     await quota.add(user, 1)
     return {"cover_letter": text}
+
+
+@router.get("/agent-status")
+async def agent_status(
+    user: str = Depends(current_user),
+    status_repo: AgentStatusRepository = Depends(get_agent_status_repo),
+    queue: CrawlTaskRepository = Depends(get_crawl_task_repo),
+) -> dict:
+    s = get_settings()
+    online = await status_repo.is_online(s.agent_offline_after_sec)
+    pending = await queue._col.count_documents({"status": {"$in": ["pending", "claimed"]}})
+    return {"online": online, "pending": pending}
