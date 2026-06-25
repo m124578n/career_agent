@@ -1,0 +1,29 @@
+import httpx
+import pytest
+from mongomock_motor import AsyncMongoMockClient
+
+from job_tracker.api import deps
+from job_tracker.config import get_settings
+from job_tracker.main import app
+
+
+@pytest.fixture
+def _secret(monkeypatch):
+    monkeypatch.setenv("AGENT_SECRET", "s3cr3t")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_claim_rejects_wrong_secret(_secret):
+    db = AsyncMongoMockClient()["test"]
+    app.dependency_overrides[deps.get_crawl_task_repo] = lambda: deps.CrawlTaskRepository(db)
+    app.dependency_overrides[deps.get_agent_status_repo] = lambda: deps.AgentStatusRepository(db)
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post("/api/agent/claim", headers={"Authorization": "Bearer wrong"})
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 401
