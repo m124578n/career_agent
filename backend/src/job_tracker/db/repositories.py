@@ -3,7 +3,7 @@
 文件結構：以 job_id 為 _id，存 Job 欄位；詳情存在 `detail` 子文件。
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -328,3 +328,16 @@ class CrawlTaskRepository:
             return_document=True,
         )
         return CrawlTask(**doc) if doc else None
+
+    async def reap(self, pending_ttl_sec: int, claimed_ttl_sec: int) -> None:
+        now = datetime.now(UTC)
+        pending_cutoff = (now - timedelta(seconds=pending_ttl_sec)).isoformat()
+        claimed_cutoff = (now - timedelta(seconds=claimed_ttl_sec)).isoformat()
+        await self._col.update_many(
+            {"status": "pending", "created_at": {"$lt": pending_cutoff}},
+            {"$set": {"status": "expired"}},
+        )
+        await self._col.update_many(
+            {"status": "claimed", "claimed_at": {"$lt": claimed_cutoff}},
+            {"$set": {"status": "pending", "claimed_at": None}},
+        )

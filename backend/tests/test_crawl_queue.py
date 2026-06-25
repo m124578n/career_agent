@@ -1,4 +1,5 @@
 import pytest
+from datetime import UTC, datetime, timedelta
 from mongomock_motor import AsyncMongoMockClient
 
 from job_tracker.db.repositories import CrawlTaskRepository
@@ -57,3 +58,29 @@ async def test_fail_marks_failed_with_error():
     failed = await repo.fail("t1", "403 Forbidden")
     assert failed.status == "failed"
     assert failed.error == "403 Forbidden"
+
+
+@pytest.mark.asyncio
+async def test_reap_expires_old_pending():
+    db = AsyncMongoMockClient()["test"]
+    repo = CrawlTaskRepository(db)
+    await repo.enqueue(_task("old"))
+    # 手動把 created_at 改成 25 小時前
+    old = (datetime.now(UTC) - timedelta(hours=25)).isoformat()
+    await db["crawl_tasks"].update_one({"_id": "old"}, {"$set": {"created_at": old}})
+    await repo.reap(pending_ttl_sec=24 * 3600, claimed_ttl_sec=300)
+    assert (await repo.get("old")).status == "expired"
+
+
+@pytest.mark.asyncio
+async def test_reap_requeues_stale_claimed():
+    db = AsyncMongoMockClient()["test"]
+    repo = CrawlTaskRepository(db)
+    await repo.enqueue(_task("stuck"))
+    await repo.claim()
+    stale = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+    await db["crawl_tasks"].update_one({"_id": "stuck"}, {"$set": {"claimed_at": stale}})
+    await repo.reap(pending_ttl_sec=24 * 3600, claimed_ttl_sec=300)
+    t = await repo.get("stuck")
+    assert t.status == "pending"
+    assert t.claimed_at is None
