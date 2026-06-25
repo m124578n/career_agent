@@ -4,11 +4,14 @@
 """
 
 import asyncio
+import logging
 import os
 import random
 
 import httpx
 from dotenv import load_dotenv
+
+log = logging.getLogger("agent")
 
 SEARCH_URL = "https://www.104.com.tw/jobs/search/api/jobs"
 DETAIL_URL = "https://www.104.com.tw/job/ajax/content/{code}"
@@ -34,9 +37,18 @@ async def _warmup(client: httpx.AsyncClient) -> None:
         return
     try:
         await client.get(WARMUP_URL, headers={"User-Agent": _UA})
-    except httpx.HTTPError:
-        pass
+        log.info("已暖身（取得 104 cookie）")
+    except httpx.HTTPError as exc:
+        log.warning("暖身失敗（略過）：%s", exc)
     _warmed = True
+
+
+def _task_summary(task: dict) -> str:
+    """任務的簡短描述，供 log 用。"""
+    p = task.get("payload", {})
+    if task.get("type") == "search":
+        return f"keyword={p.get('keyword')!r} page={p.get('page')} area={p.get('area')}"
+    return f"code={p.get('code')}"
 
 
 async def fetch_104(task: dict, client: httpx.AsyncClient) -> dict:
@@ -66,35 +78,71 @@ async def run_once(client: httpx.AsyncClient, cloud_base: str, secret: str) -> s
     task = claimed.json().get("task")
     if not task:
         return "idle"
+
+    tid = task.get("task_id")
+    log.info("認領任務 %s [%s] %s", tid, task.get("type"), _task_summary(task))
     try:
         raw = await fetch_104(task, client)
-        await client.post(f"{cloud_base}/api/agent/complete", headers=auth,
-                          json={"task_id": task["task_id"], "raw_json": raw})
-        return "done"
+        n = len(raw.get("data", [])) if isinstance(raw.get("data"), list) else "?"
+        log.info("抓取 104 成功 task=%s（data 筆數=%s）", tid, n)
     except Exception as exc:  # noqa: BLE001
-        await client.post(f"{cloud_base}/api/agent/complete", headers=auth,
-                          json={"task_id": task["task_id"], "error": str(exc)})
+        # 抓 104 失敗：回報 error 給雲端（這段以前是靜默的，現在記下原因）
+        log.warning("抓取 104 失敗 task=%s：%s", tid, exc)
+        try:
+            await client.post(f"{cloud_base}/api/agent/complete", headers=auth,
+                              json={"task_id": tid, "error": str(exc)[:500]})
+        except Exception as exc2:  # noqa: BLE001
+            log.error("回報失敗結果也失敗 task=%s：%s", tid, exc2)
         return "failed"
+
+    # 抓取成功 → 回填原始 JSON
+    try:
+        resp = await client.post(f"{cloud_base}/api/agent/complete", headers=auth,
+                                 json={"task_id": tid, "raw_json": raw})
+        resp.raise_for_status()
+        log.info("回填完成 task=%s → 雲端 %s", tid, resp.json().get("status", "?"))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("回填雲端失敗 task=%s：%s", tid, exc)
+        return "failed"
+    return "done"
 
 
 async def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
     load_dotenv()
     cloud_base = os.environ["CLOUD_BASE_URL"].rstrip("/")
     secret = os.environ["AGENT_SECRET"]
     poll = float(os.environ.get("POLL_INTERVAL", "3"))
     min_d = float(os.environ.get("MIN_DELAY", "2"))
     max_d = float(os.environ.get("MAX_DELAY", "5"))
-    print(f"agent 啟動，雲端={cloud_base}，輪詢每 {poll}s")
+    log.info("agent 啟動，雲端=%s，輪詢每 %ss", cloud_base, poll)
+
+    idle_streak = 0
+    done_count = 0
     async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
         while True:
             try:
                 result = await run_once(client, cloud_base, secret)
             except Exception as exc:  # noqa: BLE001
-                print("輪詢錯誤：", exc)
+                log.error("輪詢錯誤（claim 失敗？認證？網路？）：%s", exc)
                 result = "error"
+
+            if result == "idle":
+                idle_streak += 1
+                # 閒置不洗版，但每 ~2 分鐘報一次活著
+                if idle_streak % max(1, int(120 / poll)) == 0:
+                    log.info("閒置中…（已處理 %d 筆，持續輪詢）", done_count)
+            else:
+                idle_streak = 0
+                if result == "done":
+                    done_count += 1
+
             if result == "done":
-                # 抓完一筆後節流，避免連續打 104
-                await asyncio.sleep(random.uniform(min_d, max_d))
+                await asyncio.sleep(random.uniform(min_d, max_d))  # 抓完節流
             else:
                 await asyncio.sleep(poll)
 
