@@ -28,6 +28,54 @@ class CompleteRequest(BaseModel):
     error: str | None = None
 
 
+@router.get("/_diag104")
+async def diag_104() -> dict:
+    """臨時診斷：從雲端(Zeabur)同時用 httpx(Linux 原生 TLS) 與 curl_cffi(Chrome TLS)
+    各抓一次 104，分辨雲端被擋是 IP 還是 TLS 指紋。用完即移除。"""
+    import httpx as _httpx
+    from curl_cffi.requests import AsyncSession
+
+    UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+    params = {"ro": 0, "keyword": "python", "order": 15, "asc": 0,
+              "page": 1, "mode": "s", "jobsource": "index_s"}
+    api = "https://www.104.com.tw/jobs/search/api/jobs"
+    warm = "https://www.104.com.tw/jobs/search/"
+    out: dict = {}
+
+    try:
+        async with _httpx.AsyncClient(timeout=15) as c:
+            out["egress_ip"] = (await c.get("https://api.ipify.org")).text
+    except Exception as e:  # noqa: BLE001
+        out["egress_ip"] = f"err: {e}"
+
+    try:
+        async with _httpx.AsyncClient(follow_redirects=True, timeout=20) as c:
+            await c.get(warm, headers={"User-Agent": UA})
+            r = await c.get(api, params=params, headers={
+                "User-Agent": UA, "Referer": warm,
+                "Accept": "application/json, text/plain, */*",
+                "X-Requested-With": "XMLHttpRequest"})
+            out["httpx_status"] = r.status_code
+    except Exception as e:  # noqa: BLE001
+        out["httpx_status"] = f"err: {type(e).__name__}: {e}"
+
+    try:
+        async with AsyncSession(impersonate="chrome", timeout=20) as s:
+            await s.get(warm)
+            r = await s.get(api, params=params, headers={
+                "Referer": warm, "X-Requested-With": "XMLHttpRequest"})
+            out["curlcffi_status"] = r.status_code
+            try:
+                out["curlcffi_count"] = len(r.json().get("data", []))
+            except Exception:  # noqa: BLE001
+                out["curlcffi_count"] = None
+    except Exception as e:  # noqa: BLE001
+        out["curlcffi_status"] = f"err: {type(e).__name__}: {e}"
+
+    return out
+
+
 @router.post("/claim")
 async def claim_task(
     status_repo: AgentStatusRepository = Depends(get_agent_status_repo),
