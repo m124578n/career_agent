@@ -41,7 +41,6 @@
    | `DAILY_CALL_LIMIT` | `50`（每人每日 LLM 呼叫上限） |
    | `ADMIN_EMAILS` | 你的 email（可看全站 token 用量，逗號分隔多個） |
    | `LOG_LEVEL` | `INFO` |
-   | `AGENT_SECRET` | 本機爬蟲 agent 的共享密鑰（與 `agent/.env` 相同；空 = 停用 agent 端點） |
 
 5. `PORT` 由 Zeabur 自動帶入，Dockerfile 已處理。
 6. 部署後記下後端網址，例：`https://career-agent-api.zeabur.app`。
@@ -76,54 +75,6 @@ ALLOWED_ORIGINS=https://career-agent.pages.dev
 ```
 
 重新部署後端即生效。
-
----
-
-## 本機爬蟲 Agent（104 封 IP 對策）
-
-104 網站封鎖機房 IP（防爬），故爬職缺必須用住宅 IP。解方：在開發機（家裡）跑一個小 agent，定期輪詢後端任務隊列、爬取資料、回傳結果。
-
-### 運作原理
-
-- **後端** enqueue 爬蟲任務到 MongoDB（非同步）。
-- **Agent**（開發機）每隔一段時間呼叫 `/api/agent/claim`，拉出待爬任務。
-- **Agent** 以住宅 IP 連 104，抓職缺資訊，POST `/api/agent/complete` 回傳結果。
-- Agent 離線時，任務會排隊；Agent 上線後自動執行。
-
-### 設定步驟
-
-1. **後端（Zeabur）設定 `AGENT_SECRET`**
-
-   在 Zeabur dashboard 的環境變數加一行：
-   ```
-   AGENT_SECRET=<隨便一個複雜密鑰，例：$(openssl rand -base64 24)>
-   ```
-   重新部署後端。
-
-2. **本機 Agent 設定**
-
-   在開發機的 `agent/.env` 填：
-   ```
-   AGENT_SECRET=<與後端相同的密鑰>
-   CLOUD_BASE_URL=https://career-agent-api.zeabur.app
-   ```
-
-3. **啟動 Agent**
-
-   ```bash
-   cd agent
-   uv sync        # 安裝依賴
-   uv run python agent.py
-   ```
-
-   Agent 會持續執行，每次輪詢都印出 log。
-
-### 注意事項
-
-- **Agent 要一直開著**（如要爬職缺）；建議用 `tmux` 或後台執行（如 `nohup`）。
-- **`AGENT_SECRET` 留空 = 停用 agent 端點**，Agent 無法連接。
-- **換密鑰務必同時改** Zeabur 和 `agent/.env`，否則認證失敗。
-- 爬蟲失敗（如 104 IP 變化、網站異動）會記在 MongoDB，檢查後端 log 診斷。
 
 ---
 

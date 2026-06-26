@@ -3,7 +3,6 @@ from job_tracker.schemas import (
     Application,
     ApplicationEvent,
     ApplicationStatus,
-    CrawlTask,
     Job,
     ResumeTarget,
     SearchRun,
@@ -92,12 +91,3 @@ def test_jobmatch_benefits_defaults_empty():
               url="https://www.104.com.tw/job/c1")
     m = JobMatch(job=job)
     assert m.benefits == []
-
-
-def test_crawl_task_defaults():
-    t = CrawlTask(task_id="t1", type="search", payload={"keyword": "ai", "page": 1, "area": None},
-                  search_id="s1", user="u@x")
-    assert t.status == "pending"
-    assert t.job_id is None
-    assert t.raw_json is None
-    assert t.created_at is not None

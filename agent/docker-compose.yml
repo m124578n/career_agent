@@ -1,9 +1,0 @@
-# 本機爬蟲 agent。需要爬職缺時：cd agent && docker compose up -d --build
-# 停止：docker compose down　看 log：docker compose logs -f
-services:
-  agent:
-    build: .
-    image: career-agent-crawler:local
-    container_name: career-agent-crawler
-    env_file: .env          # 讀 CLOUD_BASE_URL + AGENT_SECRET（密鑰不進 image）
-    restart: unless-stopped # 崩潰/開機自動重啟

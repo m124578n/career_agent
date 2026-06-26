@@ -1,8 +1,6 @@
 import json
 from pathlib import Path
 
-import httpx
-
 from job_tracker import crawler
 from job_tracker.crawler import (
     _format_salary,
@@ -12,7 +10,6 @@ from job_tracker.crawler import (
     fetch_job_detail,
     parse_job_detail,
     parse_jobs,
-    parse_search_payload,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "104_search.json"
@@ -25,6 +22,32 @@ def load_payload() -> dict:
 
 def load_detail_payload() -> dict:
     return json.loads(DETAIL_FIXTURE.read_text(encoding="utf-8"))
+
+
+class _FakeResp:
+    def __init__(self, payload: dict):
+        self._payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return self._payload
+
+
+class _FakeSession:
+    """模擬 curl_cffi AsyncSession：記錄請求、回固定 payload。"""
+
+    def __init__(self, payload: dict):
+        self._payload = payload
+        self.requests: list[dict] = []
+
+    async def get(self, url, params=None, headers=None):
+        self.requests.append({"url": url, "params": params or {}, "headers": headers or {}})
+        return _FakeResp(self._payload)
+
+    async def close(self) -> None:
+        return None
 
 
 def test_parse_jobs_returns_all_jobs():
@@ -78,20 +101,12 @@ def test_parse_job_detail_extracts_fields():
 
 
 async def test_crawl_jobs_sends_referer_and_parses():
-    captured: dict = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["referer"] = request.headers.get("referer")
-        captured["keyword"] = request.url.params.get("keyword")
-        return httpx.Response(200, json=load_payload())
-
-    transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport) as client:
-        results = await crawl_jobs("python", client=client)
-
+    sess = _FakeSession(load_payload())
+    results = await crawl_jobs("python", session=sess)
+    req = sess.requests[0]
     # 沒帶 Referer 會被 104 擋（403），所以必須送
-    assert captured["referer"] == "https://www.104.com.tw/jobs/search/"
-    assert captured["keyword"] == "python"
+    assert req["headers"].get("Referer") == "https://www.104.com.tw/jobs/search/"
+    assert req["params"].get("keyword") == "python"
     assert len(results) == 2
     # crawl_jobs 回 list[tuple[Job, bool]]
     job, relevant = results[0]
@@ -100,20 +115,12 @@ async def test_crawl_jobs_sends_referer_and_parses():
 
 
 async def test_fetch_job_detail_uses_job_specific_referer():
-    captured: dict = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["referer"] = request.headers.get("referer")
-        captured["url"] = str(request.url)
-        return httpx.Response(200, json=load_detail_payload())
-
-    transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport) as client:
-        detail = await fetch_job_detail("8rl43", client=client)
-
+    sess = _FakeSession(load_detail_payload())
+    detail = await fetch_job_detail("8rl43", session=sess)
+    req = sess.requests[0]
     # 詳情 API 需帶該職缺自己的 Referer 才不會 403
-    assert captured["referer"] == "https://www.104.com.tw/job/8rl43"
-    assert "8rl43" in captured["url"]
+    assert req["headers"].get("Referer") == "https://www.104.com.tw/job/8rl43"
+    assert "8rl43" in req["url"]
     assert detail.salary == "待遇面議"
 
 
@@ -124,14 +131,10 @@ async def test_crawl_job_details_throttles_between_requests(monkeypatch):
         sleeps.append(seconds)
 
     monkeypatch.setattr(crawler.asyncio, "sleep", fake_sleep)
-    transport = httpx.MockTransport(
-        lambda req: httpx.Response(200, json=load_detail_payload())
+    sess = _FakeSession(load_detail_payload())
+    details = await crawl_job_details(
+        ["aaa", "bbb", "ccc"], session=sess, min_delay=2.0, max_delay=5.0
     )
-
-    async with httpx.AsyncClient(transport=transport) as client:
-        details = await crawl_job_details(
-            ["aaa", "bbb", "ccc"], client=client, min_delay=2.0, max_delay=5.0
-        )
 
     assert len(details) == 3
     # 3 個請求 → 之間延遲 2 次（首個請求前不延遲）
@@ -162,29 +165,15 @@ def test_not_relevant_is_ad():
 
 
 async def test_crawl_jobs_passes_area_and_returns_relevance():
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["area"] = request.url.params.get("area")
-        return httpx.Response(200, json={"data": [
-            {"jobNo": "1", "jobName": "Python 工程師", "custName": "A",
-             "link": {"job": "https://www.104.com.tw/job/abc"},
-             "descSnippet": "[[[Python]]]", "salaryLow": 0, "salaryHigh": 0},
-            {"jobNo": "2", "jobName": "房仲業務", "custName": "B",
-             "link": {"job": "https://www.104.com.tw/job/xyz"},
-             "descSnippet": "誠徵房仲", "description": "不動產", "salaryLow": 0, "salaryHigh": 0},
-        ]})
-
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    out = await crawl_jobs("python", page=1, area="6001001000", client=client)
-    await client.aclose()
-    assert captured["area"] == "6001001000"
+    payload = {"data": [
+        {"jobNo": "1", "jobName": "Python 工程師", "custName": "A",
+         "link": {"job": "https://www.104.com.tw/job/abc"},
+         "descSnippet": "[[[Python]]]", "salaryLow": 0, "salaryHigh": 0},
+        {"jobNo": "2", "jobName": "房仲業務", "custName": "B",
+         "link": {"job": "https://www.104.com.tw/job/xyz"},
+         "descSnippet": "誠徵房仲", "description": "不動產", "salaryLow": 0, "salaryHigh": 0},
+    ]}
+    sess = _FakeSession(payload)
+    out = await crawl_jobs("python", page=1, area="6001001000", session=sess)
+    assert sess.requests[0]["params"].get("area") == "6001001000"
     assert [(j.job_id, rel) for j, rel in out] == [("1", True), ("2", False)]
-
-
-def test_parse_search_payload_returns_jobs_with_relevance():
-    out = parse_search_payload(load_payload(), "python")
-    assert len(out) == 2
-    job, rel = out[0]
-    assert job.job_id == "14724003"
-    assert rel is True  # descSnippet 有 [[[Python]]]

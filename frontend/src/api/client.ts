@@ -60,23 +60,20 @@ export const api = {
       body: JSON.stringify(target),
     }),
   createSearch: (req: { keyword: string; target: ResumeTarget; area?: string | null }) =>
-    request<{ search_id: string; status: string }>("/jobs/searches", {
+    request<{ search_id: string; candidates: JobMatch[] }>("/jobs/searches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req),
     }),
   crawlNext: (searchId: string) =>
-    request<{ status: string }>(`/jobs/searches/${searchId}/crawl-next`, { method: "POST" }),
+    request<{ candidates: JobMatch[] }>(`/jobs/searches/${searchId}/crawl-next`, { method: "POST" }),
   analyzeSelected: (searchId: string, jobIds: string[]) =>
     request<{ queued: number }>(`/jobs/searches/${searchId}/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ job_ids: jobIds }),
     }),
-  getSearch: (id: string) => request<SearchRun>(`/jobs/searches/${id}`),
   listSearches: () => request<SearchRun[]>("/jobs/searches"),
-  agentStatus: () =>
-    request<{ online: boolean; pending: number }>("/jobs/agent-status"),
   searchMatches: (searchId: string) =>
     request<JobMatch[]>(`/jobs/searches/${searchId}/matches`),
   deleteSearch: (searchId: string) =>

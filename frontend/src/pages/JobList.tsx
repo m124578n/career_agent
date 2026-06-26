@@ -58,30 +58,12 @@ export function JobList() {
 
   const searchesQ = useQuery({ queryKey: ["searches"], queryFn: api.listSearches });
 
-  const agentQ = useQuery({
-    queryKey: ["agent-status"],
-    queryFn: api.agentStatus,
-    refetchInterval: 15000,
-  });
-
-  const searchQ = useQuery({
-    queryKey: ["search", selectedId],
-    queryFn: () => api.getSearch(selectedId!),
-    enabled: !!selectedId,
-    refetchInterval: (q) =>
-      ["queued", "crawling"].includes(q.state.data?.crawl_status ?? "") ? 2500 : false,
-  });
-  const crawlStatus = searchQ.data?.crawl_status;
-
   const matchesQ = useQuery({
     queryKey: ["search-matches", selectedId],
     queryFn: () => api.searchMatches(selectedId!),
     enabled: !!selectedId,
-    refetchInterval: (q) => {
-      const hasPending = (q.state.data ?? []).some((m) => m.status === "pending");
-      const crawling = ["queued", "crawling"].includes(crawlStatus ?? "");
-      return hasPending || crawling ? 2500 : false;
-    },
+    refetchInterval: (q) =>
+      (q.state.data ?? []).some((m) => m.status === "pending") ? 2500 : false,
   });
   const matches = matchesQ.data ?? [];
   const candidates = matches.filter((m) => m.status === "candidate");
@@ -118,34 +100,23 @@ export function JobList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
-  // 自動勾選 relevant 候選：每個搜尋只在候選首次到達時預選 relevant === true 的職缺，
-  // 之後即使使用者手動取消全選、candidates 參照因 poll 更新，也不會再覆蓋。
-  const autoPickedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!selectedId || candidates.length === 0) return;
-    if (autoPickedRef.current === selectedId) return; // 已對此搜尋自動勾選過
-    autoPickedRef.current = selectedId;
-    if (picked.size > 0) return; // 已有勾選（理論上首次不會，但保險起見）
-    const relevant = new Set(
-      candidates.filter((c) => c.relevant).map((c) => c.job.job_id)
-    );
-    if (relevant.size > 0) setPicked(relevant);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidates, selectedId]);
-
   const createMut = useMutation({
     mutationFn: api.createSearch,
     onSuccess: (data) => {
       setSelectedId(data.search_id);
-      setPicked(new Set());
+      setPicked(new Set(data.candidates.filter((c) => c.relevant).map((c) => c.job.job_id)));
       qc.invalidateQueries({ queryKey: ["searches"] });
       qc.invalidateQueries({ queryKey: ["search-matches", data.search_id] });
     },
   });
   const crawlMut = useMutation({
     mutationFn: () => api.crawlNext(selectedId!),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["searches"] });
+    onSuccess: (data) => {
+      setPicked((p) => {
+        const n = new Set(p);
+        data.candidates.filter((c) => c.relevant).forEach((c) => n.add(c.job.job_id));
+        return n;
+      });
       qc.invalidateQueries({ queryKey: ["search-matches", selectedId] });
     },
   });
@@ -257,10 +228,6 @@ export function JobList() {
                 {target.expected_salary
                   ? ` · 期望 ${target.expected_salary.toLocaleString()}`
                   : ""}
-              </Text>
-              <Text fz="xs" c={agentQ.data?.online ? "teal" : "dimmed"} mt={8}>
-                {agentQ.data?.online ? "🟢 爬蟲在線" : "⚪ 爬蟲離線"}
-                {agentQ.data && agentQ.data.pending > 0 ? ` · 排隊 ${agentQ.data.pending}` : ""}
               </Text>
               {(createMut.isError || crawlMut.isError) && (
                 <Text fz="xs" c="tangerine.5" mt={6}>
@@ -458,12 +425,6 @@ export function JobList() {
                     </Button>
                   )}
                 </Stack>
-              ) : crawlStatus === "queued" || crawlStatus === "crawling" ? (
-                <div className="jt-empty">
-                  {agentQ.data?.online ? "爬取中…請稍候" : "排隊中 · 等爬蟲上線"}
-                </div>
-              ) : crawlStatus === "expired" ? (
-                <div className="jt-empty">已過期 · 請重新搜尋</div>
               ) : (
                 <div className="jt-empty">
                   尚無結果 // 輸入關鍵字後執行「爬取候選」，勾選後「分析選中」

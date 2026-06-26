@@ -8,7 +8,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from job_tracker import llm
-from job_tracker.api.routers import agent as agent_router
 from job_tracker.api.routers import api_router
 from job_tracker.config import get_settings
 from job_tracker.db import close_client, get_db
@@ -69,7 +68,6 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(api_router)
-    app.include_router(agent_router.router, prefix="/api")
     return app
 
 

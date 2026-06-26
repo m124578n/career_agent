@@ -1,14 +1,15 @@
 """104 職缺爬蟲（M4）。
 
-實測 104 有 JSON API，帶 Referer header 即可純 HTTP 取得，不需 Playwright。
-未來考慮：改本機執行 → 經 queue 把結果寫回 DB（見規劃文件未來想法區）。
+104 有 JSON API，但 WAF 會用 TLS 指紋（JA3）擋掉非瀏覽器的 ClientHello
+（Linux/容器的預設 TLS 會被 403）。改用 curl_cffi 模擬 Chrome 的 TLS 指紋，
+雲端機房 IP 也能直接取得（實測同機房 IP：httpx 403、curl_cffi 200）。
 """
 
 import asyncio
 import logging
 import random
 
-import httpx
+from curl_cffi.requests import AsyncSession
 
 from job_tracker.schemas import Job, JobDetail
 
@@ -16,46 +17,23 @@ logger = logging.getLogger("job_tracker.crawler")
 
 SEARCH_URL = "https://www.104.com.tw/jobs/search/api/jobs"
 DETAIL_URL = "https://www.104.com.tw/job/ajax/content/{code}"
+WARMUP_URL = "https://www.104.com.tw/jobs/search/"
 
-_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-)
-# 完整 Chrome 請求指紋。機房 IP 會被 104 的 WAF 嚴格檢查，補齊瀏覽器特徵
-# 有機會把可疑分數頂過門檻（純 IP 封鎖則無效，需改本機/代理出口）。
-_HEADERS = {
-    "User-Agent": _UA,
-    # 104 沒帶 Referer 會回 403，必要
-    "Referer": "https://www.104.com.tw/jobs/search/",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-    "X-Requested-With": "XMLHttpRequest",
-    "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-}
+# curl_cffi 模擬的瀏覽器（連 TLS/JA3 + 預設 header 一起裝成這個版本）
+_IMPERSONATE = "chrome"
 
-# 暖身用：先以瀏覽器姿態載入搜尋頁，取得 WAF/session cookie 再打 API。
-_WARMUP_URL = "https://www.104.com.tw/jobs/search/"
-_WARMUP_HEADERS = {
-    "User-Agent": _UA,
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Upgrade-Insecure-Requests": "1",
-}
+_SEARCH_HEADERS = {"Referer": WARMUP_URL, "X-Requested-With": "XMLHttpRequest"}
 
 
-async def _warmup(client: httpx.AsyncClient) -> None:
-    """先載入搜尋頁取得 cookie（WAF 常要求先有 session）。失敗不擋主流程。"""
+def _new_session() -> AsyncSession:
+    return AsyncSession(impersonate=_IMPERSONATE, timeout=30)
+
+
+async def _warmup(session: AsyncSession) -> None:
+    """先載入搜尋頁取得 WAF/session cookie。失敗不擋主流程。"""
     try:
-        await client.get(_WARMUP_URL, headers=_WARMUP_HEADERS)
-    except httpx.HTTPError as exc:
+        await session.get(WARMUP_URL)
+    except Exception as exc:  # noqa: BLE001
         logger.warning("104 warmup failed (ignored): %s", exc)
 
 
@@ -64,13 +42,12 @@ async def crawl_jobs(
     *,
     page: int = 1,
     area: str | None = None,
-    client: httpx.AsyncClient | None = None,
+    session: AsyncSession | None = None,
 ) -> list[tuple[Job, bool]]:
     """以關鍵字搜尋 104，回傳指定頁的職缺及是否命中關鍵字。
 
-    `client` 可注入（測試用 MockTransport）；未提供則自建並於結束關閉。
-    每筆回傳 (Job, relevant)，relevant 標記該職缺是否真正命中關鍵字
-    （104 會夾帶廣告職缺）。
+    `session` 可注入（測試用假 session）；未提供則自建 curl_cffi session 並暖身。
+    每筆回傳 (Job, relevant)，relevant 標記是否真正命中關鍵字（104 會夾廣告職缺）。
     """
     params = {
         "ro": 0,
@@ -83,64 +60,67 @@ async def crawl_jobs(
     }
     if area:
         params["area"] = area
-    owns_client = client is None
-    client = client or httpx.AsyncClient(follow_redirects=True)
+    owns = session is None
+    session = session or _new_session()
     try:
-        if owns_client:
-            await _warmup(client)  # 真實執行先取 cookie；測試注入 client 則跳過
-        resp = await client.get(SEARCH_URL, params=params, headers=_HEADERS)
+        if owns:
+            await _warmup(session)
+        resp = await session.get(SEARCH_URL, params=params, headers=_SEARCH_HEADERS)
         resp.raise_for_status()
         payload = resp.json()
-        out = parse_search_payload(payload, keyword)
+        out = [
+            (_parse_job(raw), _is_relevant(raw, keyword))
+            for raw in payload.get("data", [])
+        ]
         logger.info("crawl keyword=%r page=%d area=%s -> %d jobs",
                     keyword, page, area, len(out))
         return out
     finally:
-        if owns_client:
-            await client.aclose()
+        if owns:
+            await session.close()
 
 
 async def fetch_job_detail(
     code: str,
     *,
-    client: httpx.AsyncClient | None = None,
+    session: AsyncSession | None = None,
 ) -> JobDetail:
     """抓單筆職缺詳情。詳情 API 需帶該職缺自己的 Referer。"""
-    headers = {
-        "User-Agent": _UA,
-        "Referer": f"https://www.104.com.tw/job/{code}",
-        "Accept": "application/json, text/plain, */*",
-    }
-    owns_client = client is None
-    client = client or httpx.AsyncClient()
+    headers = {"Referer": f"https://www.104.com.tw/job/{code}"}
+    owns = session is None
+    session = session or _new_session()
     try:
-        resp = await client.get(DETAIL_URL.format(code=code), headers=headers)
+        if owns:
+            await _warmup(session)
+        resp = await session.get(DETAIL_URL.format(code=code), headers=headers)
         resp.raise_for_status()
         return parse_job_detail(resp.json())
     finally:
-        if owns_client:
-            await client.aclose()
+        if owns:
+            await session.close()
 
 
 async def crawl_job_details(
     codes: list[str],
     *,
-    client: httpx.AsyncClient | None = None,
+    session: AsyncSession | None = None,
     min_delay: float = 2.0,
     max_delay: float = 5.0,
 ) -> list[JobDetail]:
     """逐筆抓多個職缺詳情，請求之間隨機延遲以避免被鎖（反爬節流）。"""
-    owns_client = client is None
-    client = client or httpx.AsyncClient()
+    owns = session is None
+    session = session or _new_session()
     results: list[JobDetail] = []
     try:
+        if owns:
+            await _warmup(session)
         for i, code in enumerate(codes):
             if i > 0:
                 await asyncio.sleep(random.uniform(min_delay, max_delay))
-            results.append(await fetch_job_detail(code, client=client))
+            results.append(await fetch_job_detail(code, session=session))
     finally:
-        if owns_client:
-            await client.aclose()
+        if owns:
+            await session.close()
     return results
 
 
@@ -155,14 +135,6 @@ def _is_relevant(raw: dict, keyword: str) -> bool:
         return True
     hay = ((raw.get("jobName", "") or "") + " " + (raw.get("description", "") or "")).lower()
     return any(t in hay for t in tokens)
-
-
-def parse_search_payload(payload: dict, keyword: str) -> list[tuple[Job, bool]]:
-    """把 104 搜尋 API 的原始 JSON 解析成 [(Job, relevant)]。供雲端解析 agent 回傳用。"""
-    return [
-        (_parse_job(raw), _is_relevant(raw, keyword))
-        for raw in payload.get("data", [])
-    ]
 
 
 def parse_jobs(payload: dict) -> list[Job]:

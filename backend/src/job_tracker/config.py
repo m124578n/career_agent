@@ -47,12 +47,6 @@ class Settings(BaseSettings):
     def admin_email_list(self) -> list[str]:
         return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
 
-    # 本機爬蟲 agent
-    agent_secret: str = ""           # 與 agent 共享的密鑰；空 = 停用 agent 端點
-    agent_offline_after_sec: int = 30   # 超過幾秒沒心跳視為離線
-    crawl_pending_ttl_sec: int = 86400  # pending 任務過期（24h）
-    crawl_claimed_ttl_sec: int = 300    # claimed 逾時回收（5min）
-
     # Logging
     log_level: str = "INFO"
 

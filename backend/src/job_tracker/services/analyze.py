@@ -9,9 +9,7 @@ import asyncio
 import logging
 from typing import Awaitable, Protocol
 
-import httpx
-
-from job_tracker.crawler import crawl_jobs, fetch_job_detail, parse_search_payload, parse_job_detail
+from job_tracker.crawler import crawl_jobs, fetch_job_detail
 from job_tracker.db.repositories import (
     JobRepository, MatchRepository, QuotaRepository,
 )
@@ -32,56 +30,12 @@ async def crawl_candidates(
     page: int,
     job_repo: JobRepository,
     match_repo: MatchRepository,
-    *,
-    http_client: httpx.AsyncClient | None = None,
 ) -> list[JobMatch]:
-    owns = http_client is None
-    http_client = http_client or httpx.AsyncClient()
-    try:
-        pairs = await crawl_jobs(keyword, page=page, area=area, client=http_client)
-        for job, relevant in pairs:
-            await match_repo.add_candidate(search_id, user, job, relevant)
-        logger.info("crawl_candidates s=%s page=%d -> %d", search_id, page, len(pairs))
-        return [await match_repo.get_match(search_id, j.job_id) for j, _ in pairs]
-    finally:
-        if owns:
-            await http_client.aclose()
-
-
-async def store_candidates_from_raw(
-    search_id: str, user: str, keyword: str, raw_json: dict,
-    match_repo: MatchRepository,
-) -> list[JobMatch]:
-    """把 agent 回傳的搜尋原始 JSON 解析成候選並存。"""
-    pairs = parse_search_payload(raw_json, keyword)
+    pairs = await crawl_jobs(keyword, page=page, area=area)
     for job, relevant in pairs:
         await match_repo.add_candidate(search_id, user, job, relevant)
-    logger.info("store_candidates s=%s -> %d", search_id, len(pairs))
+    logger.info("crawl_candidates s=%s page=%d -> %d", search_id, page, len(pairs))
     return [await match_repo.get_match(search_id, j.job_id) for j, _ in pairs]
-
-
-async def analyze_from_detail_raw(
-    search_id: str, user: str, job_id: str, raw_json: dict,
-    target: ResumeTarget, job_repo: JobRepository, match_repo: MatchRepository,
-    quota: QuotaRepository, *, llm_client=None,
-) -> None:
-    """把 agent 回傳的詳情原始 JSON 解析→存→LLM 分析→寫結果。"""
-    try:
-        cand = await match_repo.get_match(search_id, job_id)
-        if cand is None:
-            return
-        job = cand.job
-        detail = parse_job_detail(raw_json)
-        if detail.salary:
-            job.salary = detail.salary
-        await job_repo.upsert_job(job)
-        await job_repo.set_detail(job_id, detail)
-        analysis = await job_matching.analyze(target, job, detail, client=llm_client)
-        await match_repo.set_result(search_id, job_id, analysis)
-        await quota.add(user, 1)
-    except Exception:
-        logger.warning("分析失敗 job=%s", job_id, exc_info=True)
-        await match_repo.set_failed(search_id, job_id)
 
 
 async def analyze_one(
@@ -93,18 +47,15 @@ async def analyze_one(
     match_repo: MatchRepository,
     quota: QuotaRepository,
     *,
-    http_client: httpx.AsyncClient | None = None,
     llm_client=None,
 ) -> None:
-    owns = http_client is None
-    http_client = http_client or httpx.AsyncClient()
     try:
         cand = await match_repo.get_match(search_id, job_id)
         if cand is None:
             return
         job = cand.job
         async with DETAIL_SEMAPHORE:
-            detail = await fetch_job_detail(job.code, client=http_client)
+            detail = await fetch_job_detail(job.code)
         if detail.salary:
             job.salary = detail.salary
         await job_repo.upsert_job(job)
@@ -115,9 +66,6 @@ async def analyze_one(
     except Exception:
         logger.warning("分析失敗 job=%s", job_id, exc_info=True)
         await match_repo.set_failed(search_id, job_id)
-    finally:
-        if owns:
-            await http_client.aclose()
 
 
 class AnalysisRunner(Protocol):

@@ -3,7 +3,7 @@
 文件結構：以 job_id 為 _id，存 Job 欄位；詳情存在 `detail` 子文件。
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -12,7 +12,6 @@ from job_tracker.schemas import (
     Application,
     ApplicationEvent,
     ApplicationStatus,
-    CrawlTask,
     Job,
     JobDetail,
     JobMatch,
@@ -127,7 +126,7 @@ class SearchRepository:
 
     async def create(self, user, keyword, target, area=None) -> SearchRun:
         run = SearchRun(search_id=uuid4().hex, user=user, keyword=keyword,
-                        target=target, area=area, crawl_status="queued")
+                        target=target, area=area)
         doc = run.model_dump(mode="json")
         doc["_id"] = run.search_id
         await self._col.insert_one(doc)
@@ -140,10 +139,6 @@ class SearchRepository:
     async def list(self, user: str) -> list[SearchRun]:
         cur = self._col.find({"user": user}).sort("created_at", -1)
         return [SearchRun(**doc) async for doc in cur]
-
-    async def set_crawl_status(self, search_id: str, status: str) -> None:
-        await self._col.update_one({"_id": search_id},
-                                   {"$set": {"crawl_status": status}})
 
     async def advance_page(self, search_id, next_page, count_delta) -> None:
         await self._col.update_one(
@@ -286,105 +281,3 @@ class ApplicationRepository:
 
     async def remove(self, user: str, job_id: str) -> None:
         await self._col.delete_one({"_id": self._id(user, job_id)})
-
-
-class CrawlTaskRepository:
-    """交給本機 agent 代打 104 的任務隊列。"""
-
-    def __init__(self, db: AsyncIOMotorDatabase):
-        self._col = db["crawl_tasks"]
-        self._searches = db["searches"]
-
-    async def enqueue(self, task: CrawlTask) -> CrawlTask:
-        doc = task.model_dump(mode="json")
-        doc["_id"] = task.task_id
-        await self._col.insert_one(doc)
-        return task
-
-    async def claim(self) -> CrawlTask | None:
-        """原子認領一個 pending 任務（pending→claimed）。多 agent 也安全。"""
-        doc = await self._col.find_one_and_update(
-            {"status": "pending"},
-            {"$set": {"status": "claimed",
-                      "claimed_at": datetime.now(UTC).isoformat()}},
-            sort=[("created_at", 1)],
-            return_document=True,
-        )
-        return CrawlTask(**doc) if doc else None
-
-    async def get(self, task_id: str) -> CrawlTask | None:
-        doc = await self._col.find_one({"_id": task_id})
-        return CrawlTask(**doc) if doc else None
-
-    async def complete(self, task_id: str, raw_json: dict) -> CrawlTask | None:
-        doc = await self._col.find_one_and_update(
-            {"_id": task_id, "status": "claimed"},
-            {"$set": {"status": "done", "raw_json": raw_json,
-                      "completed_at": datetime.now(UTC).isoformat()}},
-            return_document=True,
-        )
-        return CrawlTask(**doc) if doc else None
-
-    async def fail(self, task_id: str, error: str) -> CrawlTask | None:
-        doc = await self._col.find_one_and_update(
-            {"_id": task_id, "status": "claimed"},
-            {"$set": {"status": "failed", "error": error,
-                      "completed_at": datetime.now(UTC).isoformat()}},
-            return_document=True,
-        )
-        return CrawlTask(**doc) if doc else None
-
-    async def reap(self, pending_ttl_sec: int, claimed_ttl_sec: int) -> None:
-        now = datetime.now(UTC)
-        pending_cutoff = (now - timedelta(seconds=pending_ttl_sec)).isoformat()
-        claimed_cutoff = (now - timedelta(seconds=claimed_ttl_sec)).isoformat()
-        # Collect search_ids of search-type tasks about to expire
-        expiring_filter = {
-            "type": "search",
-            "status": "pending",
-            "created_at": {"$lt": pending_cutoff},
-        }
-        search_ids = [
-            doc["search_id"]
-            async for doc in self._col.find(expiring_filter, {"search_id": 1})
-        ]
-        await self._col.update_many(
-            {"status": "pending", "created_at": {"$lt": pending_cutoff}},
-            {"$set": {"status": "expired"}},
-        )
-        # Propagate expired status to owning SearchRun documents
-        if search_ids:
-            await self._searches.update_many(
-                {"_id": {"$in": search_ids}},
-                {"$set": {"crawl_status": "expired"}},
-            )
-        await self._col.update_many(
-            {"status": "claimed", "claimed_at": {"$lt": claimed_cutoff}},
-            {"$set": {"status": "pending", "claimed_at": None}},
-        )
-
-
-class AgentStatusRepository:
-    """記錄本機 agent 最近一次心跳，供前端判斷在線/離線。"""
-
-    def __init__(self, db: AsyncIOMotorDatabase):
-        self._col = db["agent_status"]
-
-    async def touch(self) -> None:
-        await self._col.update_one(
-            {"_id": "agent"},
-            {"$set": {"last_seen": datetime.now(UTC).isoformat()}},
-            upsert=True,
-        )
-
-    async def last_seen(self) -> datetime | None:
-        doc = await self._col.find_one({"_id": "agent"})
-        if not doc or "last_seen" not in doc:
-            return None
-        return datetime.fromisoformat(doc["last_seen"])
-
-    async def is_online(self, window_sec: int) -> bool:
-        seen = await self.last_seen()
-        if seen is None:
-            return False
-        return (datetime.now(UTC) - seen).total_seconds() <= window_sec
