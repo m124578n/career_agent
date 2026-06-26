@@ -1,6 +1,8 @@
 """本機爬蟲 agent：輪詢雲端任務 → 用住宅 IP 抓 104 → 回填原始 JSON。
 
-不依賴 job_tracker 套件；只用 httpx。解析/LLM 全在雲端。
+不依賴 job_tracker 套件。抓 104 用 curl_cffi 模擬 Chrome 的 TLS 指紋
+（104 的 WAF 會用 TLS 指紋擋掉 Linux/容器預設的 ClientHello）；
+對雲端的 claim/complete 用一般 httpx 即可。解析/LLM 全在雲端。
 """
 
 import asyncio
@@ -9,6 +11,7 @@ import os
 import random
 
 import httpx
+from curl_cffi.requests import AsyncSession
 from dotenv import load_dotenv
 
 log = logging.getLogger("agent")
@@ -17,58 +20,56 @@ SEARCH_URL = "https://www.104.com.tw/jobs/search/api/jobs"
 DETAIL_URL = "https://www.104.com.tw/job/ajax/content/{code}"
 WARMUP_URL = "https://www.104.com.tw/jobs/search/"
 
-_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-_SEARCH_HEADERS = {
-    "User-Agent": _UA,
-    "Referer": "https://www.104.com.tw/jobs/search/",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-    "X-Requested-With": "XMLHttpRequest",
-}
+# 模擬的瀏覽器（curl_cffi 會連 TLS/JA3 + 預設 header 一起裝成這個版本）
+_IMPERSONATE = "chrome"
 
 
-async def _warmup(client: httpx.AsyncClient) -> None:
-    """每次抓取前先 GET 搜尋頁取得新鮮的 WAF/session cookie。
+def build_104_request(task: dict) -> tuple[str, dict | None, dict]:
+    """依任務型別組 104 請求，回傳 (url, params, extra_headers)。純函式，好測試。
 
-    註：曾為了少打 104 改成「整個 process 只暖一次」，但長時間跑著 cookie 會過期，
-    導致後續 detail 抓取被 104 回 403。改回每次抓取前都暖身（多一個 GET 但確保有效）。
+    UA / Accept / Accept-Language / sec-ch-ua 等交給 curl_cffi 的 impersonate 處理，
+    這裡只補 104 特有的 Referer / X-Requested-With。
     """
-    try:
-        await client.get(WARMUP_URL, headers={"User-Agent": _UA})
-    except httpx.HTTPError as exc:
-        log.warning("暖身失敗（略過）：%s", exc)
-
-
-def _task_summary(task: dict) -> str:
-    """任務的簡短描述，供 log 用。"""
-    p = task.get("payload", {})
-    if task.get("type") == "search":
-        return f"keyword={p.get('keyword')!r} page={p.get('page')} area={p.get('area')}"
-    return f"code={p.get('code')}"
-
-
-async def fetch_104(task: dict, client: httpx.AsyncClient) -> dict:
-    """依任務型別抓 104，回原始 JSON。"""
-    await _warmup(client)
     if task["type"] == "search":
         p = task["payload"]
         params = {"ro": 0, "keyword": p["keyword"], "order": 15, "asc": 0,
                   "page": p["page"], "mode": "s", "jobsource": "index_s"}
         if p.get("area"):
             params["area"] = p["area"]
-        resp = await client.get(SEARCH_URL, params=params, headers=_SEARCH_HEADERS)
-    else:  # detail
-        code = task["payload"]["code"]
-        headers = {"User-Agent": _UA, "Referer": f"https://www.104.com.tw/job/{code}",
-                   "Accept": "application/json, text/plain, */*"}
-        resp = await client.get(DETAIL_URL.format(code=code), headers=headers)
-    resp.raise_for_status()
-    return resp.json()
+        headers = {"Referer": WARMUP_URL, "X-Requested-With": "XMLHttpRequest"}
+        return SEARCH_URL, params, headers
+    code = task["payload"]["code"]
+    headers = {"Referer": f"https://www.104.com.tw/job/{code}"}
+    return DETAIL_URL.format(code=code), None, headers
 
 
-async def run_once(client: httpx.AsyncClient, cloud_base: str, secret: str) -> str:
-    """claim 一次：有任務則抓+complete，回 'done'/'failed'/'idle'。"""
+async def fetch_104(task: dict) -> dict:
+    """用 curl_cffi（Chrome TLS 指紋）抓 104，回原始 JSON。每次用獨立 session。"""
+    url, params, headers = build_104_request(task)
+    async with AsyncSession(impersonate=_IMPERSONATE, timeout=30) as s:
+        # 暖身取 WAF/session cookie（同 session）
+        try:
+            await s.get(WARMUP_URL)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("暖身失敗（略過）：%s", exc)
+        resp = await s.get(url, params=params, headers=headers)
+        resp.raise_for_status()
+        return resp.json()
+
+
+def _task_summary(task: dict) -> str:
+    p = task.get("payload", {})
+    if task.get("type") == "search":
+        return f"keyword={p.get('keyword')!r} page={p.get('page')} area={p.get('area')}"
+    return f"code={p.get('code')}"
+
+
+async def run_once(client: httpx.AsyncClient, cloud_base: str, secret: str,
+                   *, fetch=fetch_104) -> str:
+    """claim 一次：有任務則抓+complete，回 'done'/'failed'/'idle'。
+
+    `client` 用於對雲端的 claim/complete；`fetch` 負責抓 104（可注入測試）。
+    """
     auth = {"Authorization": f"Bearer {secret}"}
     claimed = await client.post(f"{cloud_base}/api/agent/claim", headers=auth)
     claimed.raise_for_status()
@@ -79,11 +80,10 @@ async def run_once(client: httpx.AsyncClient, cloud_base: str, secret: str) -> s
     tid = task.get("task_id")
     log.info("認領任務 %s [%s] %s", tid, task.get("type"), _task_summary(task))
     try:
-        raw = await fetch_104(task, client)
+        raw = await fetch(task)
         n = len(raw.get("data", [])) if isinstance(raw.get("data"), list) else "?"
         log.info("抓取 104 成功 task=%s（data 筆數=%s）", tid, n)
     except Exception as exc:  # noqa: BLE001
-        # 抓 104 失敗：回報 error 給雲端（這段以前是靜默的，現在記下原因）
         log.warning("抓取 104 失敗 task=%s：%s", tid, exc)
         try:
             await client.post(f"{cloud_base}/api/agent/complete", headers=auth,
@@ -92,7 +92,6 @@ async def run_once(client: httpx.AsyncClient, cloud_base: str, secret: str) -> s
             log.error("回報失敗結果也失敗 task=%s：%s", tid, exc2)
         return "failed"
 
-    # 抓取成功 → 回填原始 JSON
     try:
         resp = await client.post(f"{cloud_base}/api/agent/complete", headers=auth,
                                  json={"task_id": tid, "raw_json": raw})
@@ -116,7 +115,8 @@ async def main() -> None:
     poll = float(os.environ.get("POLL_INTERVAL", "3"))
     min_d = float(os.environ.get("MIN_DELAY", "2"))
     max_d = float(os.environ.get("MAX_DELAY", "5"))
-    log.info("agent 啟動，雲端=%s，輪詢每 %ss", cloud_base, poll)
+    log.info("agent 啟動，雲端=%s，輪詢每 %ss（104 走 curl_cffi/%s TLS）",
+             cloud_base, poll, _IMPERSONATE)
 
     idle_streak = 0
     done_count = 0
@@ -130,7 +130,6 @@ async def main() -> None:
 
             if result == "idle":
                 idle_streak += 1
-                # 閒置不洗版，但每 ~2 分鐘報一次活著
                 if idle_streak % max(1, int(120 / poll)) == 0:
                     log.info("閒置中…（已處理 %d 筆，持續輪詢）", done_count)
             else:
@@ -139,7 +138,7 @@ async def main() -> None:
                     done_count += 1
 
             if result == "done":
-                await asyncio.sleep(random.uniform(min_d, max_d))  # 抓完節流
+                await asyncio.sleep(random.uniform(min_d, max_d))
             else:
                 await asyncio.sleep(poll)
 
