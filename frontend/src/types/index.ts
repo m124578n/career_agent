@@ -47,6 +47,7 @@ export interface JobMatch {
   cover_letter?: string | null;
   status: "candidate" | "pending" | "done" | "failed";
   relevant: boolean;
+  analyzed_at?: string | null;
 }
 
 export interface SearchRun {

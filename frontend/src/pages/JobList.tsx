@@ -8,6 +8,7 @@ import {
   Loader,
   Modal,
   MultiSelect,
+  SegmentedControl,
   Stack,
   Text,
   Textarea,
@@ -19,7 +20,7 @@ import { IconX } from "../components/icons";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useResume } from "../state/resume";
 import { REGIONS } from "../constants/regions";
@@ -32,6 +33,7 @@ import type { JobMatch } from "../types";
 const KW_KEY = "jobtracker.job-keyword";
 const AREA_KEY = "jobtracker.job-area";
 const SEL_KEY = "jobtracker.selected-search";
+const SORT_KEY = "jobtracker.job-sort";
 
 export function JobList() {
   const { target } = useResume();
@@ -48,6 +50,9 @@ export function JobList() {
   );
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [resultLimit, setResultLimit] = useState(12); // 排序結果漸進顯示
+  const [sortMode, setSortMode] = useState<"fit" | "recent">(() =>
+    localStorage.getItem(SORT_KEY) === "recent" ? "recent" : "fit"
+  );
   const [candOpen, setCandOpen] = useState(true);
   const qc = useQueryClient();
   const isMobile = useMediaQuery("(max-width: 48em)");
@@ -72,6 +77,26 @@ export function JobList() {
   const candidates = matches.filter((m) => m.status === "candidate");
   const results = matches.filter((m) => m.status !== "candidate");
 
+  const sortedResults = useMemo(() => {
+    const arr = [...results];
+    arr.sort((a, b) => {
+      // pending（進行中）一律置頂；兩者皆 pending 維持原序
+      const pa = a.status === "pending" ? 0 : 1;
+      const pb = b.status === "pending" ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      if (pa === 0) return 0;
+      if (sortMode === "recent") {
+        // done 依 analyzed_at 由新到舊；null（含 failed / 舊資料）殿後
+        const ta = a.analyzed_at ? Date.parse(a.analyzed_at) : -Infinity;
+        const tb = b.analyzed_at ? Date.parse(b.analyzed_at) : -Infinity;
+        if (ta !== tb) return tb - ta;
+      }
+      // 契合度模式，或最新模式的同層次序：分數由高到低
+      return b.score - a.score;
+    });
+    return arr;
+  }, [results, sortMode]);
+
   // 持久化搜尋狀態（切頁不清空）
   useEffect(() => {
     localStorage.setItem(KW_KEY, keyword);
@@ -84,6 +109,9 @@ export function JobList() {
     else localStorage.removeItem(SEL_KEY);
     setResultLimit(12); // 切換搜尋時重置展開筆數
   }, [selectedId]);
+  useEffect(() => {
+    localStorage.setItem(SORT_KEY, sortMode);
+  }, [sortMode]);
   // 還原的選中搜尋若已被刪除（不在歷史列表），清掉避免空白／404
   useEffect(() => {
     if (
@@ -376,9 +404,9 @@ export function JobList() {
 
           {/* 結果 */}
           <div className="jt-panel">
-            <div className="jt-panel-head">
+            <div className="jt-panel-head" style={{ flexWrap: "wrap", rowGap: 8 }}>
               <span className="jt-eyebrow">
-                契合度排序
+                分析結果
                 {results.length ? (
                   <>
                     {" · "}
@@ -386,6 +414,17 @@ export function JobList() {
                   </>
                 ) : null}
               </span>
+              {results.length > 0 && (
+                <SegmentedControl
+                  size="xs"
+                  value={sortMode}
+                  onChange={(v) => setSortMode(v as "fit" | "recent")}
+                  data={[
+                    { value: "fit", label: "契合度" },
+                    { value: "recent", label: "最新分析" },
+                  ]}
+                />
+              )}
             </div>
             <div
               className="jt-panel-body"
@@ -395,7 +434,7 @@ export function JobList() {
                 <div className="jt-empty">載入中…</div>
               ) : results.length ? (
                 <Stack gap={12}>
-                  {results.slice(0, resultLimit).map((m) =>
+                  {sortedResults.slice(0, resultLimit).map((m) =>
                     m.status === "done" ? (
                       <MatchCard key={m.job.job_id} match={m} searchId={selectedId!} />
                     ) : m.status === "failed" ? (
