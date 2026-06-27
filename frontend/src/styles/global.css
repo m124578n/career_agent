@@ -13,6 +13,7 @@
   --jt-accent: #ff6a3d; /* tangerine：只當主要行動 */
   --jt-teal: #34d6c8; /* 正向 / 契合 / 連結 */
   --jt-amber: #e9a23b; /* 可以加強的地方（與行動色分離）*/
+  --jt-danger: #ec6f6f; /* 真正的錯誤/失敗（與行動色 tangerine 分離）*/
 
   /* 狀態淡色襯底 */
   --jt-pos-bg: rgba(52, 214, 200, 0.08);
@@ -141,7 +142,7 @@ body {
   background: var(--jt-amber);
 }
 
-/* 診斷讀數條目：[+] 優勢 / [!] 待補強 */
+/* 診斷項目清單容器（項目見 .jt-item，標記見 .jt-dot）*/
 .jt-readout {
   display: flex;
   flex-direction: column;

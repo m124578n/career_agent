@@ -17,18 +17,23 @@ const amber: MantineColorsTuple = [
   "#e9a23b", "#d98f2a", "#b67322", "#925b1c", "#6f4413",
 ];
 
+const danger: MantineColorsTuple = [
+  "#fff0f0", "#ffe0e0", "#fbc4c4", "#f5a3a3", "#f08585",
+  "#ec6f6f", "#e85d5d", "#cf4848", "#b83b3b", "#9e2e2e",
+];
+
 // 覆寫 Mantine 的 dark 色階 → 整個深色介面用我們的 ink 調
 const ink: MantineColorsTuple = [
-  "#E6E8EB", // 0 主要文字
-  "#C2C7CE", // 1
-  "#9AA1AB", // 2 muted
-  "#6B727C", // 3 dim
-  "#2A2E36", // 4 邊框
-  "#23272F", // 5
-  "#1E2127", // 6 面板
-  "#14161A", // 7 body 背景
-  "#0F1115", // 8
-  "#0A0B0E", // 9
+  "#e8e6e3", // 0 主要文字（= --jt-text）
+  "#c6c3c6", // 1
+  "#a3a0a6", // 2 muted（= --jt-muted）
+  "#969399", // 3 dim（= --jt-dim）
+  "#302d34", // 4 邊框（= --jt-border）
+  "#262329", // 5 面板2（= --jt-panel-2）
+  "#201f24", // 6 面板（= --jt-panel）
+  "#15151a", // 7 body 背景（= --jt-bg）
+  "#101013", // 8
+  "#0a0a0c", // 9
 ];
 
 export const theme = createTheme({
@@ -38,5 +43,5 @@ export const theme = createTheme({
   primaryColor: "tangerine",
   primaryShade: 5,
   defaultRadius: "md", // 從 sm 放大：更舒服、更友善
-  colors: { tangerine, teal, amber, dark: ink },
+  colors: { tangerine, teal, amber, danger, dark: ink },
 });
