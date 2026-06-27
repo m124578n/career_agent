@@ -7,6 +7,7 @@ import { useAuth } from "./state/auth";
 import { Footer } from "./components/Footer";
 
 const NAV = [
+  { to: "/home", label: "總覽", tag: "00" },
   { to: "/resume", label: "履歷與目標", tag: "01" },
   { to: "/jobs", label: "職缺契合度", tag: "02" },
   { to: "/applications", label: "追蹤清單", tag: "03" },
@@ -29,7 +30,7 @@ export function GatedLayout() {
         style={{ background: "var(--jt-panel)", borderColor: "var(--jt-border)" }}
       >
         <Group h="100%" justify="space-between">
-          <Link to="/" className="jt-brand" style={{ textDecoration: "none" }}>
+          <Link to="/home" className="jt-brand" style={{ textDecoration: "none" }}>
             JobTracker<span className="dot">.</span>
           </Link>
           <Burger
@@ -51,7 +52,7 @@ export function GatedLayout() {
         }}
       >
         <Stack gap={2} mb="xl" px={6} pt={4} visibleFrom="sm">
-          <Link to="/" className="jt-brand" style={{ textDecoration: "none" }}>
+          <Link to="/home" className="jt-brand" style={{ textDecoration: "none" }}>
             JobTracker<span className="dot">.</span>
           </Link>
           <span className="jt-brandtag">AI 求職指揮艙</span>

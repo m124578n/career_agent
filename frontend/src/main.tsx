@@ -11,7 +11,7 @@ import "./styles/global.css";
 import { GatedLayout } from "./App";
 import { theme } from "./theme";
 import { ResumeProvider } from "./state/resume";
-import { AuthProvider } from "./state/auth";
+import { AuthProvider, useAuth } from "./state/auth";
 import { AuthGate } from "./components/AuthGate";
 
 // 路由層拆包：各頁按需載入，首屏只下載必要的程式碼
@@ -19,6 +19,8 @@ const About = lazy(() => import("./pages/About").then((m) => ({ default: m.About
 const ResumeSetup = lazy(() => import("./pages/ResumeSetup").then((m) => ({ default: m.ResumeSetup })));
 const JobList = lazy(() => import("./pages/JobList").then((m) => ({ default: m.JobList })));
 const Applications = lazy(() => import("./pages/Applications").then((m) => ({ default: m.Applications })));
+const Landing = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
+const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
 
 function PageFallback() {
   return (
@@ -26,6 +28,13 @@ function PageFallback() {
       <Loader color="tangerine" />
     </Center>
   );
+}
+
+// 首頁決策：未登入 → Landing；已登入（或免登入）→ 轉 /home
+function RootRoute() {
+  const { enabled, token } = useAuth();
+  if (enabled && !token) return <Landing />;
+  return <Navigate to="/home" replace />;
 }
 
 const queryClient = new QueryClient();
@@ -47,8 +56,9 @@ const app = (
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/about" element={<About />} />
+          <Route path="/" element={<RootRoute />} />
           <Route element={<GatedShell />}>
-            <Route path="/" element={<Navigate to="/resume" replace />} />
+            <Route path="/home" element={<Dashboard />} />
             <Route path="/resume" element={<ResumeSetup />} />
             <Route path="/jobs" element={<JobList />} />
             <Route path="/applications" element={<Applications />} />
