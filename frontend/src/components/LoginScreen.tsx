@@ -26,10 +26,13 @@ export function LoginScreen() {
           <div className="jt-brandtag" style={{ marginTop: 8 }}>
             AI 求職指揮艙
           </div>
-          <p style={{ color: "var(--jt-muted)", fontSize: 14, margin: "22px 0 20px" }}>
-            用 Google 登入開始使用。
+          <p style={{ color: "var(--jt-text)", fontSize: 16, fontWeight: 600, margin: "22px 0 6px" }}>
+            準備好開始找下一份工作了嗎？
+          </p>
+          <p style={{ color: "var(--jt-muted)", fontSize: 14, margin: "0 0 20px", lineHeight: 1.6 }}>
+            用 Google 登入，我陪你做履歷診斷、找契合的職缺、寫求職信。
             <br />
-            履歷診斷、職缺契合度、求職信 —— 每日有使用額度。
+            每日有免費使用額度。
           </p>
           <div style={{ display: "flex", justifyContent: "center" }}>
             <GoogleLogin
