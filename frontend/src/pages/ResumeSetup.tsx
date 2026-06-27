@@ -109,7 +109,7 @@ export function ResumeSetup() {
                 )}
               </FileButton>
               {parseMut.isError && (
-                <Text fz="xs" c="tangerine.5">
+                <Text fz="xs" c="danger.5">
                   這個檔案讀不太到，換一個檔案或確認格式再試一次。
                 </Text>
               )}
