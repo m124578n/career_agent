@@ -68,10 +68,19 @@ export function About() {
             <div className="jt-eyebrow" style={{ marginBottom: 8 }}>聯繫方式</div>
             <Stack gap={8}>
               {CONTACTS.map((c) => (
-                <Group key={c.label} gap={10} wrap="nowrap">
-                  <Text fz="xs" c="dimmed" style={{ minWidth: 72 }}>{c.label}</Text>
-                  <Anchor href={c.href} target="_blank" rel="noreferrer" fz="sm">
-                    {c.href.replace(/^mailto:/, "")}
+                <Group key={c.label} gap={10} wrap="nowrap" align="flex-start">
+                  <Text fz="xs" c="dimmed" style={{ minWidth: 72, flexShrink: 0 }}>{c.label}</Text>
+                  <Anchor
+                    href={c.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    fz="sm"
+                    style={{ minWidth: 0, wordBreak: "break-all" }}
+                  >
+                    {c.href
+                      .replace(/^mailto:/, "")
+                      .replace(/^https?:\/\//, "")
+                      .replace(/^www\./, "")}
                   </Anchor>
                 </Group>
               ))}
