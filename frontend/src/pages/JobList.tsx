@@ -24,6 +24,7 @@ import { api } from "../api/client";
 import { useResume } from "../state/resume";
 import { REGIONS } from "../constants/regions";
 import { AnalyzingSteps } from "../components/AnalyzingSteps";
+import { EmptyState } from "../components/EmptyState";
 import type { JobMatch } from "../types";
 
 // 持久化搜尋狀態，切到別頁再切回來不會被清空
@@ -180,13 +181,15 @@ export function JobList() {
       {!target ? (
         <div className="jt-panel">
           <div className="jt-panel-body" data-center="true">
-            <div className="jt-empty">
-              尚未設定履歷 //{" "}
-              <Link to="/resume" style={{ color: "var(--jt-teal)" }}>
-                先到「履歷與目標」
-              </Link>{" "}
-              上傳並設定目標
-            </div>
+            <EmptyState
+              title="還沒設定履歷"
+              description="先到「履歷與目標」上傳履歷、填好目標職位，再回來找契合的職缺。"
+              action={
+                <Button component={Link} to="/resume" color="tangerine" variant="light" size="sm">
+                  去設定履歷 →
+                </Button>
+              }
+            />
           </div>
         </div>
       ) : (
@@ -220,7 +223,7 @@ export function JobList() {
                   loading={busy}
                   onClick={run}
                 >
-                  爬取候選
+                  搜尋職缺
                 </Button>
               </Group>
               <Text fz="xs" c="dimmed" mt={8}>
@@ -230,8 +233,8 @@ export function JobList() {
                   : ""}
               </Text>
               {(createMut.isError || crawlMut.isError) && (
-                <Text fz="xs" c="tangerine.5" mt={6}>
-                  爬取失敗：請確認後端與關鍵字後再試。
+                <Text fz="xs" c="danger.5" mt={6}>
+                  搜尋沒成功，確認關鍵字或稍後再試一次。
                 </Text>
               )}
             </div>
@@ -301,7 +304,7 @@ export function JobList() {
                 <AnalyzingSteps
                   steps={[
                     "連線 104…",
-                    "爬取職缺清單…",
+                    "搜尋符合的職缺…",
                     "標記關鍵字命中…",
                     "整理候選清單…",
                   ]}
@@ -315,7 +318,7 @@ export function JobList() {
           {candidates.length > 0 && (
             <div className="jt-panel" style={{ marginBottom: 20 }}>
               <div className="jt-panel-head">
-                <span className="jt-eyebrow">候選 // CANDIDATES · {candidates.length}</span>
+                <span className="jt-eyebrow">有興趣的候選 · {candidates.length}</span>
                 <Group gap={8}>
                   <Button size="xs" variant="subtle" color="gray"
                           onClick={() => setCandOpen((o) => !o)}>
@@ -372,7 +375,7 @@ export function JobList() {
           <div className="jt-panel">
             <div className="jt-panel-head">
               <span className="jt-eyebrow">
-                分析結果 // RANKED
+                契合度排序
                 {results.length ? (
                   <>
                     {" · "}
@@ -426,9 +429,10 @@ export function JobList() {
                   )}
                 </Stack>
               ) : (
-                <div className="jt-empty">
-                  尚無結果 // 輸入關鍵字後執行「爬取候選」，勾選後「分析選中」
-                </div>
+                <EmptyState
+                  title="還沒有分析結果"
+                  description="先搜尋職缺、勾選有興趣的候選，再按「分析選中」，我幫你逐筆比對排序。"
+                />
               )}
             </div>
           </div>
