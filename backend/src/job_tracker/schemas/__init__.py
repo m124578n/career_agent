@@ -74,6 +74,7 @@ class JobMatch(BaseModel):
     # candidate=爬到待選 / pending=排隊分析 / done=完成 / failed=失敗
     status: str = "done"
     relevant: bool = True  # 關鍵字是否命中（廣告→False，前端預設勾選用）
+    analyzed_at: datetime | None = None  # 分析完成（status→done）時間；candidate/pending 為 None
 
 
 class SearchRun(BaseModel):

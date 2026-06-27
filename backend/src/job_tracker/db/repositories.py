@@ -108,6 +108,7 @@ class MatchRepository:
                 "benefits": analysis.benefits,
                 "requires_external_apply": analysis.requires_external_apply,
                 "status": "done",
+                "analyzed_at": datetime.now(UTC).isoformat(),
             }},
         )
 
