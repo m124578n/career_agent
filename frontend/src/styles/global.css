@@ -234,15 +234,20 @@ body {
   line-height: 1;
   color: var(--jt-teal);
 }
-.jt-score small {
+.jt-score b[data-fit="high"] { color: var(--jt-teal); }
+.jt-score b[data-fit="mid"]  { color: var(--jt-amber); }
+.jt-score b[data-fit="low"]  { color: var(--jt-dim); }
+/* 定性詞：一般字體、依契合度上色（取代舊的 mono/大寫 small）*/
+.jt-score .jt-fitlabel {
   display: block;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  color: var(--jt-dim);
-  text-transform: uppercase;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
   margin-top: 4px;
 }
+.jt-score .jt-fitlabel[data-fit="high"] { color: var(--jt-teal); }
+.jt-score .jt-fitlabel[data-fit="mid"]  { color: var(--jt-amber); }
+.jt-score .jt-fitlabel[data-fit="low"]  { color: var(--jt-dim); }
 .jt-chip {
   display: inline-flex;
   align-items: center;
@@ -258,29 +263,6 @@ body {
 .jt-chip--teal {
   color: var(--jt-teal);
   border-color: rgba(52, 214, 200, 0.4);
-}
-.jt-tags {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.jt-tag {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--jt-muted);
-  line-height: 1.5;
-}
-.jt-tag .m {
-  font-family: "IBM Plex Mono", monospace;
-  font-weight: 600;
-}
-.jt-tag[data-kind="pos"] .m {
-  color: var(--jt-teal);
-}
-.jt-tag[data-kind="neg"] .m {
-  color: var(--jt-accent);
 }
 
 /* 側欄品牌 */

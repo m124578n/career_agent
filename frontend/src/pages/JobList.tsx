@@ -25,6 +25,7 @@ import { useResume } from "../state/resume";
 import { REGIONS } from "../constants/regions";
 import { AnalyzingSteps } from "../components/AnalyzingSteps";
 import { EmptyState } from "../components/EmptyState";
+import { ReadoutItem } from "../components/ReadoutItem";
 import type { JobMatch } from "../types";
 
 // 持久化搜尋狀態，切到別頁再切回來不會被清空
@@ -400,7 +401,7 @@ export function JobList() {
                         <Group justify="space-between">
                           <div>
                             <div className="jt-job-title">{m.job.title}</div>
-                            <div className="jt-job-meta">{m.job.company} · 分析失敗</div>
+                            <div className="jt-job-meta">{m.job.company} · <span style={{ color: "var(--jt-danger)" }}>分析沒成功</span></div>
                           </div>
                           <Button size="xs" variant="default"
                                   onClick={() => api.analyzeSelected(selectedId!, [m.job.job_id])
@@ -440,6 +441,14 @@ export function JobList() {
       )}
     </Box>
   );
+}
+
+type FitTier = "high" | "mid" | "low";
+function fitTier(score: number): FitTier {
+  return score >= 80 ? "high" : score >= 60 ? "mid" : "low";
+}
+function fitLabel(tier: FitTier): string {
+  return tier === "high" ? "很適合" : tier === "mid" ? "還不錯" : "可考慮";
 }
 
 function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
@@ -503,8 +512,8 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
           </div>
         </div>
         <div className="jt-score">
-          <b>{score}</b>
-          <small>match</small>
+          <b data-fit={fitTier(score)}>{score}</b>
+          <span className="jt-fitlabel" data-fit={fitTier(score)}>{fitLabel(fitTier(score))}</span>
         </div>
       </div>
 
@@ -524,18 +533,12 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
             <span style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
           </div>
 
-          <div className="jt-tags">
+          <div className="jt-readout">
             {reasons.map((r, i) => (
-              <div key={`r${i}`} className="jt-tag" data-kind="pos">
-                <span className="m">[+]</span>
-                <span>{r}</span>
-              </div>
+              <ReadoutItem key={`r${i}`} kind="pos">{r}</ReadoutItem>
             ))}
             {gaps.map((g, i) => (
-              <div key={`g${i}`} className="jt-tag" data-kind="neg">
-                <span className="m">[!]</span>
-                <span>{g}</span>
-              </div>
+              <ReadoutItem key={`g${i}`} kind="warn">{g}</ReadoutItem>
             ))}
           </div>
 
@@ -597,8 +600,8 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
             </Text>
           </Stack>
         ) : letterMut.isError ? (
-          <Text fz="sm" c="tangerine.5">
-            生成失敗，請重試。
+          <Text fz="sm" c="danger.5">
+            生成沒成功，請再試一次。
           </Text>
         ) : (
           <Stack gap={12}>
