@@ -85,15 +85,16 @@ analyzed_at?: string | null;
 
 ### 排序規則
 
-對 `results`（`status !== "candidate"` 的清單）套用：
+對 `results`（`status !== "candidate"` 的清單）套用。**兩種模式都先把
+`pending` 置頂**（「進行中」是狀態而非排名維度，置頂提供即時回饋；完成翻 `done`
+後再依該模式落位）：
 
-- **`fit`（契合度）**：分數由高到低（`score` desc）。等同現狀；明確排序以防後端
-  順序變動。
-- **`recent`（最新分析）**：分層排序——
-  1. `pending`（剛送出、分析中）置頂；
-  2. `done` 依 `analyzed_at` 由新到舊（`analyzed_at` 為 `null` 的舊資料殿後）；
-  3. `failed` 最後；
-  4. 同層之間以 `score` 由高到低為次序。
+- **共同第一層**：`pending`（剛送出、分析中）一律置頂，彼此之間維持原相對順序。
+- **其餘（`done` / `failed`）依模式排序：**
+  - **`fit`（契合度）**：分數由高到低（`score` desc）。等同現狀（明確排序以防
+    後端順序變動）。
+  - **`recent`（最新分析）**：`done` 依 `analyzed_at` 由新到舊（`analyzed_at`
+    為 `null` 的舊資料與 `failed` 殿後）；同層之間以 `score` 由高到低為次序。
 
 實作為純前端 `useMemo`/排序函式，作用在 `results` 上後再 `slice(0, resultLimit)`。
 不改 `matchesQ`、mutation、effect 等資料流。
