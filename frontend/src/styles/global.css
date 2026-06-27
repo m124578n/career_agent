@@ -1,14 +1,30 @@
 :root {
-  --jt-bg: #14161a;
-  --jt-panel: #1e2127;
-  --jt-panel-2: #23272f;
-  --jt-border: #2a2e36;
-  --jt-text: #e6e8eb;
-  --jt-muted: #9aa1ab;
-  /* 提亮到 ≥4.5:1（原 #6b727c 約 3.4:1，AA 未達標） */
-  --jt-dim: #868d97;
-  --jt-accent: #ff6a3d;
-  --jt-teal: #34d6c8;
+  /* 呈現層單一來源：.jt-* 自訂 UI 一律用這些變數
+     （theme.ts 的 dark 色階為求一致已對齊這裡的暖化值） */
+  --jt-bg: #15151a;
+  --jt-panel: #201f24; /* 由 #1e2127 微微加溫（偏暖中性） */
+  --jt-panel-2: #262329;
+  --jt-panel-raised: #2a272e; /* 浮起面板：比 panel 再亮一階 */
+  --jt-border: #302d34; /* 邊框降對比、微帶暖 */
+  --jt-text: #e8e6e3; /* 文字中性偏暖 */
+  --jt-muted: #a3a0a6;
+  /* 維持 ≥4.5:1 */
+  --jt-dim: #8b8890;
+  --jt-accent: #ff6a3d; /* tangerine：只當主要行動 */
+  --jt-teal: #34d6c8; /* 正向 / 契合 / 連結 */
+  --jt-amber: #e9a23b; /* 可以加強的地方（與行動色分離）*/
+
+  /* 狀態淡色襯底 */
+  --jt-pos-bg: rgba(52, 214, 200, 0.08);
+  --jt-warn-bg: rgba(233, 162, 59, 0.1);
+
+  /* 圓角 */
+  --jt-radius: 12px;
+  --jt-radius-lg: 16px;
+
+  /* 層次：柔和陰影取代生硬 1px 線（搭配 border 一起用）*/
+  --jt-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --jt-shadow-2: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
 body {
@@ -22,13 +38,13 @@ body {
   color: var(--jt-text);
 }
 
-/* 終端機式 eyebrow 標籤 */
+/* 小標：一般字體、克制字距（等寬字只留數字/標籤值）*/
 .jt-eyebrow {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--jt-dim);
 }
 .jt-eyebrow b {
@@ -43,7 +59,8 @@ body {
   height: 100%;
   background: var(--jt-panel);
   border: 1px solid var(--jt-border);
-  border-radius: 10px;
+  border-radius: var(--jt-radius-lg);
+  box-shadow: var(--jt-shadow-1);
 }
 .jt-panel-head {
   display: flex;

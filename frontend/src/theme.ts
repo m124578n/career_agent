@@ -12,6 +12,11 @@ const teal: MantineColorsTuple = [
   "#34d6c8", "#22b3a6", "#198f86", "#136d66", "#0c4a45",
 ];
 
+const amber: MantineColorsTuple = [
+  "#fff8ec", "#fcedd2", "#f6d9a6", "#f1c576", "#ecb34f",
+  "#e9a23b", "#d98f2a", "#b67322", "#925b1c", "#6f4413",
+];
+
 // 覆寫 Mantine 的 dark 色階 → 整個深色介面用我們的 ink 調
 const ink: MantineColorsTuple = [
   "#E6E8EB", // 0 主要文字
@@ -32,6 +37,6 @@ export const theme = createTheme({
   headings: { fontFamily: "'Space Grotesk', system-ui, sans-serif" },
   primaryColor: "tangerine",
   primaryShade: 5,
-  defaultRadius: "sm",
-  colors: { tangerine, teal, dark: ink },
+  defaultRadius: "md", // 從 sm 放大：更舒服、更友善
+  colors: { tangerine, teal, amber, dark: ink },
 });
