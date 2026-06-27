@@ -104,16 +104,41 @@ body {
   background: rgba(52, 214, 200, 0.04);
 }
 
-/* 讀數空狀態 */
+/* 友善空狀態 */
 .jt-empty {
   border: 1px dashed var(--jt-border);
-  border-radius: 10px;
-  padding: 40px 20px;
+  border-radius: var(--jt-radius);
+  padding: 36px 24px;
   text-align: center;
-  color: var(--jt-dim);
-  font-family: "IBM Plex Mono", monospace;
+  color: var(--jt-muted);
+}
+.jt-empty .jt-empty-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--jt-text);
+  margin-bottom: 6px;
+}
+.jt-empty .jt-empty-desc {
   font-size: 13px;
-  letter-spacing: 0.04em;
+  line-height: 1.6;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+/* 圓點標記：取代 [+] / [!] */
+.jt-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  margin-top: 7px;
+}
+.jt-dot[data-kind="pos"] {
+  background: var(--jt-teal);
+}
+.jt-dot[data-kind="warn"] {
+  background: var(--jt-amber);
 }
 
 /* 診斷讀數條目：[+] 優勢 / [!] 待補強 */
@@ -122,34 +147,23 @@ body {
   flex-direction: column;
   gap: 10px;
 }
+
+/* 診斷項目列：圓點 + 淡色襯底（不再用方括號）*/
 .jt-item {
   display: grid;
-  grid-template-columns: 28px 1fr;
+  grid-template-columns: 16px 1fr;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px solid var(--jt-border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.012);
+  border-radius: var(--jt-radius);
   line-height: 1.55;
   font-size: 14px;
-}
-.jt-item .jt-mark {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 13px;
-  font-weight: 600;
-  user-select: none;
+  color: var(--jt-text);
 }
 .jt-item[data-kind="pos"] {
-  border-left: 2px solid var(--jt-teal);
+  background: var(--jt-pos-bg);
 }
-.jt-item[data-kind="pos"] .jt-mark {
-  color: var(--jt-teal);
-}
-.jt-item[data-kind="neg"] {
-  border-left: 2px solid var(--jt-accent);
-}
-.jt-item[data-kind="neg"] .jt-mark {
-  color: var(--jt-accent);
+.jt-item[data-kind="warn"] {
+  background: var(--jt-warn-bg);
 }
 
 /* 契合度能量條 */
