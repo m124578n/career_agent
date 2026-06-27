@@ -107,19 +107,15 @@ export function JobList() {
     mutationFn: api.createSearch,
     onSuccess: (data) => {
       setSelectedId(data.search_id);
-      setPicked(new Set(data.candidates.filter((c) => c.relevant).map((c) => c.job.job_id)));
+      setPicked(new Set()); // 預設不勾選，讓使用者自己挑要分析的候選
       qc.invalidateQueries({ queryKey: ["searches"] });
       qc.invalidateQueries({ queryKey: ["search-matches", data.search_id] });
     },
   });
   const crawlMut = useMutation({
     mutationFn: () => api.crawlNext(selectedId!),
-    onSuccess: (data) => {
-      setPicked((p) => {
-        const n = new Set(p);
-        data.candidates.filter((c) => c.relevant).forEach((c) => n.add(c.job.job_id));
-        return n;
-      });
+    onSuccess: () => {
+      // 爬下一頁不自動勾選新候選，維持使用者目前的選取
       qc.invalidateQueries({ queryKey: ["search-matches", selectedId] });
     },
   });
