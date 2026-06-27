@@ -7,6 +7,7 @@ import { Footer } from "../components/Footer";
 const DONATE_URL = "#";
 
 const SKILLS = [
+  "AI Native", "AI Builder",
   "Python", "FastAPI", "Django", "LLM 整合",
   "Prompt Engineering", "RAG", "Docker", "Azure",
 ];
