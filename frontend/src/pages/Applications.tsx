@@ -1,9 +1,9 @@
 import {
-  ActionIcon, Box, Button, Drawer, Group, Modal, Select, Stack, Switch, Table, Text,
+  ActionIcon, Box, Button, Drawer, Group, Modal, SegmentedControl, Select, Stack, Switch, Table, Text,
   Textarea, TextInput, Title,
 } from "@mantine/core";
 import { IconCoin, IconMessage, IconX } from "../components/icons";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
@@ -21,6 +21,8 @@ export function Applications() {
   const appsQ = useQuery({ queryKey: ["applications"], queryFn: api.listApplications });
   const apps = appsQ.data ?? [];
   const [query, setQuery] = useState("");
+  const isMobile = useMediaQuery("(max-width: 48em)");
+  const [mobileStatus, setMobileStatus] = useState<ApplicationStatus>("to_apply");
 
   // 關鍵字篩選（職稱／公司），純前端；幾十筆時用來快速定位
   const kw = query.trim().toLowerCase();
@@ -51,33 +53,72 @@ export function Applications() {
         style={{ maxWidth: 360 }}
       />
 
-      <Group align="flex-start" gap={14} wrap="nowrap" style={{ overflowX: "auto" }}>
-        {COLUMNS.map((col) => {
-          const items = visible.filter((a) => a.status === col.status);
-          return (
-            <div key={col.status} className="jt-panel" style={{ minWidth: 260, flex: 1 }}>
-              <div className="jt-panel-head">
-                <span className="jt-eyebrow">{col.label} · {items.length}</span>
-                {col.status === "offer" && items.length >= 2 && (
-                  <CompareButton offers={items} />
-                )}
-              </div>
-              <div
-                className="jt-panel-body"
-                style={{ maxHeight: "calc(100vh - 280px)", overflowY: "auto" }}
-              >
-                <Stack gap={10}>
-                  {items.length === 0 ? (
-                    <Text fz="xs" c="dimmed" ta="center" py={8}>還沒有</Text>
-                  ) : (
-                    items.map((a) => <AppCard key={a.job_id} app={a} />)
+      {isMobile ? (
+        <>
+          <SegmentedControl
+            fullWidth
+            size="sm"
+            mb={16}
+            value={mobileStatus}
+            onChange={(v) => setMobileStatus(v as ApplicationStatus)}
+            data={COLUMNS.map((c) => ({
+              value: c.status,
+              label: `${c.label} ${visible.filter((a) => a.status === c.status).length}`,
+            }))}
+          />
+          {(() => {
+            const col = COLUMNS.find((c) => c.status === mobileStatus)!;
+            const items = visible.filter((a) => a.status === mobileStatus);
+            return (
+              <div className="jt-panel">
+                <div className="jt-panel-head">
+                  <span className="jt-eyebrow">{col.label} · {items.length}</span>
+                  {col.status === "offer" && items.length >= 2 && (
+                    <CompareButton offers={items} />
                   )}
-                </Stack>
+                </div>
+                <div className="jt-panel-body">
+                  <Stack gap={10}>
+                    {items.length === 0 ? (
+                      <Text fz="xs" c="dimmed" ta="center" py={8}>還沒有</Text>
+                    ) : (
+                      items.map((a) => <AppCard key={a.job_id} app={a} />)
+                    )}
+                  </Stack>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </Group>
+            );
+          })()}
+        </>
+      ) : (
+        <Group align="flex-start" gap={14} wrap="nowrap" style={{ overflowX: "auto" }}>
+          {COLUMNS.map((col) => {
+            const items = visible.filter((a) => a.status === col.status);
+            return (
+              <div key={col.status} className="jt-panel" style={{ minWidth: 260, flex: 1 }}>
+                <div className="jt-panel-head">
+                  <span className="jt-eyebrow">{col.label} · {items.length}</span>
+                  {col.status === "offer" && items.length >= 2 && (
+                    <CompareButton offers={items} />
+                  )}
+                </div>
+                <div
+                  className="jt-panel-body"
+                  style={{ maxHeight: "calc(100vh - 280px)", overflowY: "auto" }}
+                >
+                  <Stack gap={10}>
+                    {items.length === 0 ? (
+                      <Text fz="xs" c="dimmed" ta="center" py={8}>還沒有</Text>
+                    ) : (
+                      items.map((a) => <AppCard key={a.job_id} app={a} />)
+                    )}
+                  </Stack>
+                </div>
+              </div>
+            );
+          })}
+        </Group>
+      )}
     </Box>
   );
 }
@@ -155,6 +196,7 @@ function AppCard({ app }: { app: Application }) {
 function AppDrawer({
   app, opened, onClose,
 }: { app: Application; opened: boolean; onClose: () => void }) {
+  const isMobile = useMediaQuery("(max-width: 48em)");
   const qc = useQueryClient();
   const [draft, setDraft] = useState("");
   const [offer, setOffer] = useState<OfferInfo>(app.offer ?? {});
@@ -183,7 +225,7 @@ function AppDrawer({
   const setAccepted = (v: boolean) => setOffer((o) => ({ ...o, accepted: v }));
 
   return (
-    <Drawer opened={opened} onClose={onClose} position="right" size="md"
+    <Drawer opened={opened} onClose={onClose} position="right" size={isMobile ? "100%" : "md"}
             title={<span className="jt-eyebrow">{app.job.company} · {app.job.title}</span>}>
       <Stack gap={16}>
         <a className="jt-job-title" href={app.job.url} target="_blank" rel="noreferrer">
@@ -245,33 +287,36 @@ function AppDrawer({
 
 function CompareButton({ offers }: { offers: Application[] }) {
   const [opened, { open, close }] = useDisclosure(false);
+  const isMobile = useMediaQuery("(max-width: 48em)");
   return (
     <>
       <Button size="xs" variant="default" onClick={open}>比較</Button>
-      <Modal opened={opened} onClose={close} size="lg"
+      <Modal opened={opened} onClose={close} size="lg" fullScreen={isMobile}
              title={<span className="jt-eyebrow">Offer 比較</span>}>
-        <Table withTableBorder withColumnBorders fz="xs">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>公司</Table.Th>
-              <Table.Th>薪資</Table.Th>
-              <Table.Th>職等</Table.Th>
-              <Table.Th>到職日</Table.Th>
-              <Table.Th>備註</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {offers.map((a) => (
-              <Table.Tr key={a.job_id}>
-                <Table.Td>{a.job.company}</Table.Td>
-                <Table.Td>{a.offer?.salary ?? "—"}</Table.Td>
-                <Table.Td>{a.offer?.level ?? "—"}</Table.Td>
-                <Table.Td>{a.offer?.start_date ?? "—"}</Table.Td>
-                <Table.Td>{a.offer?.note ?? "—"}</Table.Td>
+        <Table.ScrollContainer minWidth={480}>
+          <Table withTableBorder withColumnBorders fz="xs">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>公司</Table.Th>
+                <Table.Th>薪資</Table.Th>
+                <Table.Th>職等</Table.Th>
+                <Table.Th>到職日</Table.Th>
+                <Table.Th>備註</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {offers.map((a) => (
+                <Table.Tr key={a.job_id}>
+                  <Table.Td>{a.job.company}</Table.Td>
+                  <Table.Td>{a.offer?.salary ?? "—"}</Table.Td>
+                  <Table.Td>{a.offer?.level ?? "—"}</Table.Td>
+                  <Table.Td>{a.offer?.start_date ?? "—"}</Table.Td>
+                  <Table.Td>{a.offer?.note ?? "—"}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       </Modal>
     </>
   );
