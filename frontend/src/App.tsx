@@ -138,7 +138,7 @@ function AccountFooter() {
           {quota ? `${quota.used} / ${quota.limit}` : "—"}
         </div>
         <div style={{ fontSize: 11, color: "var(--jt-dim)" }}>
-          剩餘 {quota?.remaining ?? "—"} 次（每日重置）
+          還可用 {quota?.remaining ?? "—"} 次 · 每日重置
         </div>
       </div>
 

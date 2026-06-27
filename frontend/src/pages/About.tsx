@@ -38,7 +38,7 @@ export function About() {
         <div className="jt-panel">
           <div className="jt-panel-body">
             <Stack gap={6} mb={18}>
-              <span className="jt-eyebrow">關於我 // ABOUT</span>
+              <span className="jt-eyebrow">關於我</span>
               <Title order={1} fz={{ base: 26, md: 32 }} fw={700} lts="-0.02em">
                 詹舜智
               </Title>
@@ -76,7 +76,7 @@ export function About() {
               ))}
             </Stack>
 
-            <div className="jt-eyebrow" style={{ margin: "22px 0 8px" }}>支持我 // SUPPORT</div>
+            <div className="jt-eyebrow" style={{ margin: "22px 0 8px" }}>支持我</div>
             <Stack gap={8}>
               <Text fz="sm" c="dimmed">
                 覺得這個工具有幫助嗎？歡迎請我喝杯咖啡。
@@ -86,7 +86,7 @@ export function About() {
                 href={DONATE_URL}
                 target="_blank"
                 rel="noreferrer"
-                color="orange"
+                color="tangerine"
                 radius="sm"
                 w="fit-content"
                 leftSection={<IconCoffee size={16} />}
