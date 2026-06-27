@@ -39,7 +39,7 @@ export function Applications() {
         <Title order={1} fz={{ base: 28, md: 34 }} fw={700} lts="-0.02em">
           追蹤清單
         </Title>
-        <Text c="dimmed" fz="sm">把職缺加入後，在這裡管理投遞與面試進度。</Text>
+        <Text c="dimmed" fz="sm">把有興趣的職缺加進來，在這裡追蹤投遞與面試進度。</Text>
       </Stack>
 
       <TextInput
@@ -68,7 +68,7 @@ export function Applications() {
               >
                 <Stack gap={10}>
                   {items.length === 0 ? (
-                    <Text fz="xs" c="dimmed">—</Text>
+                    <Text fz="xs" c="dimmed" ta="center" py={8}>還沒有</Text>
                   ) : (
                     items.map((a) => <AppCard key={a.job_id} app={a} />)
                   )}
@@ -191,7 +191,7 @@ function AppDrawer({
         </a>
         {app.status === "offer" && (
           <div>
-            <div className="jt-eyebrow" style={{ marginBottom: 8 }}>OFFER</div>
+            <div className="jt-eyebrow" style={{ marginBottom: 8 }}>Offer 內容</div>
             <Stack gap={8}>
               <TextInput size="xs" label="薪資" placeholder="月 60k＋年終 2 個月"
                          value={offer.salary ?? ""} onChange={(e) => set("salary", e.currentTarget.value)} />
@@ -214,7 +214,7 @@ function AppDrawer({
           <div className="jt-eyebrow" style={{ marginBottom: 8 }}>時間軸</div>
           <Stack gap={6}>
             {events.length === 0 ? (
-              <Text fz="xs" c="dimmed">—</Text>
+              <Text fz="xs" c="dimmed">還沒有紀錄，加一條筆記開始吧。</Text>
             ) : (
               events.map((e, i) => (
                 <Group key={`${e.ts}-${e.type}-${i}`} gap={8} wrap="nowrap" align="flex-start">
@@ -249,7 +249,7 @@ function CompareButton({ offers }: { offers: Application[] }) {
     <>
       <Button size="xs" variant="default" onClick={open}>比較</Button>
       <Modal opened={opened} onClose={close} size="lg"
-             title={<span className="jt-eyebrow">OFFER 比較</span>}>
+             title={<span className="jt-eyebrow">Offer 比較</span>}>
         <Table withTableBorder withColumnBorders fz="xs">
           <Table.Thead>
             <Table.Tr>
