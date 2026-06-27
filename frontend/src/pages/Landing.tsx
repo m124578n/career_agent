@@ -24,7 +24,7 @@ export function Landing() {
     <Box style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
       <Group justify="space-between" px={{ base: "lg", md: 40 }} py="md">
         <span className="jt-brand">
-          JobTracker<span className="dot">.</span>
+          JobTracker<span className="dot" aria-hidden="true">.</span>
         </span>
         <Anchor component={Link} to="/about" c="dimmed" fz="sm">
           關於作者 →
