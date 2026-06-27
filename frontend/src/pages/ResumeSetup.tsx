@@ -14,9 +14,12 @@ import {
   FileButton,
 } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useResume } from "../state/resume";
 import { AnalyzingSteps } from "../components/AnalyzingSteps";
+import { EmptyState } from "../components/EmptyState";
+import { ReadoutItem } from "../components/ReadoutItem";
 
 export function ResumeSetup() {
   const { target, setTarget, diagnosis, setDiagnosis } = useResume();
@@ -67,16 +70,14 @@ export function ResumeSetup() {
 
   return (
     <Box p={{ base: "lg", md: 40 }} maw={1180} mx="auto">
-      {/* Header */}
       <Stack gap={6} mb={32}>
-        <span className="jt-eyebrow">
-          履歷 <b>×</b> 目標
-        </span>
+        <span className="jt-eyebrow">第 1 步</span>
         <Title order={1} fz={{ base: 28, md: 34 }} fw={700} lts="-0.02em">
-          設定你的求職基準
+          先讓我認識你
         </Title>
         <Text c="dimmed" fz="sm" maw={560}>
-          上傳履歷、設定目標職位與期望薪資，拿到一份針對「這個職位」的優勢／待補強分析。
+          上傳履歷、填好想找的職位，我就幫你看看「這個職位」上你的亮點，
+          還有可以加強的地方。
         </Text>
       </Stack>
 
@@ -84,45 +85,43 @@ export function ResumeSetup() {
         {/* 輸入 */}
         <div className="jt-panel">
           <div className="jt-panel-head">
-            <span className="jt-eyebrow">輸入 // INPUT</span>
+            <span className="jt-eyebrow">上傳與設定</span>
           </div>
           <div className="jt-panel-body">
             <Stack gap={18}>
               <FileButton onChange={onFile} accept=".pdf,.docx,.txt">
                 {(props) => (
-                  <UnstyledButton
-                    {...props}
-                    className="jt-drop"
-                    data-loaded={!!resumeText}
-                  >
+                  <UnstyledButton {...props} className="jt-drop" data-loaded={!!resumeText}>
                     <Group gap={8} wrap="nowrap">
                       <Text fz="sm" fw={500} c="var(--jt-text)">
-                        {file ? file.name : resumeText ? "已載入履歷" : "選擇履歷檔"}
+                        {file ? file.name : resumeText ? "✓ 已載入履歷" : "選擇你的履歷檔"}
                       </Text>
                       {parseMut.isPending && <Loader size={14} color="teal" />}
                     </Group>
                     <Text fz="xs" c="dimmed">
-                      {resumeText
-                        ? `已解析 · ${resumeText.length.toLocaleString()} 字`
-                        : "支援 PDF / DOCX / TXT，點擊或拖入"}
+                      {parseMut.isPending
+                        ? "正在讀取你的履歷…"
+                        : resumeText
+                          ? `讀好了 · 共 ${resumeText.length.toLocaleString()} 字`
+                          : "支援 PDF / DOCX / TXT，點一下或把檔案拖進來"}
                     </Text>
                   </UnstyledButton>
                 )}
               </FileButton>
               {parseMut.isError && (
                 <Text fz="xs" c="tangerine.5">
-                  解析失敗：請換一個檔案或確認格式。
+                  這個檔案讀不太到，換一個檔案或確認格式再試一次。
                 </Text>
               )}
 
               <TextInput
-                label="目標職位"
+                label="想找什麼職位？"
                 placeholder="例：資深 Python 後端工程師"
                 value={title}
                 onChange={(e) => setTitle(e.currentTarget.value)}
               />
               <NumberInput
-                label="期望月薪（TWD）"
+                label="期望月薪（TWD，可留空）"
                 placeholder="例：70000"
                 value={salary}
                 onChange={setSalary}
@@ -131,62 +130,58 @@ export function ResumeSetup() {
                 step={5000}
               />
 
-              <Button
-                color="tangerine"
-                size="md"
-                disabled={!canRun}
-                loading={diagMut.isPending}
-                onClick={run}
-                mt={4}
-              >
-                執行診斷
+              <Button color="tangerine" size="md" disabled={!canRun} loading={diagMut.isPending} onClick={run} mt={4}>
+                開始診斷
               </Button>
+              <Text fz="xs" c="dimmed" ta="center">
+                上傳履歷並填好職位後就能開始
+              </Text>
             </Stack>
           </div>
         </div>
 
-        {/* 診斷讀數 */}
         <div className="jt-panel">
           <div className="jt-panel-head">
             <span className="jt-eyebrow">
-              診斷讀數 // READOUT
+              你的診斷結果
               {diagnosis && (
                 <>
-                  {"  "}
-                  <b>{diagnosis.strengths.length} 優勢</b>
+                  {"　"}
+                  <b style={{ color: "var(--jt-teal)" }}>{diagnosis.strengths.length} 個亮點</b>
                   {" · "}
-                  {diagnosis.gaps.length} 待補強
+                  {diagnosis.gaps.length} 個可加強
                 </>
               )}
             </span>
           </div>
-          <div
-            className="jt-panel-body"
-            data-center={!diagnosis && !diagMut.isPending}
-          >
+          <div className="jt-panel-body" data-center={!diagnosis && !diagMut.isPending}>
             {diagMut.isPending ? (
               <AnalyzingSteps
                 steps={[
-                  "讀取履歷與目標…",
-                  "對標職位分析優勢…",
-                  "整理待補強缺口…",
-                  "彙整診斷結果…",
+                  "讀取你的履歷與目標…",
+                  "對著這個職位看你的亮點…",
+                  "整理可以加強的地方…",
+                  "彙整成一份診斷…",
                 ]}
                 intervalSec={4}
               />
             ) : diagMut.isError ? (
-              <div className="jt-empty">
-                診斷失敗 // 請稍後再試或確認後端設定
-              </div>
-            ) : diagnosis ? (
-              <Diagnosis
-                strengths={diagnosis.strengths}
-                gaps={diagnosis.gaps}
+              <EmptyState
+                title="分析沒成功"
+                description="先確認網路或稍後再試一次。"
+                action={
+                  <Button size="xs" variant="default" onClick={run}>
+                    再試一次
+                  </Button>
+                }
               />
+            ) : diagnosis ? (
+              <Diagnosis strengths={diagnosis.strengths} gaps={diagnosis.gaps} />
             ) : (
-              <div className="jt-empty">
-                等待輸入 // 上傳履歷並設定目標後執行診斷
-              </div>
+              <EmptyState
+                title="還沒有診斷結果"
+                description="上傳履歷、填好目標職位，我就幫你看看亮點和可以加強的地方。"
+              />
             )}
           </div>
         </div>
@@ -195,43 +190,42 @@ export function ResumeSetup() {
   );
 }
 
-function Diagnosis({
-  strengths,
-  gaps,
-}: {
-  strengths: string[];
-  gaps: string[];
-}) {
+function Diagnosis({ strengths, gaps }: { strengths: string[]; gaps: string[] }) {
   return (
     <Stack gap={22}>
-      <Section label="優勢" tag="STRENGTHS" kind="pos" items={strengths} />
-      <Section label="待補強" tag="GAPS" kind="neg" items={gaps} />
+      <Section label="你的亮點" kind="pos" items={strengths} />
+      <Section label="可以加強的地方" kind="warn" items={gaps} />
+      <Button
+        component={Link}
+        to="/jobs"
+        color="tangerine"
+        variant="light"
+        size="sm"
+        mt={4}
+      >
+        下一步：去找職缺 →
+      </Button>
     </Stack>
   );
 }
 
 function Section({
   label,
-  tag,
   kind,
   items,
 }: {
   label: string;
-  tag: string;
-  kind: "pos" | "neg";
+  kind: "pos" | "warn";
   items: string[];
 }) {
   return (
     <Stack gap={10}>
-      <span className="jt-eyebrow">
-        {label} // {tag}
-      </span>
+      <span className="jt-eyebrow">{label}</span>
       <div className="jt-readout">
         {items.map((text, i) => (
-          <div key={i} className="jt-item" data-kind={kind}>
-            <span className="jt-mark">{kind === "pos" ? "[+]" : "[!]"}</span>
-            <span>{text}</span>
-          </div>
+          <ReadoutItem key={i} kind={kind}>
+            {text}
+          </ReadoutItem>
         ))}
       </div>
     </Stack>
