@@ -16,7 +16,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { IconX } from "../components/icons";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -50,6 +50,7 @@ export function JobList() {
   const [resultLimit, setResultLimit] = useState(12); // 排序結果漸進顯示
   const [candOpen, setCandOpen] = useState(true);
   const qc = useQueryClient();
+  const isMobile = useMediaQuery("(max-width: 48em)");
 
   // 耗額度的操作完成時主動刷新用量（取代高頻輪詢）
   const refreshUsage = () => {
@@ -318,16 +319,16 @@ export function JobList() {
           {/* 候選清單 */}
           {candidates.length > 0 && (
             <div className="jt-panel" style={{ marginBottom: 20 }}>
-              <div className="jt-panel-head">
+              <div className="jt-panel-head" style={{ flexWrap: "wrap", rowGap: 8 }}>
                 <span className="jt-eyebrow">有興趣的候選 · {candidates.length}</span>
-                <Group gap={8}>
+                <Group gap={8} wrap="wrap">
                   <Button size="xs" variant="subtle" color="gray"
                           onClick={() => setCandOpen((o) => !o)}>
                     {candOpen ? "▾ 收合" : "▸ 展開"}
                   </Button>
-                  <Button size="xs" variant="default" onClick={() => crawlMut.mutate()}
+                  <Button size={isMobile ? "sm" : "xs"} variant="default" onClick={() => crawlMut.mutate()}
                           disabled={busy} loading={crawlMut.isPending}>爬下一頁</Button>
-                  <Button size="xs" color="tangerine"
+                  <Button size={isMobile ? "sm" : "xs"} color="tangerine"
                           disabled={pickedCandidates.length === 0 || analyzeMut.isPending}
                           loading={analyzeMut.isPending}
                           onClick={() => analyzeMut.mutate()}>
@@ -352,18 +353,23 @@ export function JobList() {
                     </Text>
                   </Group>
                   {candidates.map((c) => (
-                    <Group key={c.job.job_id} gap={10} wrap="nowrap">
+                    <Group key={c.job.job_id} gap={10} wrap="nowrap" align="flex-start">
                       <Checkbox
+                        mt={2}
                         checked={picked.has(c.job.job_id)}
                         onChange={() => toggle(c.job.job_id)}
                       />
-                      <a className="jt-job-title" href={c.job.url} target="_blank" rel="noreferrer"
-                         style={{ flex: 1 }}>{c.job.title}</a>
-                      <Text fz="xs" c="dimmed">{c.job.company}</Text>
-                      {c.job.salary && <Text fz="xs" c="dimmed">{c.job.salary}</Text>}
-                      {!c.relevant && (
-                        <span className="jt-chip" style={{ color: "var(--jt-dim)" }}>廣告？</span>
-                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <a className="jt-job-title" href={c.job.url} target="_blank" rel="noreferrer"
+                           style={{ display: "block" }}>{c.job.title}</a>
+                        <Group gap={8} wrap="wrap" mt={2}>
+                          <Text fz="xs" c="dimmed">{c.job.company}</Text>
+                          {c.job.salary && <Text fz="xs" c="dimmed">· {c.job.salary}</Text>}
+                          {!c.relevant && (
+                            <span className="jt-chip" style={{ color: "var(--jt-dim)" }}>廣告？</span>
+                          )}
+                        </Group>
+                      </div>
                     </Group>
                   ))}
                 </Stack>
@@ -456,6 +462,7 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
   const benefits = match.benefits ?? [];
   const qc = useQueryClient();
   const [opened, { open, close }] = useDisclosure(false);
+  const isMobile = useMediaQuery("(max-width: 48em)");
   // 已存的求職信當作初始內容（重開直接看，不必重生）
   const [draft, setDraft] = useState(match.cover_letter ?? "");
   const [expanded, setExpanded] = useState(false);
@@ -584,6 +591,7 @@ function MatchCard({ match, searchId }: { match: JobMatch; searchId: string }) {
         opened={opened}
         onClose={close}
         size="lg"
+        fullScreen={isMobile}
         closeOnClickOutside={!letterMut.isPending}
         closeOnEscape={!letterMut.isPending}
         title={
