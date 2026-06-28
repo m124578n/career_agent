@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("run", help="擷取 → 比對 → 彙整")
     try:
         args = parser.parse_args(argv)
-    except (SystemExit, argparse.ArgumentError):
+    except argparse.ArgumentError:
         return 2
     if args.cmd == "login":
         return _cmd_login()
