@@ -39,3 +39,18 @@ def scrape(page) -> tuple[Snapshot, set[str]]:
         messages=collected["messages"],
     )
     return snapshot, failed
+
+
+def scrape_session() -> tuple[Snapshot, set[str]] | None:
+    """開 headful context → establish_session → scrape。未登入回 None。需真瀏覽器、不單測。"""
+    from rebrowser_playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        ctx = browser.open_context(p)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        try:
+            if not establish_session(page):
+                return None
+            return scrape(page)
+        finally:
+            ctx.close()
