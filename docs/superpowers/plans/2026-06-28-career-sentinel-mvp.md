@@ -1116,7 +1116,7 @@ Expected: 開出 Chrome，手動登入 104 成功；關閉後 `data/chrome-profi
 import json
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from rebrowser_playwright.sync_api import sync_playwright
 
 from career_sentinel import browser
 

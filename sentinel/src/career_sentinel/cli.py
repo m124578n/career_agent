@@ -17,7 +17,7 @@ def run_pipeline(scrape: Callable[[], Snapshot], conn, *, now: str) -> str:
 
 
 def _cmd_login() -> int:
-    from playwright.sync_api import sync_playwright
+    from rebrowser_playwright.sync_api import sync_playwright
 
     print("開啟 Chrome，請在視窗內登入 104（含驗證碼）。登入完成後關閉視窗即可。")
     with sync_playwright() as p:
@@ -30,7 +30,7 @@ def _cmd_login() -> int:
 
 
 def _cmd_run() -> int:
-    from playwright.sync_api import sync_playwright
+    from rebrowser_playwright.sync_api import sync_playwright
 
     conn = store.connect(config.db_path())
     with sync_playwright() as p:
