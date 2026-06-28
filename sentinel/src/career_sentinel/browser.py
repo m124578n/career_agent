@@ -80,13 +80,15 @@ def wait_until_ready(page, timeout_ms: int = 20000) -> bool:
     """
     import time
 
+    # Cloudflare 攔截頁的標題標記（含中文「請稍候…」）。
+    markers = ("moment", "verifying", "請稍候", "稍候", "checking", "attention required")
     deadline = time.monotonic() + timeout_ms / 1000
     while time.monotonic() < deadline:
         try:
             title = (page.title() or "").lower()
         except Exception:
             title = ""
-        if title and "moment" not in title and "verifying" not in title:
+        if title and not any(m in title for m in markers):
             return True
         page.wait_for_timeout(1000)
     return False
