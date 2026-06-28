@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "104 地端哨兵：地端讀取求職狀態、比對變化、LLM 每日彙整"
 requires-python = ">=3.12"
 dependencies = [
-    "playwright>=1.44",
+    # rebrowser-playwright 是 playwright 的 drop-in 替換（內部仍是 playwright 模組），
+    # 打了反偵測 patch（修 Cloudflare/DataDome 偵測的 CDP Runtime.enable 洩漏）。
+    "rebrowser-playwright>=1.49",
     "pydantic>=2.7",
     "python-dotenv>=1.0",
     "httpx>=0.27",

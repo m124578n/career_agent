@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import os
+
 from . import config
+
+# rebrowser-patches 的 Runtime.enable 修補模式（過 Cloudflare 的關鍵）。
+# 在啟動瀏覽器前設好即可；使用者可用環境變數覆寫切換 addBinding/alwaysIsolated/0。
+os.environ.setdefault("REBROWSER_PATCHES_RUNTIME_FIX_MODE", "addBinding")
 
 # 登入後才看得到的探針頁（spike 時校正成穩定的私人頁）
 LOGGED_IN_PROBE_URL = "https://www.104.com.tw/my/apply"
