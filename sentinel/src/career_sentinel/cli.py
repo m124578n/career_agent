@@ -77,11 +77,27 @@ def _cmd_run() -> int:
     return 0
 
 
+def _cmd_serve() -> int:
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    from .web.app import create_app
+
+    url = "http://127.0.0.1:8765"
+    threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    print(f"career-sentinel 儀表板：{url}（Ctrl+C 結束）")
+    uvicorn.run(create_app(), host="127.0.0.1", port=8765, log_level="warning")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="career-sentinel", exit_on_error=False)
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("login", help="首次：開 Chrome 手動登入 104")
     sub.add_parser("run", help="擷取 → 比對 → 彙整")
+    sub.add_parser("serve", help="起本地 web 儀表板")
     try:
         args = parser.parse_args(argv)
     except argparse.ArgumentError:
@@ -90,5 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_login()
     if args.cmd == "run":
         return _cmd_run()
+    if args.cmd == "serve":
+        return _cmd_serve()
     parser.print_help()
     return 2
