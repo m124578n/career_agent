@@ -1,0 +1,37 @@
+{
+  "data": [
+    {
+      "chatroomId": "room-aaa",
+      "jobNo": 12345678,
+      "jobName": "資深後端工程師",
+      "jobDeleted": 0,
+      "custNo": 1001,
+      "custName": "範例科技股份有限公司",
+      "custLogo": "https://example.invalid/logo1.png",
+      "msg": "想邀請您本週四下午來面試",
+      "msgDate": "2026-06-28 10:00",
+      "msgId": 555,
+      "isRead": 0,
+      "lastEvent": { "desc": "面試邀約", "type": 3 },
+      "pddscore": 0.0,
+      "pddscoreLevel": 0
+    },
+    {
+      "chatroomId": "room-bbb",
+      "jobNo": 87654321,
+      "jobName": "前端工程師",
+      "jobDeleted": 0,
+      "custNo": 1002,
+      "custName": "範例新創股份有限公司",
+      "custLogo": "https://example.invalid/logo2.png",
+      "msg": "感謝您的應徵，我們會盡快與您聯繫",
+      "msgDate": "2026-06-27 15:00",
+      "msgId": 556,
+      "isRead": 1,
+      "lastEvent": { "desc": "已回覆", "type": 1 },
+      "pddscore": 0.0,
+      "pddscoreLevel": 0
+    }
+  ],
+  "metadata": { "pagination": { "count": 2, "total": 2, "currentPage": 1, "lastPage": 1 } }
+}

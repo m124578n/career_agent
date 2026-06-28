@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "matchNos": [],
+      "browseNos": ["12345678"],
+      "type": 1,
+      "browseDate": "2026-06-28 09:12",
+      "custNo": "1a2b3c",
+      "custName": "範例科技股份有限公司",
+      "custSwitch": "on",
+      "areaDesc": "台北市內湖區",
+      "industryDesc": "電腦軟體服務業",
+      "jobCount": 12,
+      "jobCatTag": { "no": 2007001000, "desc": "軟體工程師" },
+      "mainScore": 88.0
+    },
+    {
+      "matchNos": [],
+      "browseNos": ["87654321"],
+      "type": 1,
+      "browseDate": "2026-06-27 18:40",
+      "custNo": "4d5e6f",
+      "custName": "範例半導體股份有限公司",
+      "custSwitch": "on",
+      "areaDesc": "新竹市東區",
+      "industryDesc": "半導體製造業",
+      "jobCount": 5,
+      "jobCatTag": { "no": 2007002000, "desc": "韌體工程師" },
+      "mainScore": 75.0
+    }
+  ],
+  "metadata": { "pagination": { "count": 2, "total": 2, "currentPage": 1, "lastPage": 1 } }
+}
