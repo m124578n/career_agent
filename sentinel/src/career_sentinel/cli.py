@@ -17,20 +17,28 @@ def run_pipeline(scrape: Callable[[], Snapshot], conn, *, now: str) -> str:
 
 
 def _cmd_login() -> int:
-    from rebrowser_playwright.sync_api import sync_playwright
+    # 登入要人手動操作，故開「純 Chrome」（不經 Playwright/CDP）——rebrowser 的 patch
+    # 會卡住人手動導覽。登入態存進專用 profile，之後 run 再用 rebrowser 自動讀。
+    import subprocess
 
-    print("開啟 Chrome 前往 104…")
-    with sync_playwright() as p:
-        ctx = browser.open_context(p)
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page.goto("https://www.104.com.tw/", wait_until="domcontentloaded")
-        print("Cloudflare 驗證中，請稍候約 10 秒讓頁面跑完…")
-        if browser.wait_until_ready(page):
-            print("頁面就緒，請在視窗內登入 104（含驗證碼）。")
-        else:
-            print("Cloudflare 似乎還在驗證；可手動在視窗操作，過了再登入。")
-        input("登入完成後按 Enter 關閉…")
-        ctx.close()
+    chrome = browser.find_chrome()
+    if not chrome:
+        print("找不到 Google Chrome，請確認已安裝。")
+        return 1
+    profile = config.profile_dir()
+    profile.mkdir(parents=True, exist_ok=True)
+    print("開啟純 Chrome（無自動化）登入 104——像平常一樣過 Cloudflare、輸入帳密。")
+    print("登入成功後，回這裡按 Enter，再關閉那個 Chrome 視窗即可。")
+    subprocess.Popen(
+        [
+            chrome,
+            f"--user-data-dir={profile}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "https://www.104.com.tw/",
+        ]
+    )
+    input("登入完成後按 Enter…")
     return 0
 
 

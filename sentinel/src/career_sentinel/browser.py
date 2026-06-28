@@ -16,6 +16,35 @@ def is_login_url(url: str) -> bool:
     return "/login" in url or "account.104.com.tw" in url
 
 
+def find_chrome() -> str | None:
+    """找系統 Google Chrome 執行檔（供『純 Chrome 登入』用，完全不經 Playwright/CDP）。
+
+    手動登入需要正常可操作的瀏覽器；經 rebrowser 的 patch 會卡住人手動導覽，
+    故登入改開純 Chrome。優先讀登錄檔 App Paths，再退回常見安裝路徑。
+    """
+    candidates: list[str] = []
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe",
+        ) as key:
+            val, _ = winreg.QueryValueEx(key, None)
+            if val:
+                candidates.append(val)
+    except OSError:
+        pass
+    for env in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
+        base = os.environ.get(env)
+        if base:
+            candidates.append(os.path.join(base, "Google", "Chrome", "Application", "chrome.exe"))
+    for path in candidates:
+        if path and os.path.exists(path):
+            return path
+    return None
+
+
 # 注入到每個頁面最早期，遮掉 Playwright/CDP 殘留的自動化特徵。
 # `--disable-blink-features=AutomationControlled` 已讓 navigator.webdriver=undefined，
 # 這段是雙保險，並順手補上常被反爬 SDK 探測的 webdriver 屬性。
