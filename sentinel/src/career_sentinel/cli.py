@@ -63,18 +63,22 @@ def _cmd_login() -> int:
 def _cmd_run() -> int:
     from rebrowser_playwright.sync_api import sync_playwright
 
+    from .scraper import real
+
     conn = store.connect(config.db_path())
     with sync_playwright() as p:
         ctx = browser.open_context(p)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        if not browser.ensure_logged_in(page):
+        if not real.establish_session(page):
             ctx.close()
             print("尚未登入，請先執行：career-sentinel login")
             return 1
+        report = run_pipeline(
+            lambda: real.scrape(page),
+            conn,
+            now=datetime.now().isoformat(timespec="seconds"),
+        )
         ctx.close()
-    # Phase 1：先用假爬蟲；Phase 2 改成真爬蟲 scraper.scrape(page)
-    # Phase 2: real scraper needs the page — move this pipeline call INSIDE the `with sync_playwright()` block, before ctx.close().
-    report = run_pipeline(fake.scrape, conn, now=datetime.now().isoformat(timespec="seconds"))
     print(report)
     return 0
 
