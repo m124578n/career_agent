@@ -55,7 +55,7 @@ def _run(launch_scrape: Callable[[], set[str]]) -> None:
         _state.running = False
 
 
-def default_scrape() -> set[str]:
+def default_scrape(db_path: str | None = None) -> set[str]:
     """真實抓取：scrape_session → run_pipeline 存。未登入 raise LoginRequired。需真瀏覽器。"""
     from .. import cli, config, store
     from ..scraper import real
@@ -63,7 +63,10 @@ def default_scrape() -> set[str]:
     result = real.scrape_session()
     if result is None:
         raise LoginRequired()
-    snapshot, failed = result
-    conn = store.connect(config.db_path())
-    cli.run_pipeline(lambda: result, conn, now=datetime.now().isoformat(timespec="seconds"))
+    failed = result[1]
+    conn = store.connect(db_path or config.db_path())
+    try:
+        cli.run_pipeline(lambda: result, conn, now=datetime.now().isoformat(timespec="seconds"))
+    finally:
+        conn.close()
     return failed

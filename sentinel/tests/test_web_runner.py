@@ -65,3 +65,16 @@ def test_start_scrape_exception_sets_error():
             break
         time.sleep(0.02)
     assert "kaboom" in runner.status()["last_error"]
+
+
+def test_default_scrape_saves_to_given_db(tmp_path, monkeypatch):
+    from career_sentinel import store
+    from career_sentinel.models import Snapshot, Viewer
+    from career_sentinel.scraper import real
+
+    snap = Snapshot(viewers=[Viewer(company="A", job_title="x", viewed_at="t")])
+    monkeypatch.setattr(real, "scrape_session", lambda: (snap, set()))
+    db = str(tmp_path / "db.sqlite")
+    failed = runner.default_scrape(db)
+    assert failed == set()
+    assert store.latest_run_at(store.connect(db)) is not None
