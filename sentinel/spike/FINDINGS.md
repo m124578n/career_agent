@@ -59,15 +59,29 @@
 - **頁面**：`https://pda.104.com.tw/applyRecord/`
 - **資料端點**：`GET https://pda.104.com.tw/applyRecord/ajax/list?page=1&status=all`
   - `status` 可帶 `all`（亦見 `notApply` 等）。
-- **回應**：`{data: [ 應徵紀錄 ], metadata.pagination}`。
-- ⚠️ **目前 `data: []`（使用者最近未投遞）→ item 結構未知。**
-  - 預期欄位（依 104 慣例，待有資料時確認）：`jobNo`/`jobName`/`custName`/`applyDate`/`statusDesc`。
-  - → `Application`：`job_id=jobNo`、`company=custName`、`title=jobName`、`status=statusDesc`、`applied_at=applyDate`（**待確認**）。
+- **回應**：`{data: [ 應徵紀錄 ], metadata.pagination}`。已用真實投遞確認 item 結構：
+
+| 欄位 | 意義 | → `Application` |
+|------|------|----------------|
+| `jobNo` (int) | 職缺編號 | `job_id`（轉 str） |
+| `jobName` (str) | 職缺名 | `title` |
+| `custName` (str) | 公司名 | `company` |
+| `applyDate` (str) | 投遞時間 `YYYY/MM/DD HH:MM:SS` | `applied_at` |
+| `custCheckDate` (str) | 公司看過的時間（空=未讀） | 推導 `status` |
+| `custReplyDate` (str) | 公司回覆時間 | 推導 `status` |
+| `hrReplyCount` (int) | HR 回覆次數 | 推導 `status` |
+| `autoNo`/`jobUrl`/`custUrl`/`replyReminder{day,type}`/… | 其他 | 存 raw |
+
+- ⚠️ **無單一 `statusDesc` 欄位——投遞狀態要「推導」**：
+  - `custCheckDate` 空 → 已送出/未讀；有值 → **已讀**。
+  - `custReplyDate` 有值或 `hrReplyCount>0` → **公司已回覆**（是否邀面試/婉拒，需再對照訊息頁
+    `chatrooms.lastEvent` 或 `replyReminder.type`）。
+  - Phase 2 寫一個 `derive_status(item) -> str` 純函式集中此邏輯。
 
 ---
 
 ## Phase 2 待補（gaps）
-1. **applications item 結構**：使用者目前無應徵紀錄，端點正確但 `data` 空。需在有投遞時再擷取一次確認欄位。
+1. ~~applications item 結構~~ ✅ 已用真實投遞確認（見上）；`status` 需 `derive_status` 推導。
 2. **面試邀約精準判斷 + 日期**：`chatrooms` 列表只到 `lastEvent`；面試「日期」可能要開對話室或面試專屬端點。
 3. **viewers 的 job_title 粒度**：`peruse-record/companies` 是公司層級；若要單一職缺粒度需另找端點。
 4. **取數方式**：建議 Phase 2 用 `page.request.get(<api>)`（已登入 context 直接打 JSON）取代 DOM 解析。

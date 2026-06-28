@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "autoNo": "aabbcc",
+      "applyDate": "2026/06/28 19:10:26",
+      "jobNo": 99999999,
+      "jobName": "範例軟體開發工程師",
+      "jobUrl": "https://example.invalid/job/99999999",
+      "custName": "範例電腦股份有限公司",
+      "custUrl": "https://example.invalid/cust/123",
+      "snapshotUrl": "",
+      "examReportUrl": "",
+      "custCheckDate": "2026/06/28 20:00:00",
+      "custReplyDate": "",
+      "replyUrl": "",
+      "hrReplyCount": 0,
+      "analysisType": 0,
+      "analysisUrl": "",
+      "jobSwitch": "on",
+      "custSwitch": "on",
+      "cancelDeadline": "",
+      "lastCustReplyTimestamp": null,
+      "nowTimestamp": 1782000000,
+      "versionNo": "v1",
+      "userApplyCount": 1,
+      "replyReminder": { "day": 0, "type": 0 }
+    }
+  ],
+  "metadata": { "pagination": { "count": 1, "total": 1, "currentPage": 1, "lastPage": 1 } }
+}
