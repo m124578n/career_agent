@@ -36,13 +36,18 @@ def summarize(diff: Diff, snapshot: Snapshot, *, client: object | None = None) -
         return _local_fallback(diff, snapshot)
 
     http = client or httpx.Client(timeout=60)
-    resp = http.post(
-        f"{cfg.base_url}/chat/completions",
-        headers={"Authorization": f"Bearer {cfg.api_key}"},
-        json={
-            "model": cfg.model,
-            "messages": [{"role": "user", "content": build_prompt(diff, snapshot)}],
-        },
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    owns_client = client is None
+    try:
+        resp = http.post(
+            f"{cfg.base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {cfg.api_key}"},
+            json={
+                "model": cfg.model,
+                "messages": [{"role": "user", "content": build_prompt(diff, snapshot)}],
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+    finally:
+        if owns_client:
+            http.close()

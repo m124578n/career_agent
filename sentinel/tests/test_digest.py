@@ -35,6 +35,7 @@ def test_summarize_calls_llm_when_configured(monkeypatch):
         def post(self, url, **kw):
             captured["url"] = url
             captured["json"] = kw["json"]
+            captured["headers"] = kw["headers"]
             return FakeResp()
 
     d = Diff(new_viewers=[Viewer(company="A", job_title="x", viewed_at="t")])
@@ -42,3 +43,4 @@ def test_summarize_calls_llm_when_configured(monkeypatch):
     assert out == "今日彙整：有人看你"
     assert captured["url"] == "https://x/v1/chat/completions"
     assert captured["json"]["model"] == "m"
+    assert captured["headers"]["Authorization"] == "Bearer key"
