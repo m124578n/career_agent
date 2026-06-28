@@ -1,0 +1,24 @@
+[project]
+name = "career-sentinel"
+version = "0.1.0"
+description = "104 地端哨兵：地端讀取求職狀態、比對變化、LLM 每日彙整"
+requires-python = ">=3.12"
+dependencies = [
+    "playwright>=1.44",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+career-sentinel = "career_sentinel.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/career_sentinel"]
