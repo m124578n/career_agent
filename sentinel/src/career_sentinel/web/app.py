@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .. import config, diff, digest, store
 from . import runner
@@ -48,5 +51,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/api/status")
     def status() -> dict:
         return runner.status()
+
+    dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
+    if dist.is_dir():
+        app.mount("/", StaticFiles(directory=str(dist), html=True), name="spa")
 
     return app
