@@ -33,4 +33,6 @@ def parse_applications(data: dict) -> list[Application]:
 def fetch_applications(page) -> list[Application]:
     """需已登入且已取得 pda host clearance。需真瀏覽器、不單測。"""
     resp = page.request.get(APPLICATIONS_URL)
+    if not resp.ok:
+        raise RuntimeError(f"applications HTTP {resp.status}")
     return parse_applications(resp.json())

@@ -22,4 +22,6 @@ def parse_viewers(data: dict) -> list[Viewer]:
 def fetch_viewers(page) -> list[Viewer]:
     """需已登入且已取得 pda host 的 Cloudflare clearance。需真瀏覽器、不單測。"""
     resp = page.request.get(VIEWERS_URL)
+    if not resp.ok:
+        raise RuntimeError(f"viewers HTTP {resp.status}")
     return parse_viewers(resp.json())

@@ -35,5 +35,7 @@ def fetch_messages(page) -> list[Message]:
     out: list[Message] = []
     for url in MESSAGES_URLS:
         resp = page.request.get(url)
+        if not resp.ok:
+            raise RuntimeError(f"messages HTTP {resp.status}")
         out.extend(parse_messages(resp.json()))
     return out
