@@ -43,6 +43,27 @@ def open_context(p):
     return ctx
 
 
+def wait_until_ready(page, timeout_ms: int = 20000) -> bool:
+    """等 Cloudflare『Just a moment / 驗證中』介面自行通過。
+
+    rebrowser-patches 下多半 ~10s 內會自動過關、跳回真實頁面。
+    回傳 True=已就緒、False=逾時仍卡在 challenge。spike 實機驗證、不單測。
+    """
+    import time
+
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        try:
+            title = (page.title() or "").lower()
+        except Exception:
+            title = ""
+        if title and "moment" not in title and "verifying" not in title:
+            return True
+        page.wait_for_timeout(1000)
+    return False
+
+
 def ensure_logged_in(page) -> bool:
     page.goto(LOGGED_IN_PROBE_URL, wait_until="domcontentloaded")
+    wait_until_ready(page)
     return not is_login_url(page.url)

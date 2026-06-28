@@ -19,11 +19,16 @@ def run_pipeline(scrape: Callable[[], Snapshot], conn, *, now: str) -> str:
 def _cmd_login() -> int:
     from rebrowser_playwright.sync_api import sync_playwright
 
-    print("開啟 Chrome，請在視窗內登入 104（含驗證碼）。登入完成後關閉視窗即可。")
+    print("開啟 Chrome 前往 104…")
     with sync_playwright() as p:
         ctx = browser.open_context(p)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto("https://www.104.com.tw/", wait_until="domcontentloaded")
+        print("Cloudflare 驗證中，請稍候約 10 秒讓頁面跑完…")
+        if browser.wait_until_ready(page):
+            print("頁面就緒，請在視窗內登入 104（含驗證碼）。")
+        else:
+            print("Cloudflare 似乎還在驗證；可手動在視窗操作，過了再登入。")
         input("登入完成後按 Enter 關閉…")
         ctx.close()
     return 0
