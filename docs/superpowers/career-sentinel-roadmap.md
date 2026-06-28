@@ -8,12 +8,13 @@
 - **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
 - **Phase 2**：三個真 104 爬蟲（誰看過我/應徵/訊息），`run` 讀真實資料、比對、彙整、容錯。真機驗證通過。
 - 過 Cloudflare：rebrowser-playwright headful；login 用純 Chrome。端點記在 `sentinel/spike/FINDINGS.md`。
+- **SP1**：本地 web 殼 + 儀表板（`career-sentinel serve`，FastAPI + React/Mantine）；三面板 + 彙整 + 網頁「重新抓取」觸發 headful 爬取 + 輪詢更新。62 測試、真機端到端驗證通過。
 
 ## 🔭 子專案（待做，建議順序）
 
 | # | 子專案 | 內容 | 來源 |
 |---|--------|------|------|
-| **SP1** | 🖥️ 本地 Web 殼 + 儀表板 | FastAPI 本地伺服器 + 前端，`run` 三類資料/彙整搬上網頁；`career-sentinel serve` | 新（地基）← **進行中 brainstorm** |
+| ~~SP1~~ | ~~🖥️ 本地 Web 殼 + 儀表板~~ | ✅ 已完成（見上） | — |
 | **SP2** | ⚙️ 設定 + 關注清單 | 關注公司/職缺關鍵字/通知時間，本地存 + 設定頁 | 新 |
 | **SP3** | 📋 履歷健檢 | 移植雲端 `backend/.../services/resume_diagnosis.py`；web 上傳履歷看診斷 | 新（移植） |
 | **SP4** | 🎯 JD × 履歷比對 | 移植雲端 `backend/.../services/job_matching.py`（吻合度 + 缺少技能/reasons/gaps） | 新（移植） |
