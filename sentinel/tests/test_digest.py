@@ -44,3 +44,31 @@ def test_summarize_calls_llm_when_configured(monkeypatch):
     assert captured["url"] == "https://x/v1/chat/completions"
     assert captured["json"]["model"] == "m"
     assert captured["headers"]["Authorization"] == "Bearer key"
+
+
+def test_local_fallback_has_no_instruction_line(monkeypatch):
+    monkeypatch.setattr(digest, "llm_settings", lambda: LlmSettings("https://x/v1", "", "m"))
+    d = Diff(new_viewers=[Viewer(company="台積電", job_title="後端", viewed_at="t")])
+    out = digest.summarize(d, Snapshot())
+    assert "台積電" in out
+    assert "請用繁體中文" not in out
+
+
+def test_build_prompt_still_has_instruction_line():
+    d = Diff(new_viewers=[Viewer(company="台積電", job_title="後端", viewed_at="t")])
+    text = digest.build_prompt(d, Snapshot())
+    assert "請用繁體中文" in text
+
+
+def test_summarize_falls_back_on_llm_error(monkeypatch):
+    monkeypatch.setattr(digest, "llm_settings", lambda: LlmSettings("https://x/v1", "key", "m"))
+
+    class FakeClient:
+        def post(self, url, **kw):
+            raise RuntimeError("boom")
+        def close(self): pass
+
+    d = Diff(new_viewers=[Viewer(company="台積電", job_title="後端", viewed_at="t")])
+    out = digest.summarize(d, Snapshot(), client=FakeClient())
+    assert out.startswith("（今日彙整暫無）")
+    assert "台積電" in out

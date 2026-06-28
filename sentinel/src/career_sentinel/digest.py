@@ -6,8 +6,9 @@ from .config import llm_settings
 from .models import Diff, Snapshot
 
 
-def build_prompt(diff: Diff, snapshot: Snapshot) -> str:
-    lines: list[str] = ["以下是使用者 104 求職狀態自上次以來的變化，請用繁體中文寫一段精簡的今日彙整："]
+def render_human(diff: Diff, snapshot: Snapshot) -> str:
+    """Human-facing change sections + summary line (no LLM instruction)."""
+    lines: list[str] = []
     if diff.new_viewers:
         lines.append("\n[新看過我的公司]")
         lines += [f"- {v.company}（{v.job_title}）{v.viewed_at}" for v in diff.new_viewers]
@@ -24,10 +25,15 @@ def build_prompt(diff: Diff, snapshot: Snapshot) -> str:
     return "\n".join(lines)
 
 
+def build_prompt(diff: Diff, snapshot: Snapshot) -> str:
+    instruction = "以下是使用者 104 求職狀態自上次以來的變化，請用繁體中文寫一段精簡的今日彙整："
+    return instruction + "\n" + render_human(diff, snapshot)
+
+
 def _local_fallback(diff: Diff, snapshot: Snapshot) -> str:
     if diff.is_empty():
         return "今日沒有新變化。"
-    return build_prompt(diff, snapshot)
+    return render_human(diff, snapshot)
 
 
 def summarize(diff: Diff, snapshot: Snapshot, *, client: object | None = None) -> str:
@@ -48,6 +54,8 @@ def summarize(diff: Diff, snapshot: Snapshot, *, client: object | None = None) -
         )
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
+    except Exception:
+        return "（今日彙整暫無）\n" + render_human(diff, snapshot)
     finally:
         if owns_client:
             http.close()

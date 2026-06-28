@@ -42,6 +42,7 @@ def _cmd_run() -> int:
             return 1
         ctx.close()
     # Phase 1：先用假爬蟲；Phase 2 改成真爬蟲 scraper.scrape(page)
+    # Phase 2: real scraper needs the page — move this pipeline call INSIDE the `with sync_playwright()` block, before ctx.close().
     report = run_pipeline(fake.scrape, conn, now=datetime.now().isoformat(timespec="seconds"))
     print(report)
     return 0
