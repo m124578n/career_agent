@@ -1190,4 +1190,16 @@ git commit -m "spike(sentinel): 擷取 104 三類資料真實回應 + 端點/欄
 （`scraper/viewers.py`、`applications.py`、`messages.py`，各含「攔截抓取」與「純解析」），
 組成 `scraper.scrape(page) -> Snapshot`，在 `cli._cmd_run` 把 `fake.scrape` 換成 `scraper.scrape(page)`，實機驗證。
 
+> **ctx 順序**：Phase 1 的 `_cmd_run` 在跑 pipeline 前就 `ctx.close()`（因 `fake.scrape()` 不吃 page）。
+> Phase 2 的 `scraper.scrape(page)` 需要 page，務必把 pipeline 呼叫**移進** `with sync_playwright()` 區塊、
+> 在 `ctx.close()` 之前（cli.py 已留註解標記此處）。
+
+> **per-reader 容錯（最終 review Important #2，務必在 Phase 2 一併處理，否則會變 schema 改造）**：
+> 目前 `Snapshot` 無法區分「viewers 真的是空」與「viewer 讀取器失敗」。Phase 2 真爬蟲若對單一讀取器
+> 失敗只回空清單，`save_snapshot` 會存進空資料，下次 `compute_diff` 會把該類全部重新標記為「新」、
+> 污染 baseline（spec 明文禁止「失敗的讀取器寫該類空資料」）。**Phase 2 應一併**：
+> 1. 在 `Snapshot` 加 per-category 完成訊號（如 `failed_readers: set[str]` 或各類 `*_ok: bool`），並持久化到 `snapshots` 表；
+> 2. `diff_against_last` 改為**逐類**挑「最近一次成功讀到該類」的快照當該類 baseline（而非整筆最近快照）；
+> 3. 真爬蟲對每個讀取器 try/except，失敗者標記 failed、不寫空資料。
+
 後續子專案（各自 spec→plan）：每日彙整報告強化 → 行事曆整合（面試邀約自動進 Google Calendar）→ 對話式履歷整理。
