@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getSnapshot, getStatus, startScrape } from "./api";
 
 function Panel({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
@@ -23,10 +23,12 @@ export default function Dashboard() {
     refetchInterval: polling ? 2000 : false,
   });
 
-  if (polling && status.data && !status.data.running) {
-    setPolling(false);
-    qc.invalidateQueries({ queryKey: ["snapshot"] });
-  }
+  useEffect(() => {
+    if (polling && status.data && !status.data.running) {
+      setPolling(false);
+      qc.invalidateQueries({ queryKey: ["snapshot"] });
+    }
+  }, [polling, status.data?.running, status.data, qc]);
 
   async function refresh() {
     const r = await startScrape();
