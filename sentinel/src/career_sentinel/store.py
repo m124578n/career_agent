@@ -75,3 +75,8 @@ def load_snapshot(conn: sqlite3.Connection, snapshot_id: int) -> Snapshot:
 
 def latest_two_ids(conn: sqlite3.Connection) -> list[int]:
     return [r[0] for r in conn.execute("SELECT id FROM snapshots ORDER BY id DESC LIMIT 2")]
+
+
+def latest_run_at(conn: sqlite3.Connection) -> str | None:
+    row = conn.execute("SELECT run_at FROM snapshots ORDER BY id DESC LIMIT 1").fetchone()
+    return row[0] if row else None
