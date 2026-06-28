@@ -1,0 +1,37 @@
+# career-sentinel 路線圖 / Backlog
+
+> 這是 career-sentinel（地端求職 agent）所有**未完成**需求與想法的單一收集處。
+> 新點子、deferred 項目、技術債都記在這。每個子專案各自走 spec → plan → 實作。
+> 最後更新：2026-06-28
+
+## ✅ 已完成
+- **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
+- **Phase 2**：三個真 104 爬蟲（誰看過我/應徵/訊息），`run` 讀真實資料、比對、彙整、容錯。真機驗證通過。
+- 過 Cloudflare：rebrowser-playwright headful；login 用純 Chrome。端點記在 `sentinel/spike/FINDINGS.md`。
+
+## 🔭 子專案（待做，建議順序）
+
+| # | 子專案 | 內容 | 來源 |
+|---|--------|------|------|
+| **SP1** | 🖥️ 本地 Web 殼 + 儀表板 | FastAPI 本地伺服器 + 前端，`run` 三類資料/彙整搬上網頁；`career-sentinel serve` | 新（地基）← **進行中 brainstorm** |
+| **SP2** | ⚙️ 設定 + 關注清單 | 關注公司/職缺關鍵字/通知時間，本地存 + 設定頁 | 新 |
+| **SP3** | 📋 履歷健檢 | 移植雲端 `backend/.../services/resume_diagnosis.py`；web 上傳履歷看診斷 | 新（移植） |
+| **SP4** | 🎯 JD × 履歷比對 | 移植雲端 `backend/.../services/job_matching.py`（吻合度 + 缺少技能/reasons/gaps） | 新（移植） |
+| **SP5** | 💡 工作推薦 | 104 推薦端點 `api/jobs/personal-recommend-jobs` + 關注過濾 + SP4 排序 | 新 |
+| **SP6** | ⏰ 定期檢視 + 通知排程 | 按設定時間自動跑（爬+比對+推薦）、符合條件通知 | 新 + 舊「每日自動排程」 |
+| **SP7** | 📅 行事曆整合 | 面試**確切日期**擷取（需開對話室/面試端點）+ 自動進 Google Calendar | 舊 deferred |
+| **SP8** | 💬 對話式履歷/需求整理 | 聊天介面邊聊邊整理履歷與求職偏好（需即時串流 UI） | 舊 deferred（原始願景） |
+| **SP9** | 🌐 公司評價 web 研究 | 自動上網查公司評價並彙整 | 舊 deferred（原始願景） |
+
+## 🔧 技術債 / 精修（穿插各 SP 或獨立小修）
+- **全分頁**：目前每類只抓第 1 頁；需逐頁抓完整清單。
+- **面試判斷精修**：目前「訊息含『面試』」啟發式可能誤判（婉拒信也提面試）；改用 `lastEvent.type` 對應或面試專屬端點。
+- **應徵狀態細分**：目前只到 已送出/已讀/公司已回覆；想分 邀面試/婉拒（需跨訊息頁判斷）。
+- **`cli._carry_forward` 寫死三欄位**：未來加第 4 類會漏；改為動態走 Snapshot 欄位。
+- **訊息跨 filter 去重**：`fetch_messages` 合併 exclusive+general 未以 `thread_id` 去重。
+- **reader 名稱常數化**：`"viewers"/"applications"/"messages"` 散在 `real.scrape`/`_carry_forward`/警告字串，宜集中。
+- **`parse_messages` 測試覆蓋**：未斷言 `raw` 與第二筆欄位；`parse_applications` 缺空清單測。
+- **digest 個資外洩注意**：設了 `LLM_API_KEY` 時公司名/訊息會送外部 LLM——本地工具唯一的個資出口，未來上文件提醒。
+
+## 💡 隨手記（未分類想法）
+（之後想到的新點子先丟這）
