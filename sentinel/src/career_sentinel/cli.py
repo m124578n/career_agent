@@ -9,11 +9,29 @@ from .models import Snapshot
 from .scraper import fake
 
 
-def run_pipeline(scrape: Callable[[], Snapshot], conn, *, now: str) -> str:
-    snapshot = scrape()
+def run_pipeline(scrape: Callable[[], tuple[Snapshot, set[str]]], conn, *, now: str) -> str:
+    snapshot, failed = scrape()
+    if failed:
+        snapshot = _carry_forward(conn, snapshot, failed)
     sid = store.save_snapshot(conn, snapshot, run_at=now)
     d = diff.diff_against_last(conn, sid)
-    return digest.summarize(d, snapshot)
+    report = digest.summarize(d, snapshot)
+    if failed:
+        report += "\n\n⚠️ 本次未讀到：" + "、".join(sorted(failed)) + "（沿用上次）"
+    return report
+
+
+def _carry_forward(conn, snapshot: Snapshot, failed: set[str]) -> Snapshot:
+    """失敗的讀取器沿用上次快照同類資料，避免下次 diff 把整類誤判為新。"""
+    ids = store.latest_two_ids(conn)
+    if not ids:
+        return snapshot
+    prev = store.load_snapshot(conn, ids[0])
+    return Snapshot(
+        viewers=prev.viewers if "viewers" in failed else snapshot.viewers,
+        applications=prev.applications if "applications" in failed else snapshot.applications,
+        messages=prev.messages if "messages" in failed else snapshot.messages,
+    )
 
 
 def _cmd_login() -> int:
