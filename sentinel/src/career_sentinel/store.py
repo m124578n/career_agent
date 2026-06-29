@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from .models import Application, Message, Snapshot, Viewer
+from .models import Application, Message, Settings, Snapshot, Viewer
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS applications (
 CREATE TABLE IF NOT EXISTS messages (
     snapshot_id INTEGER, thread_id TEXT, company TEXT, last_message TEXT,
     has_interview_invite INTEGER, invite_date TEXT, raw_json TEXT
+);
+CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
 );
 """
 
@@ -80,3 +83,18 @@ def latest_two_ids(conn: sqlite3.Connection) -> list[int]:
 def latest_run_at(conn: sqlite3.Connection) -> str | None:
     row = conn.execute("SELECT run_at FROM snapshots ORDER BY id DESC LIMIT 1").fetchone()
     return row[0] if row else None
+
+
+def load_settings(conn: sqlite3.Connection) -> Settings:
+    row = conn.execute("SELECT data FROM settings WHERE id = 1").fetchone()
+    if not row:
+        return Settings()
+    return Settings.model_validate_json(row[0])
+
+
+def save_settings(conn: sqlite3.Connection, settings: Settings) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (id, data) VALUES (1, ?)",
+        (settings.model_dump_json(),),
+    )
+    conn.commit()

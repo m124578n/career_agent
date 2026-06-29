@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class Viewer(BaseModel):
@@ -55,3 +57,19 @@ class Diff(BaseModel):
             self.new_viewers or self.status_changes
             or self.new_messages or self.new_invites
         )
+
+
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+class Settings(BaseModel):
+    watched_companies: list[str] = Field(default_factory=list)
+    watched_keywords: list[str] = Field(default_factory=list)
+    notify_time: str | None = None
+
+    @field_validator("notify_time")
+    @classmethod
+    def _check_time(cls, v: str | None) -> str | None:
+        if v is not None and not _TIME_RE.match(v):
+            raise ValueError("notify_time 需為 HH:MM")
+        return v
