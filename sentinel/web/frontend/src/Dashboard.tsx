@@ -2,6 +2,7 @@ import { Badge, Button, Card, Container, Group, Stack, Text, Title } from "@mant
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getSnapshot, getStatus, startScrape } from "./api";
+import SettingsModal from "./SettingsModal";
 
 function Panel({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ function Panel({ title, count, children }: { title: string; count: number; child
 export default function Dashboard() {
   const qc = useQueryClient();
   const [polling, setPolling] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const snap = useQuery({ queryKey: ["snapshot"], queryFn: getSnapshot });
   const status = useQuery({
@@ -45,6 +47,7 @@ export default function Dashboard() {
         <Title order={2}>career-sentinel</Title>
         <Group>
           <Text size="sm" c="dimmed">上次更新：{s?.run_at ?? "—"}</Text>
+          <Button variant="default" onClick={() => setSettingsOpen(true)}>設定</Button>
           <Button onClick={refresh} loading={running} disabled={running}>重新抓取</Button>
         </Group>
       </Group>
@@ -64,23 +67,25 @@ export default function Dashboard() {
       <Group align="flex-start" gap="md" wrap="wrap">
         <Panel title="誰看過我" count={s?.viewers.length ?? 0}>
           {s?.viewers.map((v, i) => (
-            <Text key={i} size="sm">{v.company}　<Text span c="dimmed">{v.job_title} · {v.viewed_at}</Text></Text>
+            <Text key={i} size="sm">{v.watched && <Badge size="sm" color="yellow" mr={6}>★關注</Badge>}{v.company}　<Text span c="dimmed">{v.job_title} · {v.viewed_at}</Text></Text>
           ))}
         </Panel>
         <Panel title="我的應徵" count={s?.applications.length ?? 0}>
           {s?.applications.map((a) => (
-            <Text key={a.job_id} size="sm">{a.company} · {a.title}　<Badge size="sm" variant="light">{a.status}</Badge></Text>
+            <Text key={a.job_id} size="sm">{a.watched && <Badge size="sm" color="yellow" mr={6}>★關注</Badge>}{a.company} · {a.title}　<Badge size="sm" variant="light">{a.status}</Badge></Text>
           ))}
         </Panel>
         <Panel title="訊息 · 面試" count={s?.messages.length ?? 0}>
           {s?.messages.map((m) => (
             <Text key={m.thread_id} size="sm">
               {m.has_interview_invite && <Badge size="sm" color="orange" mr={6}>面試</Badge>}
+              {m.watched && <Badge size="sm" color="yellow" mr={6}>★關注</Badge>}
               {m.company}：<Text span c="dimmed">{m.last_message}</Text>
             </Text>
           ))}
         </Panel>
       </Group>
+      <SettingsModal opened={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </Container>
   );
 }

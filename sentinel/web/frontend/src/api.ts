@@ -1,6 +1,6 @@
-export interface Viewer { company: string; job_title: string; viewed_at: string }
-export interface Application { job_id: string; company: string; title: string; status: string; applied_at: string }
-export interface Message { thread_id: string; company: string; last_message: string; has_interview_invite: boolean }
+export interface Viewer { company: string; job_title: string; viewed_at: string; watched: boolean }
+export interface Application { job_id: string; company: string; title: string; status: string; applied_at: string; watched: boolean }
+export interface Message { thread_id: string; company: string; last_message: string; has_interview_invite: boolean; watched: boolean }
 export interface SnapshotResp {
   run_at: string | null;
   viewers: Viewer[];
@@ -22,4 +22,19 @@ export async function getStatus(): Promise<StatusResp> {
 export async function startScrape(): Promise<{ status: string }> {
   const r = await fetch("/api/scrape", { method: "POST" });
   return r.json();
+}
+
+export interface Settings { watched_companies: string[]; watched_keywords: string[]; notify_time: string | null }
+
+export async function getSettings(): Promise<Settings> {
+  const r = await fetch("/api/settings");
+  return r.json();
+}
+
+export async function putSettings(s: Settings): Promise<Response> {
+  return fetch("/api/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(s),
+  });
 }
