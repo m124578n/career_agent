@@ -12,12 +12,12 @@ export default function SettingsModal({ opened, onClose }: { opened: boolean; on
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (settings.data) {
+    if (opened && settings.data) {
       setCompanies(settings.data.watched_companies.join("\n"));
       setKeywords(settings.data.watched_keywords.join("\n"));
       setNotifyTime(settings.data.notify_time ?? "");
     }
-  }, [settings.data]);
+  }, [opened, settings.data]);
 
   async function save() {
     setErr(null);
