@@ -10,6 +10,7 @@
 - 過 Cloudflare：rebrowser-playwright headful；login 用純 Chrome。端點記在 `sentinel/spike/FINDINGS.md`。
 - **SP1**：本地 web 殼 + 儀表板（`career-sentinel serve`，FastAPI + React/Mantine）；三面板 + 彙整 + 網頁「重新抓取」觸發 headful 爬取 + 輪詢更新。62 測試、真機端到端驗證通過。
 - **SP2**：設定 + 關注清單（設定頁存關注公司/關鍵字/通知時間 + 儀表板命中即時標 ★關注）。`watch.is_watched` 純函式供 SP5 重用；通知時間先存(SP6 發)。77 測試、真機驗證通過。
+- **SP3**：履歷健檢（上傳 PDF/txt→針對目標職位 LLM 產出優勢/待補強）。新 `llm.parse_json` **provider-aware**(OpenAI 相容 + Azure Foundry/Anthropic)、`config.llm_provider` 偵測、前端 Tabs(儀表板/履歷健檢)。真機用 Azure Foundry/Claude 驗證高品質診斷。90 測試。
 
 ## 🔭 子專案（待做，建議順序）
 
@@ -17,7 +18,7 @@
 |---|--------|------|------|
 | ~~SP1~~ | ~~🖥️ 本地 Web 殼 + 儀表板~~ | ✅ 已完成（見上） | — |
 | ~~SP2~~ | ~~⚙️ 設定 + 關注清單~~ | ✅ 已完成（見上） | — |
-| **SP3** | 📋 履歷健檢 | 移植雲端 `backend/.../services/resume_diagnosis.py`；web 上傳履歷看診斷 | 新（移植） |
+| ~~SP3~~ | ~~📋 履歷健檢~~ | ✅ 已完成（見上） | — |
 | **SP4** | 🎯 JD × 履歷比對 | 移植雲端 `backend/.../services/job_matching.py`（吻合度 + 缺少技能/reasons/gaps） | 新（移植） |
 | **SP5** | 💡 工作推薦 | 104 推薦端點 `api/jobs/personal-recommend-jobs` + 關注過濾 + SP4 排序 | 新 |
 | **SP6** | ⏰ 定期檢視 + 通知排程 | 按設定時間自動跑（爬+比對+推薦）、符合條件通知 | 新 + 舊「每日自動排程」 |
@@ -37,6 +38,7 @@
 - **SP1 儀表板視覺對齊 Cockpit**：SP1 先用 Mantine 預設深色主題；之後複製雲端 `theme.ts`/`.jt-*`、tangerine/teal 雙訊號色做主題 polish。
 - **web runner 跨次共用 LLM digest**：`default_scrape` 走 `run_pipeline` 會算 digest（有 key 時打 LLM）但 web 用 `render_human`，該 digest 被丟棄；無 key 時無成本，有 key 時可改只存不彙整。
 - **digest 彙整走 provider 層**：SP3 的 `llm` 已支援 Foundry，但 `digest.summarize` 仍只打 OpenAI 相容端點；Foundry 使用者的 LLM 每日彙整尚未啟用（走本地 `render_human`）。可把 digest 改用 `llm` 的 provider 分派（補一個 `llm.chat`）。
+- **SP3 review minors**：`resume_diagnose` 的 500 加 `logger.exception`（Foundry 是新整合、便於排錯）；no-key 改用 typed exception 而非裸 `RuntimeError`（避免深層 RuntimeError 被誤標 400）；`_foundry_parse_json` `max_tokens` 4096→8192（長診斷防截斷）；補測 OpenAI Bearer header + foundry kwargs；`ResumePage` 的 `setBusy` 加 try/finally、upload try/catch、useEffect 只 seed 一次（避免覆寫編輯中）。
 
 ## 💡 隨手記（未分類想法）
 （之後想到的新點子先丟這）
