@@ -2,13 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-from .. import config, diff, digest, store, watch
-from ..models import Settings
+from .. import config, diagnosis, diff, digest, resume, store, watch
+from ..models import ResumeState, Settings
 from . import runner
+
+
+class _DiagnoseReq(BaseModel):
+    target_title: str
+    expected_salary: int | None = None
 
 
 def _snapshot_payload(conn) -> dict:
@@ -64,6 +70,48 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def put_settings(settings: Settings) -> dict:
         store.save_settings(_conn(), settings)
         return settings.model_dump()
+
+    @app.post("/api/resume/upload")
+    async def resume_upload(file: UploadFile = File(...)) -> dict:
+        data = await file.read()
+        try:
+            text = resume.parse_resume(file.filename or "resume", data)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        conn = _conn()
+        state = store.load_resume(conn)
+        state.resume_text = text
+        store.save_resume(conn, state)
+        return {"chars": len(text)}
+
+    @app.post("/api/resume/diagnose")
+    def resume_diagnose(req: _DiagnoseReq) -> dict:
+        conn = _conn()
+        state = store.load_resume(conn)
+        if not state.resume_text.strip():
+            raise HTTPException(status_code=400, detail="請先上傳履歷")
+        try:
+            result = diagnosis.diagnose(state.resume_text, req.target_title, req.expected_salary)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception:
+            raise HTTPException(status_code=500, detail="健檢失敗，請重試")
+        state.target_title = req.target_title
+        state.expected_salary = req.expected_salary
+        state.diagnosis = result
+        store.save_resume(conn, state)
+        return result.model_dump()
+
+    @app.get("/api/resume")
+    def resume_get() -> dict:
+        state = store.load_resume(_conn())
+        return {
+            "has_resume": bool(state.resume_text.strip()),
+            "chars": len(state.resume_text),
+            "target_title": state.target_title,
+            "expected_salary": state.expected_salary,
+            "diagnosis": state.diagnosis.model_dump() if state.diagnosis else None,
+        }
 
     dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
     if dist.is_dir():
