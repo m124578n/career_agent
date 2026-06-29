@@ -6,30 +6,32 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .. import config, diff, digest, store
+from .. import config, diff, digest, store, watch
+from ..models import Settings
 from . import runner
 
 
 def _snapshot_payload(conn) -> dict:
+    failed = runner.status()["last_failed_readers"]
     ids = store.latest_two_ids(conn)
-    failed_readers = runner.status()["last_failed_readers"]
     if not ids:
         return {
             "run_at": None,
             "viewers": [], "applications": [], "messages": [],
             "digest": "尚無資料，請先重新抓取",
-            "failed_readers": failed_readers,
+            "failed_readers": failed,
         }
     sid = ids[0]
     snap = store.load_snapshot(conn, sid)
     d = diff.diff_against_last(conn, sid)
+    settings = store.load_settings(conn)
     return {
         "run_at": store.latest_run_at(conn),
-        "viewers": [{"company": v.company, "job_title": v.job_title, "viewed_at": v.viewed_at} for v in snap.viewers],
-        "applications": [{"job_id": a.job_id, "company": a.company, "title": a.title, "status": a.status, "applied_at": a.applied_at} for a in snap.applications],
-        "messages": [{"thread_id": m.thread_id, "company": m.company, "last_message": m.last_message, "has_interview_invite": m.has_interview_invite} for m in snap.messages],
+        "viewers": [{"company": v.company, "job_title": v.job_title, "viewed_at": v.viewed_at, "watched": watch.is_watched(v.company, v.job_title, settings)} for v in snap.viewers],
+        "applications": [{"job_id": a.job_id, "company": a.company, "title": a.title, "status": a.status, "applied_at": a.applied_at, "watched": watch.is_watched(a.company, a.title, settings)} for a in snap.applications],
+        "messages": [{"thread_id": m.thread_id, "company": m.company, "last_message": m.last_message, "has_interview_invite": m.has_interview_invite, "watched": watch.is_watched(m.company, m.last_message, settings)} for m in snap.messages],
         "digest": digest.render_human(d, snap),
-        "failed_readers": failed_readers,
+        "failed_readers": failed,
     }
 
 
@@ -53,6 +55,15 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/api/status")
     def status() -> dict:
         return runner.status()
+
+    @app.get("/api/settings")
+    def get_settings() -> dict:
+        return store.load_settings(_conn()).model_dump()
+
+    @app.put("/api/settings")
+    def put_settings(settings: Settings) -> dict:
+        store.save_settings(_conn(), settings)
+        return settings.model_dump()
 
     dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
     if dist.is_dir():
