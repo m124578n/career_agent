@@ -66,3 +66,20 @@ export async function diagnoseResume(target_title: string, expected_salary: numb
     body: JSON.stringify({ target_title, expected_salary }),
   });
 }
+
+export interface MatchResult {
+  title: string;
+  company: string;
+  salary: string;
+  score: number;
+  reasons: string[];
+  gaps: string[];
+}
+
+export async function matchJob(job_url: string): Promise<Response> {
+  return fetch("/api/match", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_url }),
+  });
+}
