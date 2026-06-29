@@ -38,3 +38,31 @@ export async function putSettings(s: Settings): Promise<Response> {
     body: JSON.stringify(s),
   });
 }
+
+export interface ResumeDiagnosis { strengths: string[]; gaps: string[] }
+export interface ResumeState {
+  has_resume: boolean;
+  chars: number;
+  target_title: string;
+  expected_salary: number | null;
+  diagnosis: ResumeDiagnosis | null;
+}
+
+export async function getResume(): Promise<ResumeState> {
+  const r = await fetch("/api/resume");
+  return r.json();
+}
+
+export async function uploadResume(file: File): Promise<Response> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return fetch("/api/resume/upload", { method: "POST", body: fd });
+}
+
+export async function diagnoseResume(target_title: string, expected_salary: number | null): Promise<Response> {
+  return fetch("/api/resume/diagnose", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_title, expected_salary }),
+  });
+}
