@@ -9,13 +9,14 @@
 - **Phase 2**：三個真 104 爬蟲（誰看過我/應徵/訊息），`run` 讀真實資料、比對、彙整、容錯。真機驗證通過。
 - 過 Cloudflare：rebrowser-playwright headful；login 用純 Chrome。端點記在 `sentinel/spike/FINDINGS.md`。
 - **SP1**：本地 web 殼 + 儀表板（`career-sentinel serve`，FastAPI + React/Mantine）；三面板 + 彙整 + 網頁「重新抓取」觸發 headful 爬取 + 輪詢更新。62 測試、真機端到端驗證通過。
+- **SP2**：設定 + 關注清單（設定頁存關注公司/關鍵字/通知時間 + 儀表板命中即時標 ★關注）。`watch.is_watched` 純函式供 SP5 重用；通知時間先存(SP6 發)。77 測試、真機驗證通過。
 
 ## 🔭 子專案（待做，建議順序）
 
 | # | 子專案 | 內容 | 來源 |
 |---|--------|------|------|
 | ~~SP1~~ | ~~🖥️ 本地 Web 殼 + 儀表板~~ | ✅ 已完成（見上） | — |
-| **SP2** | ⚙️ 設定 + 關注清單 | 關注公司/職缺關鍵字/通知時間，本地存 + 設定頁 | 新 |
+| ~~SP2~~ | ~~⚙️ 設定 + 關注清單~~ | ✅ 已完成（見上） | — |
 | **SP3** | 📋 履歷健檢 | 移植雲端 `backend/.../services/resume_diagnosis.py`；web 上傳履歷看診斷 | 新（移植） |
 | **SP4** | 🎯 JD × 履歷比對 | 移植雲端 `backend/.../services/job_matching.py`（吻合度 + 缺少技能/reasons/gaps） | 新（移植） |
 | **SP5** | 💡 工作推薦 | 104 推薦端點 `api/jobs/personal-recommend-jobs` + 關注過濾 + SP4 排序 | 新 |
