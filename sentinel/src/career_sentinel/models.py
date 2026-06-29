@@ -73,3 +73,15 @@ class Settings(BaseModel):
         if v is not None and not _TIME_RE.match(v):
             raise ValueError("notify_time 需為 HH:MM")
         return v
+
+
+class ResumeDiagnosis(BaseModel):
+    strengths: list[str] = Field(default_factory=list)
+    gaps: list[str] = Field(default_factory=list)
+
+
+class ResumeState(BaseModel):
+    resume_text: str = ""
+    target_title: str = ""
+    expected_salary: int | None = None
+    diagnosis: ResumeDiagnosis | None = None

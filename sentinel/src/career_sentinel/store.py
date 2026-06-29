@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from .models import Application, Message, Settings, Snapshot, Viewer
+from .models import Application, Message, ResumeState, Settings, Snapshot, Viewer
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS messages (
     has_interview_invite INTEGER, invite_date TEXT, raw_json TEXT
 );
 CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS resume (
     id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
 );
 """
@@ -96,5 +99,20 @@ def save_settings(conn: sqlite3.Connection, settings: Settings) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO settings (id, data) VALUES (1, ?)",
         (settings.model_dump_json(),),
+    )
+    conn.commit()
+
+
+def load_resume(conn: sqlite3.Connection) -> ResumeState:
+    row = conn.execute("SELECT data FROM resume WHERE id = 1").fetchone()
+    if not row:
+        return ResumeState()
+    return ResumeState.model_validate_json(row[0])
+
+
+def save_resume(conn: sqlite3.Connection, state: ResumeState) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO resume (id, data) VALUES (1, ?)",
+        (state.model_dump_json(),),
     )
     conn.commit()
