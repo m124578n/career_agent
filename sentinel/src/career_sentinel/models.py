@@ -85,3 +85,21 @@ class ResumeState(BaseModel):
     target_title: str = ""
     expected_salary: int | None = None
     diagnosis: ResumeDiagnosis | None = None
+
+
+class JobDetail(BaseModel):
+    title: str = ""
+    company: str = ""
+    salary: str = ""
+    location: str = ""
+    description: str = ""
+    work_exp: str = ""
+    education: str = ""
+    majors: list[str] = Field(default_factory=list)
+    specialties: list[str] = Field(default_factory=list)
+
+
+class MatchResult(BaseModel):
+    score: int = 0
+    reasons: list[str] = Field(default_factory=list)
+    gaps: list[str] = Field(default_factory=list)
