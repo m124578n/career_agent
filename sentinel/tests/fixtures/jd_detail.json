@@ -1,0 +1,16 @@
+{
+  "data": {
+    "header": { "jobName": "全端工程師", "custName": "範例科技有限公司" },
+    "jobDetail": {
+      "jobDescription": "負責後端 API 設計與前端整合，使用 Python / FastAPI / React，串接 SQL 資料庫。",
+      "salary": "月薪 50,000~70,000元",
+      "addressRegion": "台北市內湖區"
+    },
+    "condition": {
+      "workExp": "2年以上",
+      "edu": "大學",
+      "major": ["資訊工程相關"],
+      "specialty": [{ "description": "Python" }, { "description": "FastAPI" }, { "description": "SQL" }]
+    }
+  }
+}
