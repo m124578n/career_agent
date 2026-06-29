@@ -6,13 +6,14 @@
 
 **Architecture:** 新增 `resume.py`（pypdf 解析）、`llm.py`（結構化 `parse_json`）、`diagnosis.py`（移植雲端 prompt + 診斷），`models` 加 `ResumeDiagnosis`/`ResumeState`、`store` 加 resume 單列表，`web/app.py` 加 `/api/resume/{upload,diagnose}` + `GET /api/resume`，前端引入 Tabs（儀表板/履歷健檢）+ `ResumePage`。
 
-**Tech Stack:** Python 3.12+、Pydantic v2、pypdf、python-multipart、FastAPI、httpx、React+Vite+Mantine+TanStack Query。
+**Tech Stack:** Python 3.12+、Pydantic v2、pypdf、python-multipart、FastAPI、httpx、anthropic（Foundry）、React+Vite+Mantine+TanStack Query。
 
 ## Global Constraints
 
 - `sentinel/` 獨立，**不 import/依賴** 雲端 `backend/`、`frontend/`（移植＝複製邏輯，非 import）；套件名 `career_sentinel`。
 - PDF 用 `pypdf`、上傳用 `python-multipart`、`.txt` 直接 decode；不支援格式 raise `ValueError`。
-- `llm.parse_json`：OpenAI 相容 chat + `response_format={"type":"json_object"}` → `json.loads` → `model_cls.model_validate`；無 `LLM_API_KEY` → raise `RuntimeError("請先設定 LLM_API_KEY")`。
+- `llm.parse_json`：**provider-aware**。`config.llm_provider()` 依 `.env` 偵測：有 `FOUNDRY_API_KEY`→`"foundry"`、否則有 `LLM_API_KEY`→`"openai"`、否則 `""`。openai 走 httpx `chat/completions`+`json_object`；foundry 走 `anthropic` SDK 的 `AnthropicFoundry`（原生 Messages API）。兩路皆 `_extract_json`（去 markdown 圍欄、取首 `{` 到末 `}`）→ `model_cls.model_validate(json.loads(...))`。無任何 key → raise `RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")`。
+- 新依賴 `anthropic`（給 Foundry）。`AnthropicFoundry` 僅在 foundry 路徑且 `client is None`（真機）時匯入；單元測試注入假 client、不需真 SDK。
 - `ResumeDiagnosis(strengths, gaps)` 與 `ResumeState(resume_text, target_title, expected_salary, diagnosis)` **皆放 `models.py`**；`diagnosis.py` 從 models 匯入（避免循環）。
 - API 錯誤：upload 不支援格式→400；diagnose 無履歷→400「請先上傳履歷」、無 key→400「請先設定 LLM_API_KEY」、LLM 失敗→500「健檢失敗，請重試」。
 - `/api/resume/*` 用 `create_app` 的 `resolved_db`；後端只綁 127.0.0.1（沿用）。
@@ -203,27 +204,66 @@ git commit -m "feat(sentinel): resume.parse_resume（pypdf 解析 PDF / txt）"
 
 ---
 
-### Task 3: `llm.parse_json`（結構化 LLM）
+### Task 3: config provider 偵測 + provider-aware `llm.parse_json`
 
 **Files:**
+- Modify: `sentinel/pyproject.toml`（加 `anthropic`）
+- Modify: `sentinel/src/career_sentinel/config.py`
 - Create: `sentinel/src/career_sentinel/llm.py`
 - Test: `sentinel/tests/test_llm_parse_json.py`
 
 **Interfaces:**
 - Consumes：`config.llm_settings`。
-- Produces：`llm.parse_json(prompt: str, model_cls, *, system: str | None = None, client=None) -> model_cls`（無 key raise `RuntimeError`）。
+- Produces：
+  - `config.FoundrySettings(api_key, base_url, model)`、`config.foundry_settings() -> FoundrySettings`、`config.llm_provider() -> str`（`"foundry"`/`"openai"`/`""`）
+  - `llm.parse_json(prompt: str, model_cls, *, system: str | None = None, client=None) -> model_cls`（無任何 key raise `RuntimeError`）
+  - `llm._extract_json(text: str) -> str`
 
-- [ ] **Step 1: 寫失敗測試 `tests/test_llm_parse_json.py`**
+- [ ] **Step 1: 在 `pyproject.toml` 加 `anthropic`**
+
+在 `dependencies` 加一行 `"anthropic>=0.40",`（保留既有）。
+
+- [ ] **Step 2: 在 `config.py` 加 Foundry 設定與 provider 偵測**
+
+在 `config.py` 末尾加（沿用既有 `os`/`dataclass` 匯入）：
+
+```python
+@dataclass(frozen=True)
+class FoundrySettings:
+    api_key: str
+    base_url: str
+    model: str
+
+
+def foundry_settings() -> FoundrySettings:
+    return FoundrySettings(
+        api_key=os.getenv("FOUNDRY_API_KEY", ""),
+        base_url=os.getenv("FOUNDRY_BASE_URL", ""),
+        model=os.getenv("FOUNDRY_MODEL", "claude-sonnet-4-6"),
+    )
+
+
+def llm_provider() -> str:
+    """依 .env 偵測 LLM provider：有 FOUNDRY_API_KEY→foundry、否則有 LLM_API_KEY→openai、否則空。"""
+    if os.getenv("FOUNDRY_API_KEY"):
+        return "foundry"
+    if os.getenv("LLM_API_KEY"):
+        return "openai"
+    return ""
+```
+
+- [ ] **Step 3: 寫失敗測試 `tests/test_llm_parse_json.py`**
 
 ```python
 import pytest
 
-from career_sentinel import llm
-from career_sentinel.config import LlmSettings
+from career_sentinel import config, llm
+from career_sentinel.config import FoundrySettings, LlmSettings
 from career_sentinel.models import ResumeDiagnosis
 
 
-class _FakeResp:
+# ---- OpenAI 相容路徑 ----
+class _OpenAIResp:
     def raise_for_status(self):
         pass
 
@@ -231,59 +271,111 @@ class _FakeResp:
         return {"choices": [{"message": {"content": '{"strengths":["A"],"gaps":["B"]}'}}]}
 
 
-class _FakeClient:
+class _OpenAIClient:
     def __init__(self):
         self.captured = {}
 
     def post(self, url, **kw):
         self.captured["url"] = url
         self.captured["json"] = kw["json"]
-        return _FakeResp()
+        return _OpenAIResp()
 
 
-def test_parse_json_no_key_raises(monkeypatch):
-    monkeypatch.setattr(llm, "llm_settings", lambda: LlmSettings("https://x/v1", "", "m"))
+# ---- Foundry（Anthropic Messages）路徑 ----
+class _Block:
+    def __init__(self, text):
+        self.type = "text"
+        self.text = text
+
+
+class _FoundryResp:
+    def __init__(self, text):
+        self.content = [_Block(text)]
+
+
+class _FoundryClient:
+    """模擬 anthropic AnthropicFoundry：client.messages.create(...)。"""
+
+    def __init__(self):
+        self.messages = self
+        self.captured = {}
+
+    def create(self, **kw):
+        self.captured = kw
+        return _FoundryResp('```json\n{"strengths":["F"],"gaps":["G"]}\n```')
+
+
+def test_parse_json_no_provider_raises(monkeypatch):
+    monkeypatch.setattr(llm, "llm_provider", lambda: "")
     with pytest.raises(RuntimeError):
         llm.parse_json("p", ResumeDiagnosis)
 
 
-def test_parse_json_validates_into_model(monkeypatch):
+def test_parse_json_openai_path(monkeypatch):
+    monkeypatch.setattr(llm, "llm_provider", lambda: "openai")
     monkeypatch.setattr(llm, "llm_settings", lambda: LlmSettings("https://x/v1", "key", "m"))
-    fc = _FakeClient()
+    fc = _OpenAIClient()
     out = llm.parse_json("p", ResumeDiagnosis, system="s", client=fc)
     assert out.strengths == ["A"] and out.gaps == ["B"]
     assert fc.captured["url"] == "https://x/v1/chat/completions"
     assert fc.captured["json"]["response_format"] == {"type": "json_object"}
+
+
+def test_parse_json_foundry_path(monkeypatch):
+    monkeypatch.setattr(llm, "llm_provider", lambda: "foundry")
+    monkeypatch.setattr(llm, "foundry_settings", lambda: FoundrySettings("k", "https://f/anthropic", "claude-sonnet-4-6"))
+    fc = _FoundryClient()
+    out = llm.parse_json("p", ResumeDiagnosis, system="s", client=fc)
+    assert out.strengths == ["F"] and out.gaps == ["G"]  # 含 markdown 圍欄仍正確抽出
+    assert fc.captured["model"] == "claude-sonnet-4-6"
 ```
 
-- [ ] **Step 2: 跑測試確認失敗**
+- [ ] **Step 4: 跑測試確認失敗**
 
-Run: `cd sentinel && uv run pytest tests/test_llm_parse_json.py -v`
-Expected: FAIL（`ModuleNotFoundError`）。
+Run: `cd sentinel && uv sync && uv run pytest tests/test_llm_parse_json.py -v`
+Expected: FAIL（`ModuleNotFoundError: career_sentinel.llm`）。
 
-- [ ] **Step 3: 實作 `llm.py`**
+- [ ] **Step 5: 實作 `llm.py`（provider-aware）**
 
 ```python
 from __future__ import annotations
 
 import json
+import re
 
 import httpx
 
-from .config import llm_settings
+from .config import foundry_settings, llm_provider, llm_settings
+
+
+def _extract_json(text: str) -> str:
+    """去 markdown 圍欄、取第一個 { 到最後一個 }。"""
+    text = text.strip()
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", text, re.DOTALL)
+    if fence:
+        text = fence.group(1).strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return text[start : end + 1]
+    return text
 
 
 def parse_json(prompt: str, model_cls, *, system: str | None = None, client=None):
-    """打 OpenAI 相容端點要 JSON、驗進 Pydantic model_cls。無 LLM_API_KEY 則 raise。"""
-    cfg = llm_settings()
-    if not cfg.api_key:
-        raise RuntimeError("請先設定 LLM_API_KEY")
+    """要 JSON、驗進 Pydantic model_cls。依 provider 走 OpenAI 相容或 Foundry(Anthropic)。"""
+    provider = llm_provider()
+    if provider == "openai":
+        return _openai_parse_json(prompt, model_cls, system, client)
+    if provider == "foundry":
+        return _foundry_parse_json(prompt, model_cls, system, client)
+    raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
 
+
+def _openai_parse_json(prompt, model_cls, system, client):
+    cfg = llm_settings()
     messages: list[dict] = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
-
     http = client or httpx.Client(timeout=120)
     owns_client = client is None
     try:
@@ -298,22 +390,44 @@ def parse_json(prompt: str, model_cls, *, system: str | None = None, client=None
         )
         resp.raise_for_status()
         content = resp.json()["choices"][0]["message"]["content"]
-        return model_cls.model_validate(json.loads(content))
+        return model_cls.model_validate(json.loads(_extract_json(content)))
     finally:
         if owns_client:
             http.close()
+
+
+def _foundry_parse_json(prompt, model_cls, system, client):
+    fs = foundry_settings()
+    if client is None:
+        from anthropic import AnthropicFoundry
+
+        client = AnthropicFoundry(api_key=fs.api_key, base_url=fs.base_url)
+    sys_text = (system + "\n\n" if system else "") + "只輸出單一 JSON 物件，不要任何額外文字或 markdown。"
+    resp = client.messages.create(
+        model=fs.model,
+        max_tokens=4096,
+        system=sys_text,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+    return model_cls.model_validate(json.loads(_extract_json(text)))
 ```
 
-- [ ] **Step 4: 跑測試確認通過**
+- [ ] **Step 6: 跑測試確認通過**
 
 Run: `cd sentinel && uv run pytest tests/test_llm_parse_json.py -v`
-Expected: PASS（2 passed）。
+Expected: PASS（3 passed）。
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: 全測試**
+
+Run: `cd sentinel && uv run pytest -q`
+Expected: 全 PASS。
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add sentinel/src/career_sentinel/llm.py sentinel/tests/test_llm_parse_json.py
-git commit -m "feat(sentinel): llm.parse_json（結構化 LLM 輸出，OpenAI 相容 json_object）"
+git add sentinel/pyproject.toml sentinel/uv.lock sentinel/src/career_sentinel/config.py sentinel/src/career_sentinel/llm.py sentinel/tests/test_llm_parse_json.py
+git commit -m "feat(sentinel): provider-aware llm.parse_json（OpenAI 相容 + Azure Foundry/Anthropic）"
 ```
 
 ---
@@ -356,6 +470,8 @@ class _FakeClient:
 
 
 def test_diagnose_with_fake_client(monkeypatch):
+    # config 會載入 .env，實際 provider 可能是 foundry；測試固定走 openai 路徑 + 假 client
+    monkeypatch.setattr(llm, "llm_provider", lambda: "openai")
     monkeypatch.setattr(llm, "llm_settings", lambda: LlmSettings("https://x/v1", "key", "m"))
     out = diagnosis.diagnose("我會 Python", "後端工程師", 60000, client=_FakeClient())
     assert out.strengths == ["熟 Python"]
@@ -724,9 +840,9 @@ Expected: pytest 全綠、build 成功。
 `career-sentinel serve` 背景起，然後：
 - `GET /api/resume` → `has_resume: false`。
 - `POST /api/resume/upload`（用一個小 `.txt` 或真實 PDF bytes）→ `{chars>0}`；再 `GET /api/resume` → `has_resume: true`。
-- `POST /api/resume/diagnose`：
-  - 若 `.env` 未設 `LLM_API_KEY` → 預期 400「請先設定 LLM_API_KEY」。
-  - 若已設 key → 預期 200 回 `{strengths, gaps}`，且 `GET /api/resume` 帶出 diagnosis。
+- `POST /api/resume/diagnose`（`.env` 已設 `FOUNDRY_API_KEY` → provider=foundry，會真打 Azure Foundry/Claude）：
+  - 預期 200 回 `{strengths, gaps}`，且 `GET /api/resume` 帶出 diagnosis。**這是驗證 Foundry 整合**（`AnthropicFoundry` 真實匯入 + 呼叫 + `_extract_json` 解析）的關鍵步驟。
+  - 若 Foundry 端點/SDK 有問題（匯入失敗、base_url、回應格式）→ 在此暴露；控制器記錄並排除（必要時調 `_foundry_parse_json`）。
 - 用真實 PDF 確認 `parse_resume` 的 PDF 抽取可用（pypdf）。
 
 - [ ] **Step 3: 人工目視（使用者）**

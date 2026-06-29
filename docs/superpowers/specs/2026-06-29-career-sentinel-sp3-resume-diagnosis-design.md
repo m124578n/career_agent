@@ -30,7 +30,7 @@ SP3 補一個 `llm.parse_json`（要 JSON、驗進 Pydantic）小工具，供本
 | 項目 | 選擇 |
 |------|------|
 | PDF 解析 | `pypdf`（新依賴；雲端同款）；`.txt` 直接 decode |
-| 結構化 LLM | 新 `llm.parse_json`：OpenAI 相容 chat + `response_format=json_object` + 指示 → `json.loads` → Pydantic 驗證 |
+| 結構化 LLM | 新 `llm.parse_json`，**provider-aware**：OpenAI 相容（OpenRouter/Azure OpenAI，httpx `chat/completions` + `json_object`）或 **Foundry**（Azure AI Foundry 上的 Claude，原生 Anthropic Messages API，用 `anthropic` SDK 的 `AnthropicFoundry`）。兩路都把回應抽出 JSON → Pydantic 驗證。依 `.env` 偵測：有 `FOUNDRY_API_KEY`→foundry、否則有 `LLM_API_KEY`→openai |
 | 儲存 | 單列 `resume` 表（JSON），同 SP2 settings 模式 |
 | 前端 | 接 SP1 React/Mantine；頂部加 Mantine Tabs（儀表板 / 履歷健檢） |
 | LLM key | 沿用 `config.llm_settings`（`LLM_API_KEY`）；診斷必須有 key |
