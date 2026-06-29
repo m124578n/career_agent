@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import config, diagnosis, diff, digest, resume, store, watch
+from .. import config, diagnosis, diff, digest, jobfetch, match, resume, store, watch
 from ..models import ResumeState, Settings
 from . import runner
 
@@ -15,6 +15,10 @@ from . import runner
 class _DiagnoseReq(BaseModel):
     target_title: str
     expected_salary: int | None = None
+
+
+class _MatchReq(BaseModel):
+    job_url: str
 
 
 def _snapshot_payload(conn) -> dict:
@@ -111,6 +115,31 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "target_title": state.target_title,
             "expected_salary": state.expected_salary,
             "diagnosis": state.diagnosis.model_dump() if state.diagnosis else None,
+        }
+
+    @app.post("/api/match")
+    def match_job(req: _MatchReq) -> dict:
+        conn = _conn()
+        try:
+            code = jobfetch.extract_job_code(req.job_url)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        state = store.load_resume(conn)
+        if not state.resume_text.strip():
+            raise HTTPException(status_code=400, detail="請先上傳履歷")
+        try:
+            jd = jobfetch.fetch_job_detail(code)
+        except Exception:
+            raise HTTPException(status_code=502, detail="抓取職缺失敗，請確認網址")
+        try:
+            result = match.match(state.resume_text, state.target_title or "（未指定）", jd)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception:
+            raise HTTPException(status_code=500, detail="比對失敗，請重試")
+        return {
+            "title": jd.title, "company": jd.company, "salary": jd.salary,
+            "score": result.score, "reasons": result.reasons, "gaps": result.gaps,
         }
 
     dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
