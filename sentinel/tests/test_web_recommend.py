@@ -49,3 +49,11 @@ def test_recommend_fetch_error_502(monkeypatch, tmp_path):
     monkeypatch.setattr(rec, "recommend_session", _boom)
     r = _client(tmp_path).get("/api/recommend")
     assert r.status_code == 502
+
+
+def test_recommend_busy_returns_409(monkeypatch, tmp_path):
+    from career_sentinel.web import runner
+    monkeypatch.setattr(runner._state, "running", True)
+    r = _client(tmp_path).get("/api/recommend")
+    assert r.status_code == 409
+    assert "忙碌" in r.json()["detail"]

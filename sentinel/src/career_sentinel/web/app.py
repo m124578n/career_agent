@@ -145,10 +145,14 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/api/recommend")
     def recommend() -> dict:
         from ..scraper.recommend import recommend_session
+        if not runner.try_begin_browser():
+            raise HTTPException(status_code=409, detail="瀏覽器忙碌中（可能正在抓取），請稍候再試")
         try:
             jobs = recommend_session()
         except Exception:
             raise HTTPException(status_code=502, detail="拉取推薦失敗，請重試")
+        finally:
+            runner.end_browser()
         if jobs is None:
             raise HTTPException(status_code=409, detail="尚未登入，請先在終端機執行：career-sentinel login")
         settings = store.load_settings(_conn())

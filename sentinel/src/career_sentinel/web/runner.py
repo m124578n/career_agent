@@ -31,12 +31,24 @@ def status() -> dict:
     }
 
 
-def start_scrape(launch_scrape: Callable[[], set[str]]) -> bool:
-    """已在跑回 False；否則起背景執行緒跑 launch_scrape、回 True。"""
+def try_begin_browser() -> bool:
+    """取得「瀏覽器忙碌」旗標；已忙回 False。"""
     with _lock:
         if _state.running:
             return False
         _state.running = True
+    return True
+
+
+def end_browser() -> None:
+    with _lock:
+        _state.running = False
+
+
+def start_scrape(launch_scrape: Callable[[], set[str]]) -> bool:
+    """已在跑回 False；否則起背景執行緒跑 launch_scrape、回 True。"""
+    if not try_begin_browser():
+        return False
     threading.Thread(target=_run, args=(launch_scrape,), daemon=True).start()
     return True
 
@@ -52,7 +64,7 @@ def _run(launch_scrape: Callable[[], set[str]]) -> None:
     except Exception as exc:  # noqa: BLE001 - 任何抓取失敗都記錄、不讓執行緒崩
         _state.last_error = str(exc)
     finally:
-        _state.running = False
+        end_browser()
 
 
 def default_scrape(db_path: str | None = None) -> set[str]:
