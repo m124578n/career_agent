@@ -1,7 +1,7 @@
-import { Alert, Badge, Button, Card, Container, Group, Stack, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Card, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { ackSchedule, getSchedule, getSnapshot, getStatus, startScrape } from "./api";
+import { type Interview, ackSchedule, getSchedule, getSnapshot, getStatus, startScrape } from "./api";
 import { ensurePermission, notify } from "./notify";
 import SettingsModal from "./SettingsModal";
 
@@ -102,6 +102,28 @@ export default function Dashboard({ onGoRecommend }: { onGoRecommend: () => void
       )}
       {s && s.failed_readers.length > 0 && (
         <Text c="orange" mb="sm">⚠️ 本次未讀到：{s.failed_readers.join("、")}（沿用上次）</Text>
+      )}
+
+      {s && s.interviews.length > 0 && (
+        <Card withBorder padding="md" radius="md" mb="md">
+          <Title order={4} mb="sm">即將到來的面試（{s.interviews.length}）</Title>
+          <Stack gap="xs">
+            {s.interviews.map((iv: Interview, i: number) => (
+              <Group key={i} justify="space-between" wrap="nowrap">
+                <div>
+                  <Text fw={600}>{iv.company}　<Text span c="dimmed" size="sm">{iv.job_title}</Text></Text>
+                  <Text size="sm" c="dimmed">
+                    {iv.when || "日期未擷取"}{iv.location ? ` · ${iv.location}` : ""}
+                  </Text>
+                </div>
+                <Group gap="xs" wrap="nowrap">
+                  {iv.job_url && <Anchor href={iv.job_url} target="_blank" size="sm">看職缺</Anchor>}
+                  <Button component="a" href={iv.gcal_link} target="_blank" size="xs" variant="light">加入 Google 日曆</Button>
+                </Group>
+              </Group>
+            ))}
+          </Stack>
+        </Card>
       )}
 
       <Card withBorder padding="md" radius="md" mb="md">

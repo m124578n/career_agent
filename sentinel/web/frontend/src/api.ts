@@ -1,11 +1,13 @@
 export interface Viewer { company: string; job_title: string; viewed_at: string; watched: boolean }
 export interface Application { job_id: string; company: string; title: string; status: string; applied_at: string; watched: boolean }
 export interface Message { thread_id: string; company: string; last_message: string; has_interview_invite: boolean; watched: boolean }
+export interface Interview { company: string; job_title: string; when: string; location: string; job_url: string; gcal_link: string }
 export interface SnapshotResp {
   run_at: string | null;
   viewers: Viewer[];
   applications: Application[];
   messages: Message[];
+  interviews: Interview[];
   digest: string;
   failed_readers: string[];
 }
