@@ -3,6 +3,7 @@ import Dashboard from "./Dashboard";
 import MatchPage from "./MatchPage";
 import RecommendPage from "./RecommendPage";
 import ResumePage from "./ResumePage";
+import SearchPage from "./SearchPage";
 
 export default function App() {
   return (
@@ -12,11 +13,13 @@ export default function App() {
         <Tabs.Tab value="resume">履歷健檢</Tabs.Tab>
         <Tabs.Tab value="match">JD 比對</Tabs.Tab>
         <Tabs.Tab value="recommend">推薦</Tabs.Tab>
+        <Tabs.Tab value="search">職缺搜尋</Tabs.Tab>
       </Tabs.List>
       <Tabs.Panel value="dashboard"><Dashboard /></Tabs.Panel>
       <Tabs.Panel value="resume"><ResumePage /></Tabs.Panel>
       <Tabs.Panel value="match"><MatchPage /></Tabs.Panel>
       <Tabs.Panel value="recommend"><RecommendPage /></Tabs.Panel>
+      <Tabs.Panel value="search"><SearchPage /></Tabs.Panel>
     </Tabs>
   );
 }
