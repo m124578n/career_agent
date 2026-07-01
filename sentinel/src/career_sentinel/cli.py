@@ -5,11 +5,11 @@ from datetime import datetime
 from typing import Callable
 
 from . import browser, config, diff, digest, store
-from .models import Snapshot
+from .models import ChangeCounts, Snapshot
 from .scraper import fake
 
 
-def run_pipeline(scrape: Callable[[], tuple[Snapshot, set[str]]], conn, *, now: str) -> str:
+def run_pipeline(scrape: Callable[[], tuple[Snapshot, set[str]]], conn, *, now: str) -> tuple[str, ChangeCounts]:
     snapshot, failed = scrape()
     if failed:
         snapshot = _carry_forward(conn, snapshot, failed)
@@ -18,7 +18,7 @@ def run_pipeline(scrape: Callable[[], tuple[Snapshot, set[str]]], conn, *, now: 
     report = digest.summarize(d, snapshot)
     if failed:
         report += "\n\n⚠️ 本次未讀到：" + "、".join(sorted(failed)) + "（沿用上次）"
-    return report
+    return report, ChangeCounts.from_diff(d)
 
 
 def _carry_forward(conn, snapshot: Snapshot, failed: set[str]) -> Snapshot:
@@ -68,7 +68,7 @@ def _cmd_run() -> int:
     if result is None:
         print("尚未登入，請先執行：career-sentinel login")
         return 1
-    report = run_pipeline(
+    report, _ = run_pipeline(
         lambda: result,
         conn,
         now=datetime.now().isoformat(timespec="seconds"),

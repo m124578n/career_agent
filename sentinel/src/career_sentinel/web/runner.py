@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable
 
+from ..models import ChangeCounts
+
 
 class LoginRequired(Exception):
     """抓取時偵測到未登入。"""
@@ -16,6 +18,7 @@ class _State:
     last_run: str | None = None
     last_error: str | None = None
     last_failed_readers: list[str] = field(default_factory=list)
+    last_change_counts: ChangeCounts = field(default_factory=ChangeCounts)
 
 
 _state = _State()
@@ -28,6 +31,7 @@ def status() -> dict:
         "last_run": _state.last_run,
         "last_error": _state.last_error,
         "last_failed_readers": list(_state.last_failed_readers),
+        "last_change_counts": _state.last_change_counts.model_dump(),
     }
 
 
@@ -78,7 +82,8 @@ def default_scrape(db_path: str | None = None) -> set[str]:
     failed = result[1]
     conn = store.connect(db_path or config.db_path())
     try:
-        cli.run_pipeline(lambda: result, conn, now=datetime.now().isoformat(timespec="seconds"))
+        _report, counts = cli.run_pipeline(lambda: result, conn, now=datetime.now().isoformat(timespec="seconds"))
+        _state.last_change_counts = counts
     finally:
         conn.close()
     return failed

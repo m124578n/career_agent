@@ -1,5 +1,6 @@
 import time
 
+from career_sentinel.models import ChangeCounts
 from career_sentinel.web import runner
 
 
@@ -8,6 +9,7 @@ def _reset():
     runner._state.last_run = None
     runner._state.last_error = None
     runner._state.last_failed_readers = []
+    runner._state.last_change_counts = ChangeCounts()
 
 
 def test_start_scrape_success_updates_state():
@@ -78,3 +80,26 @@ def test_default_scrape_saves_to_given_db(tmp_path, monkeypatch):
     failed = runner.default_scrape(db)
     assert failed == set()
     assert store.latest_run_at(store.connect(db)) is not None
+
+
+def test_default_scrape_records_change_counts(tmp_path, monkeypatch):
+    from career_sentinel import store
+    from career_sentinel.models import Snapshot, Viewer
+    from career_sentinel.scraper import real
+    _reset()
+    db = str(tmp_path / "db.sqlite")
+    # 第一次：一個 viewer（相對空前次 → 新增 1）
+    snap1 = Snapshot(viewers=[Viewer(company="A", job_title="x", viewed_at="t")])
+    monkeypatch.setattr(real, "scrape_session", lambda: (snap1, set()))
+    runner.default_scrape(db)
+    assert runner.status()["last_change_counts"]["new_viewers"] == 1
+    # 第二次：同一 viewer（無新增 → 0）
+    monkeypatch.setattr(real, "scrape_session", lambda: (snap1, set()))
+    runner.default_scrape(db)
+    assert runner.status()["last_change_counts"]["new_viewers"] == 0
+
+
+def test_status_has_change_counts_key():
+    _reset()
+    assert "last_change_counts" in runner.status()
+    assert runner.status()["last_change_counts"]["new_viewers"] == 0
