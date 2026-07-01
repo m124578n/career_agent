@@ -83,3 +83,16 @@ export async function matchJob(job_url: string): Promise<Response> {
     body: JSON.stringify({ job_url }),
   });
 }
+
+export interface RecommendedJob {
+  code: string;
+  url: string;
+  title: string;
+  company: string;
+  salary: string;
+  is_watched: boolean;
+}
+
+export async function getRecommend(): Promise<Response> {
+  return fetch("/api/recommend");
+}
