@@ -1,7 +1,8 @@
-import { Badge, Button, Card, Container, Group, Stack, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { getSnapshot, getStatus, startScrape } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { ackSchedule, getSchedule, getSnapshot, getStatus, startScrape } from "./api";
+import { ensurePermission, notify } from "./notify";
 import SettingsModal from "./SettingsModal";
 
 function Panel({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
@@ -13,10 +14,11 @@ function Panel({ title, count, children }: { title: string; count: number; child
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onGoRecommend }: { onGoRecommend: () => void }) {
   const qc = useQueryClient();
   const [polling, setPolling] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const prevDue = useRef(false);
 
   const snap = useQuery({ queryKey: ["snapshot"], queryFn: getSnapshot });
   const status = useQuery({
@@ -24,22 +26,52 @@ export default function Dashboard() {
     queryFn: getStatus,
     refetchInterval: polling ? 2000 : false,
   });
+  const schedule = useQuery({ queryKey: ["schedule"], queryFn: getSchedule, refetchInterval: 30000 });
 
+  useEffect(() => { ensurePermission(); }, []);
+
+  // 到點：due 由 false→true 的邊緣 → 桌面通知（橫幅由 schedule.data.due 直接驅動）
+  useEffect(() => {
+    const due = schedule.data?.due ?? false;
+    if (due && !prevDue.current) {
+      notify("⏰ career-sentinel", "該檢視求職動態了，點「立即拉取」更新。");
+    }
+    prevDue.current = due;
+  }, [schedule.data?.due]);
+
+  // scrape 完成：running 由 true→false 的邊緣 → 讀本次新增計數發通知
   useEffect(() => {
     if (polling && status.data && !status.data.running) {
       setPolling(false);
       qc.invalidateQueries({ queryKey: ["snapshot"] });
+      const c = status.data.last_change_counts;
+      const total = c ? c.new_viewers + c.status_changes + c.new_messages + c.new_invites : 0;
+      if (total > 0) notify("🔔 career-sentinel", `發現 ${total} 筆新動態（看過我／訊息／狀態變化）。`);
     }
   }, [polling, status.data?.running, status.data, qc]);
 
   async function refresh() {
     const r = await startScrape();
-    if (r.status === "already_running") { setPolling(true); return; }
+    if (r.status !== "already_running") { /* 開始新的一輪 */ }
     setPolling(true);
+  }
+
+  async function onBannerPull() {
+    await ackSchedule();
+    qc.invalidateQueries({ queryKey: ["schedule"] });
+    prevDue.current = false;
+    await refresh();
+  }
+
+  async function onBannerDismiss() {
+    await ackSchedule();
+    qc.invalidateQueries({ queryKey: ["schedule"] });
+    prevDue.current = false;
   }
 
   const s = snap.data;
   const running = polling || status.data?.running;
+  const due = schedule.data?.due ?? false;
 
   return (
     <Container size="lg" py="lg">
@@ -51,6 +83,15 @@ export default function Dashboard() {
           <Button onClick={refresh} loading={running} disabled={running}>重新抓取</Button>
         </Group>
       </Group>
+
+      {due && (
+        <Alert color="yellow" mb="md" withCloseButton onClose={onBannerDismiss} title="⏰ 該檢視求職動態了">
+          <Group>
+            <Button size="xs" onClick={onBannerPull} loading={running} disabled={running}>立即拉取</Button>
+            <Button size="xs" variant="light" onClick={onGoRecommend}>也拉推薦</Button>
+          </Group>
+        </Alert>
+      )}
 
       {status.data?.last_error && (
         <Text c="red" mb="sm">⚠️ {status.data.last_error}</Text>
