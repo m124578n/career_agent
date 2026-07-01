@@ -103,3 +103,15 @@ def test_status_has_change_counts_key():
     _reset()
     assert "last_change_counts" in runner.status()
     assert runner.status()["last_change_counts"]["new_viewers"] == 0
+
+
+def test_default_scrape_resets_counts_on_login_required(tmp_path, monkeypatch):
+    import pytest
+    from career_sentinel.models import ChangeCounts
+    from career_sentinel.scraper import real
+    _reset()
+    runner._state.last_change_counts = ChangeCounts(new_viewers=3)  # 模擬上次成功的殘留
+    monkeypatch.setattr(real, "scrape_session", lambda: None)       # 這次未登入
+    with pytest.raises(runner.LoginRequired):
+        runner.default_scrape(str(tmp_path / "db.sqlite"))
+    assert runner.status()["last_change_counts"]["new_viewers"] == 0

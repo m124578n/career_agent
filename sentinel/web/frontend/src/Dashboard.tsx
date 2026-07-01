@@ -19,6 +19,7 @@ export default function Dashboard({ onGoRecommend }: { onGoRecommend: () => void
   const [polling, setPolling] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const prevDue = useRef(false);
+  const notifyOnDone = useRef(false);
 
   const snap = useQuery({ queryKey: ["snapshot"], queryFn: getSnapshot });
   const status = useQuery({
@@ -46,13 +47,16 @@ export default function Dashboard({ onGoRecommend }: { onGoRecommend: () => void
       qc.invalidateQueries({ queryKey: ["snapshot"] });
       const c = status.data.last_change_counts;
       const total = c ? c.new_viewers + c.status_changes + c.new_messages + c.new_invites : 0;
-      if (total > 0) notify("🔔 career-sentinel", `發現 ${total} 筆新動態（看過我／訊息／狀態變化）。`);
+      if (notifyOnDone.current && !status.data.last_error && total > 0) {
+        notify("🔔 career-sentinel", `發現 ${total} 筆新動態（看過我／訊息／狀態變化）。`);
+      }
+      notifyOnDone.current = false;
     }
   }, [polling, status.data?.running, status.data, qc]);
 
   async function refresh() {
     const r = await startScrape();
-    if (r.status !== "already_running") { /* 開始新的一輪 */ }
+    notifyOnDone.current = r.status !== "already_running";  // 只有本次真的啟動 scrape 才在完成時發通知
     setPolling(true);
   }
 

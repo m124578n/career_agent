@@ -76,6 +76,7 @@ def default_scrape(db_path: str | None = None) -> set[str]:
     from .. import cli, config, store
     from ..scraper import real
 
+    _state.last_change_counts = ChangeCounts()  # 先重置，避免失敗/未登入時殘留上次計數
     result = real.scrape_session()
     if result is None:
         raise LoginRequired()
