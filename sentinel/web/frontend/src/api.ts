@@ -9,7 +9,8 @@ export interface SnapshotResp {
   digest: string;
   failed_readers: string[];
 }
-export interface StatusResp { running: boolean; last_run: string | null; last_error: string | null; last_failed_readers: string[] }
+export interface ChangeCounts { new_viewers: number; status_changes: number; new_messages: number; new_invites: number }
+export interface StatusResp { running: boolean; last_run: string | null; last_error: string | null; last_failed_readers: string[]; last_change_counts: ChangeCounts }
 
 export async function getSnapshot(): Promise<SnapshotResp> {
   const r = await fetch("/api/snapshot");
@@ -99,4 +100,15 @@ export async function getRecommend(): Promise<Response> {
 
 export async function searchJobs(kw: string): Promise<Response> {
   return fetch(`/api/search?kw=${encodeURIComponent(kw)}`);
+}
+
+export interface ScheduleState { due: boolean; notify_time: string | null; last_prompted_date: string | null }
+
+export async function getSchedule(): Promise<ScheduleState> {
+  const r = await fetch("/api/schedule");
+  return r.json();
+}
+
+export async function ackSchedule(): Promise<void> {
+  await fetch("/api/schedule/ack", { method: "POST" });
 }
