@@ -31,3 +31,29 @@ def test_recommended_job_defaults():
     assert j.code == "aa1bb"
     assert j.title == "" and j.company == "" and j.salary == ""
     assert j.is_watched is False
+
+
+def test_change_counts_total():
+    from career_sentinel.models import ChangeCounts
+    c = ChangeCounts(new_viewers=2, status_changes=1, new_messages=3, new_invites=1)
+    assert c.total == 7
+
+def test_change_counts_defaults_zero():
+    from career_sentinel.models import ChangeCounts
+    assert ChangeCounts().total == 0
+
+def test_change_counts_from_diff():
+    from career_sentinel.models import (
+        Application, ChangeCounts, Diff, Message, StatusChange, Viewer,
+    )
+    d = Diff(
+        new_viewers=[Viewer(company="A", job_title="x", viewed_at="t")],
+        status_changes=[StatusChange(
+            application=Application(job_id="1", company="B", title="t", status="已讀", applied_at="d"),
+            old_status="已送出", new_status="已讀")],
+        new_messages=[Message(thread_id="m1", company="C", last_message="hi")],
+        new_invites=[Message(thread_id="m1", company="C", last_message="hi", has_interview_invite=True)],
+    )
+    c = ChangeCounts.from_diff(d)
+    assert (c.new_viewers, c.status_changes, c.new_messages, c.new_invites) == (1, 1, 1, 1)
+    assert c.total == 4

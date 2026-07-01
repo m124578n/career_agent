@@ -121,3 +121,23 @@ class RecommendedJob(BaseModel):
     company: str = ""
     salary: str = ""
     is_watched: bool = False
+
+
+class ChangeCounts(BaseModel):
+    new_viewers: int = 0
+    status_changes: int = 0
+    new_messages: int = 0
+    new_invites: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.new_viewers + self.status_changes + self.new_messages + self.new_invites
+
+    @classmethod
+    def from_diff(cls, d: "Diff") -> "ChangeCounts":
+        return cls(
+            new_viewers=len(d.new_viewers),
+            status_changes=len(d.status_changes),
+            new_messages=len(d.new_messages),
+            new_invites=len(d.new_invites),
+        )
