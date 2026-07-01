@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from .. import config, diagnosis, diff, digest, jobfetch, match, resume, store, watch
 from ..models import ResumeState, Settings
-from . import runner
+from . import runner, scheduler
 
 
 class _DiagnoseReq(BaseModel):
@@ -52,6 +52,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def _conn():
         return store.connect(resolved_db)
 
+    scheduler.start(lambda: store.load_settings(_conn()))
+
     @app.get("/api/snapshot")
     def snapshot() -> dict:
         return _snapshot_payload(_conn())
@@ -65,6 +67,15 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/api/status")
     def status() -> dict:
         return runner.status()
+
+    @app.get("/api/schedule")
+    def schedule() -> dict:
+        return scheduler.state()
+
+    @app.post("/api/schedule/ack")
+    def schedule_ack() -> dict:
+        scheduler.ack()
+        return {"due": False}
 
     @app.get("/api/settings")
     def get_settings() -> dict:
