@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import config, diagnosis, diff, digest, jobfetch, match, resume, store, watch
+from .. import calendar_link, config, diagnosis, diff, digest, jobfetch, match, resume, store, watch
 from ..models import ResumeState, Settings
 from . import runner, scheduler
 
@@ -27,7 +27,7 @@ def _snapshot_payload(conn) -> dict:
     if not ids:
         return {
             "run_at": None,
-            "viewers": [], "applications": [], "messages": [],
+            "viewers": [], "applications": [], "messages": [], "interviews": [],
             "digest": "尚無資料，請先重新抓取",
             "failed_readers": failed,
         }
@@ -40,6 +40,14 @@ def _snapshot_payload(conn) -> dict:
         "viewers": [{"company": v.company, "job_title": v.job_title, "viewed_at": v.viewed_at, "watched": watch.is_watched(v.company, v.job_title, settings)} for v in snap.viewers],
         "applications": [{"job_id": a.job_id, "company": a.company, "title": a.title, "status": a.status, "applied_at": a.applied_at, "watched": watch.is_watched(a.company, a.title, settings)} for a in snap.applications],
         "messages": [{"thread_id": m.thread_id, "company": m.company, "last_message": m.last_message, "has_interview_invite": m.has_interview_invite, "watched": watch.is_watched(m.company, m.last_message, settings)} for m in snap.messages],
+        "interviews": [
+            {
+                "company": iv.company, "job_title": iv.job_title, "when": iv.when,
+                "location": iv.location, "job_url": iv.job_url,
+                "gcal_link": calendar_link.build_gcal_link(iv),
+            }
+            for iv in sorted(snap.interviews, key=lambda iv: (iv.when == "", iv.when))
+        ],
         "digest": digest.render_human(d, snap),
         "failed_readers": failed,
     }

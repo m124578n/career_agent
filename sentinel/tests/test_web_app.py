@@ -52,3 +52,25 @@ def test_status_endpoint(tmp_path, monkeypatch):
     body = _client(tmp_path).get("/api/status").json()
     assert body["running"] is False
     assert body["last_run"] == "2026-06-28T10:00:00"
+
+
+def test_snapshot_exposes_interviews_with_gcal_link(tmp_path):
+    from fastapi.testclient import TestClient
+    from career_sentinel import store
+    from career_sentinel.models import Interview, Snapshot
+    from career_sentinel.web.app import create_app
+    db = str(tmp_path / "t.db")
+    conn = store.connect(db)
+    store.save_snapshot(conn, Snapshot(interviews=[
+        Interview(company="乙公司", job_title="PM", when="2026-04-09 13:30:00", location="新竹", job_url="u2"),
+        Interview(company="甲公司", job_title="後端", when="2026-04-07 10:00:00", location="台北", job_url="u1"),
+    ]), run_at="2026-07-02T09:00:00")
+    client = TestClient(create_app(db_path=db))
+    r = client.get("/api/snapshot")
+    assert r.status_code == 200
+    ivs = r.json()["interviews"]
+    assert len(ivs) == 2
+    assert ivs[0]["when"] == "2026-04-07 10:00:00"  # 按 when 升冪，早的在前
+    assert ivs[0]["company"] == "甲公司"
+    assert "calendar.google.com" in ivs[0]["gcal_link"]
+    assert "dates=" in ivs[0]["gcal_link"]
