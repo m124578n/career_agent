@@ -1,0 +1,25 @@
+{
+  "data": [
+    {
+      "jobNo": "14221079",
+      "jobName": "資料軟體工程師",
+      "custName": "範例數據股份有限公司",
+      "custNo": "c1d2e3",
+      "salaryLow": 43000,
+      "salaryHigh": 47000,
+      "s10": 50,
+      "link": { "job": "https://www.104.com.tw/job/8gt1z", "cust": "https://www.104.com.tw/company/c1d2e3" }
+    },
+    {
+      "jobNo": "12345678",
+      "jobName": "後端工程師 Python",
+      "custName": "範例雲端有限公司",
+      "custNo": "f4g5h6",
+      "salaryLow": 60000,
+      "salaryHigh": 9999999,
+      "s10": 50,
+      "link": { "job": "https://www.104.com.tw/job/9xk2p", "cust": "https://www.104.com.tw/company/f4g5h6" }
+    }
+  ],
+  "metadata": { "pagination": { "count": 2, "total": 2, "currentPage": 1, "lastPage": 1 } }
+}
