@@ -32,3 +32,16 @@ def test_parse_job_detail_maps_fields():
     assert jd.education == "大學"
     assert jd.majors == ["資訊工程相關"]
     assert jd.specialties == ["Python", "FastAPI", "SQL"]
+
+
+def test_parse_job_detail_specialty_tolerates_bad_entries():
+    from career_sentinel.jobfetch import parse_job_detail
+    payload = {"data": {"condition": {"specialty": [
+        {"description": "Python"},
+        "壞字串",
+        {"description": ""},
+        {"description": "  Docker  "},
+        None,
+    ]}}}
+    jd = parse_job_detail(payload)
+    assert jd.specialties == ["Python", "Docker"]

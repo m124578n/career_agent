@@ -32,7 +32,11 @@ def parse_job_detail(payload: dict) -> JobDetail:
         work_exp=cond.get("workExp", "") or "",
         education=cond.get("edu", "") or "",
         majors=list(cond.get("major", []) or []),
-        specialties=[s.get("description", "") for s in (cond.get("specialty", []) or [])],
+        specialties=[
+            s.get("description", "").strip()
+            for s in (cond.get("specialty", []) or [])
+            if isinstance(s, dict) and (s.get("description") or "").strip()
+        ],
     )
 
 

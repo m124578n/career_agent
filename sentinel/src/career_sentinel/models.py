@@ -103,3 +103,12 @@ class MatchResult(BaseModel):
     score: int = 0
     reasons: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
+
+    @field_validator("score", mode="before")
+    @classmethod
+    def _clamp_score(cls, v):
+        try:
+            n = int(round(float(v)))
+        except (TypeError, ValueError):
+            return 0
+        return max(0, min(100, n))
