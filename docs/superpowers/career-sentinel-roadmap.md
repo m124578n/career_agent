@@ -12,6 +12,7 @@
 - **SP2**：設定 + 關注清單（設定頁存關注公司/關鍵字/通知時間 + 儀表板命中即時標 ★關注）。`watch.is_watched` 純函式供 SP5 重用；通知時間先存(SP6 發)。77 測試、真機驗證通過。
 - **SP3**：履歷健檢（上傳 PDF/txt→針對目標職位 LLM 產出優勢/待補強）。新 `llm.parse_json` **provider-aware**(OpenAI 相容 + Azure Foundry/Anthropic)、`config.llm_provider` 偵測、前端 Tabs(儀表板/履歷健檢)。真機用 Azure Foundry/Claude 驗證高品質診斷。90 測試。
 - **SP4**：JD × 履歷比對（貼 104 職缺網址→curl_cffi 抓 JD→對履歷算吻合度+缺技能）。`jobfetch`(104 公開詳情)+`match`(重用 llm.parse_json) 供 SP5 重用；前端「JD 比對」分頁。真機驗證(PHP 職缺給 Python 履歷正確判語言不符)。102 測試。
+- **SP5**：工作推薦（拉 104 個人化推薦清單→標 ★關注→逐筆手動比對，重用 SP4）。新 `scraper/recommend`(登入態抓 `personal-recommend-jobs`，需帶 `Referer` + www host Cloudflare clearance；薪資 `s10` 編碼解析)、`GET /api/recommend`(is_watched 標記/409/502/stateless)、前端「推薦」分頁(逐列獨立比對)。順手收 SP4 兩個 minor(score clamp、specialty 防禦)。真機驗證(抓到 20 筆真實推薦、薪資格式化正確)。114 測試。
 
 ## 🔭 子專案（待做，建議順序）
 
@@ -21,7 +22,7 @@
 | ~~SP2~~ | ~~⚙️ 設定 + 關注清單~~ | ✅ 已完成（見上） | — |
 | ~~SP3~~ | ~~📋 履歷健檢~~ | ✅ 已完成（見上） | — |
 | ~~SP4~~ | ~~🎯 JD × 履歷比對~~ | ✅ 已完成（見上） | — |
-| **SP5** | 💡 工作推薦 | 104 推薦端點 `api/jobs/personal-recommend-jobs` + 關注過濾 + SP4 排序 | 新 |
+| ~~SP5~~ | ~~💡 工作推薦~~ | ✅ 已完成（見上） | — |
 | **SP6** | ⏰ 定期檢視 + 通知排程 | 按設定時間自動跑（爬+比對+推薦）、符合條件通知 | 新 + 舊「每日自動排程」 |
 | **SP7** | 📅 行事曆整合 | 面試**確切日期**擷取（需開對話室/面試端點）+ 自動進 Google Calendar | 舊 deferred |
 | **SP8** | 💬 對話式履歷/需求整理 | 聊天介面邊聊邊整理履歷與求職偏好（需即時串流 UI） | 舊 deferred（原始願景） |
@@ -39,6 +40,7 @@
 - **SP1 儀表板視覺對齊 Cockpit**：SP1 先用 Mantine 預設深色主題；之後複製雲端 `theme.ts`/`.jt-*`、tangerine/teal 雙訊號色做主題 polish。
 - **web runner 跨次共用 LLM digest**：`default_scrape` 走 `run_pipeline` 會算 digest（有 key 時打 LLM）但 web 用 `render_human`，該 digest 被丟棄；無 key 時無成本，有 key 時可改只存不彙整。
 - **digest 彙整走 provider 層**：SP3 的 `llm` 已支援 Foundry，但 `digest.summarize` 仍只打 OpenAI 相容端點；Foundry 使用者的 LLM 每日彙整尚未啟用（走本地 `render_human`）。可把 digest 改用 `llm` 的 provider 分派（補一個 `llm.chat`）。
+- **SP5 review minors**：`MatchResult._clamp_score` 未捕 `OverflowError`（`float('inf')`→`int()` 溢位；JSON 無 infinity 故風險極低，一行加 `except` 即可）；`recommend._format_salary` 的 `salaryLow or 0` 對 0 冗贅（行為正確、純風格）；`RecommendPage` canMatch 首載閃爍（gate on `resume.isLoading`，同 MatchPage flicker）；「拉取推薦」loading 時按鈕動態文字被 spinner 遮；`getRecommend` 回 raw `Response` 與其他 getter 不一致（同 `matchJob` 模式，API 層重構時統一）。SP5 全分頁抓推薦（目前只第 1 頁，metadata.total 有 400 筆）。
 - **SP4 review minors（SP5 前順手）**：`jobfetch.parse_job_detail` 的 specialty 加 `isinstance(s, dict)` 保護 + 濾空字串（SP5 跑多樣職缺更穩）；`MatchResult.score` clamp 0~100（避免 LLM 回 120 撐破 Progress 或非整數→500）；`match_job` 的 `RuntimeError→400` 改 typed exception；502 區分「抓取失敗 vs 解析失敗」；`MatchPage` 載入閃爍（gate on `isLoading`）。
 - **SP3 review minors**：`resume_diagnose` 的 500 加 `logger.exception`（Foundry 是新整合、便於排錯）；no-key 改用 typed exception 而非裸 `RuntimeError`（避免深層 RuntimeError 被誤標 400）；`_foundry_parse_json` `max_tokens` 4096→8192（長診斷防截斷）；補測 OpenAI Bearer header + foundry kwargs；`ResumePage` 的 `setBusy` 加 try/finally、upload try/catch、useEffect 只 seed 一次（避免覆寫編輯中）。
 
