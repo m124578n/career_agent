@@ -26,3 +26,22 @@ def test_latest_two_ids_orders_new_to_old(tmp_path):
     s1 = store.save_snapshot(conn, _snap(), run_at="2026-06-27T10:00:00")
     s2 = store.save_snapshot(conn, _snap(), run_at="2026-06-28T10:00:00")
     assert store.latest_two_ids(conn) == [s2, s1]
+
+
+def test_snapshot_roundtrip_interviews(tmp_path):
+    from career_sentinel import store
+    from career_sentinel.models import Interview, Snapshot
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    snap = Snapshot(interviews=[
+        Interview(company="甲公司", job_title="後端", when="2026-04-07 10:00:00",
+                  location="台北", status=10, job_url="https://www.104.com.tw/job/aa1bb",
+                  raw={"contactName": "王先生"}),
+    ])
+    sid = store.save_snapshot(conn, snap, run_at="2026-07-02T09:00:00")
+    loaded = store.load_snapshot(conn, sid)
+    assert len(loaded.interviews) == 1
+    iv = loaded.interviews[0]
+    assert iv.company == "甲公司"
+    assert iv.when == "2026-04-07 10:00:00"
+    assert iv.status == 10
+    assert iv.raw["contactName"] == "王先生"

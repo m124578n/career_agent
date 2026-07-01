@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from .models import Application, Message, ResumeState, Settings, Snapshot, Viewer
+from .models import Application, Interview, Message, ResumeState, Settings, Snapshot, Viewer
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS applications (
 CREATE TABLE IF NOT EXISTS messages (
     snapshot_id INTEGER, thread_id TEXT, company TEXT, last_message TEXT,
     has_interview_invite INTEGER, invite_date TEXT, raw_json TEXT
+);
+CREATE TABLE IF NOT EXISTS interviews (
+    snapshot_id INTEGER, company TEXT, job_title TEXT, interview_time TEXT,
+    location TEXT, status INTEGER, job_url TEXT, raw_json TEXT
 );
 CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
@@ -53,6 +57,10 @@ def save_snapshot(conn: sqlite3.Connection, snapshot: Snapshot, run_at: str) -> 
         "INSERT INTO messages VALUES (?,?,?,?,?,?,?)",
         [(sid, m.thread_id, m.company, m.last_message, int(m.has_interview_invite), m.invite_date, json.dumps(m.raw, ensure_ascii=False)) for m in snapshot.messages],
     )
+    conn.executemany(
+        "INSERT INTO interviews VALUES (?,?,?,?,?,?,?,?)",
+        [(sid, iv.company, iv.job_title, iv.when, iv.location, iv.status, iv.job_url, json.dumps(iv.raw, ensure_ascii=False)) for iv in snapshot.interviews],
+    )
     conn.commit()
     return sid
 
@@ -76,7 +84,13 @@ def load_snapshot(conn: sqlite3.Connection, snapshot_id: int) -> Snapshot:
             "SELECT thread_id, company, last_message, has_interview_invite, invite_date, raw_json FROM messages WHERE snapshot_id=?", (snapshot_id,)
         )
     ]
-    return Snapshot(viewers=viewers, applications=applications, messages=messages)
+    interviews = [
+        Interview(company=c, job_title=t, when=w, location=lo, status=s, job_url=ju, raw=json.loads(rj))
+        for c, t, w, lo, s, ju, rj in conn.execute(
+            "SELECT company, job_title, interview_time, location, status, job_url, raw_json FROM interviews WHERE snapshot_id=?", (snapshot_id,)
+        )
+    ]
+    return Snapshot(viewers=viewers, applications=applications, messages=messages, interviews=interviews)
 
 
 def latest_two_ids(conn: sqlite3.Connection) -> list[int]:
