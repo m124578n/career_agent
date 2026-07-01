@@ -112,3 +112,12 @@ class MatchResult(BaseModel):
         except (TypeError, ValueError):
             return 0
         return max(0, min(100, n))
+
+
+class RecommendedJob(BaseModel):
+    code: str
+    url: str
+    title: str = ""
+    company: str = ""
+    salary: str = ""
+    is_watched: bool = False

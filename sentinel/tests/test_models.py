@@ -23,3 +23,11 @@ def test_status_change_holds_old_and_new():
     a = Application(job_id="1", company="A", title="x", status="邀請面試", applied_at="t")
     sc = StatusChange(application=a, old_status="已讀", new_status="邀請面試")
     assert sc.old_status == "已讀" and sc.new_status == "邀請面試"
+
+
+def test_recommended_job_defaults():
+    from career_sentinel.models import RecommendedJob
+    j = RecommendedJob(code="aa1bb", url="https://www.104.com.tw/job/aa1bb")
+    assert j.code == "aa1bb"
+    assert j.title == "" and j.company == "" and j.salary == ""
+    assert j.is_watched is False
