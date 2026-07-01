@@ -1,0 +1,45 @@
+{
+  "data": [
+    {
+      "jobNo": "aa1bb",
+      "jobName": "資深後端工程師",
+      "custName": "範例雲端股份有限公司",
+      "custNo": "c1d2e3",
+      "salaryLow": 60000,
+      "salaryHigh": 90000,
+      "s10": 50,
+      "link": { "job": "https://www.104.com.tw/job/aa1bb", "cust": "https://www.104.com.tw/company/c1d2e3" }
+    },
+    {
+      "jobNo": "cc3dd",
+      "jobName": "資料工程師",
+      "custName": "範例數據科技有限公司",
+      "custNo": "f4g5h6",
+      "salaryLow": 55000,
+      "salaryHigh": 9999999,
+      "s10": 50,
+      "link": { "job": "https://www.104.com.tw/job/cc3dd", "cust": "https://www.104.com.tw/company/f4g5h6" }
+    },
+    {
+      "jobNo": "ee5ff",
+      "jobName": "AI 技術主管",
+      "custName": "範例智慧股份有限公司",
+      "custNo": "i7j8k9",
+      "salaryLow": 1500000,
+      "salaryHigh": 2500000,
+      "s10": 60,
+      "link": { "job": "https://www.104.com.tw/job/ee5ff", "cust": "https://www.104.com.tw/company/i7j8k9" }
+    },
+    {
+      "jobNo": "gg7hh",
+      "jobName": "前端工程師",
+      "custName": "範例軟體有限公司",
+      "custNo": "l1m2n3",
+      "salaryLow": 0,
+      "salaryHigh": 0,
+      "s10": 10,
+      "link": { "job": "https://www.104.com.tw/job/gg7hh", "cust": "https://www.104.com.tw/company/l1m2n3" }
+    }
+  ],
+  "metadata": { "pagination": { "count": 4, "total": 4, "currentPage": 1, "lastPage": 1 } }
+}
