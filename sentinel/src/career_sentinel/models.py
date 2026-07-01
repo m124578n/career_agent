@@ -38,6 +38,7 @@ class Snapshot(BaseModel):
     viewers: list[Viewer] = Field(default_factory=list)
     applications: list[Application] = Field(default_factory=list)
     messages: list[Message] = Field(default_factory=list)
+    interviews: list["Interview"] = Field(default_factory=list)
 
 
 class StatusChange(BaseModel):
@@ -141,3 +142,13 @@ class ChangeCounts(BaseModel):
             new_messages=len(d.new_messages),
             new_invites=len(d.new_invites),
         )
+
+
+class Interview(BaseModel):
+    company: str = ""
+    job_title: str = ""
+    when: str = ""
+    location: str = ""
+    status: int | None = None
+    job_url: str = ""
+    raw: dict = Field(default_factory=dict)

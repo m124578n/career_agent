@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "seq": 1, "eventId": "e1", "msgId": "m1", "chatroomId": "aa1bb",
+      "custName": "範例科技股份有限公司", "custNo": "c1d2e3",
+      "jobName": "資深後端工程師", "jobNo": "11", "jobUrl": "https://www.104.com.tw/job/aa1bb",
+      "contactName": "王先生", "contactTel": "02-1234-5678",
+      "address": "台北市內湖區範例路 1 號", "interviewTime": "2026-04-07 10:00:00",
+      "status": 10, "active": 5
+    },
+    {
+      "seq": 2, "eventId": "e2", "msgId": "m2", "chatroomId": "cc3dd",
+      "custName": "範例雲端有限公司", "custNo": "f4g5h6",
+      "jobName": "資料工程師", "jobNo": "22", "jobUrl": "https://www.104.com.tw/job/cc3dd",
+      "contactName": "李小姐", "contactTel": "03-8765-4321",
+      "address": "新竹市東區範例街 2 號", "interviewTime": "2026-04-09 13:30:00",
+      "status": 1, "active": 3
+    }
+  ],
+  "metadata": { "pagination": { "count": 2, "total": 2, "currentPage": 1, "lastPage": 1 } }
+}
