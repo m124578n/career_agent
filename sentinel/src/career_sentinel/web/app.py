@@ -142,6 +142,27 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "score": result.score, "reasons": result.reasons, "gaps": result.gaps,
         }
 
+    @app.get("/api/recommend")
+    def recommend() -> dict:
+        from ..scraper.recommend import recommend_session
+        try:
+            jobs = recommend_session()
+        except Exception:
+            raise HTTPException(status_code=502, detail="拉取推薦失敗，請重試")
+        if jobs is None:
+            raise HTTPException(status_code=409, detail="尚未登入，請先在終端機執行：career-sentinel login")
+        settings = store.load_settings(_conn())
+        return {
+            "jobs": [
+                {
+                    "code": j.code, "url": j.url, "title": j.title,
+                    "company": j.company, "salary": j.salary,
+                    "is_watched": watch.is_watched(j.company, j.title, settings),
+                }
+                for j in jobs
+            ]
+        }
+
     dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
     if dist.is_dir():
         app.mount("/", StaticFiles(directory=str(dist), html=True), name="spa")
