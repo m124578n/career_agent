@@ -3,6 +3,7 @@ from __future__ import annotations
 from .. import browser
 from ..models import Snapshot
 from .applications import fetch_applications
+from .interviews import fetch_interviews
 from .messages import fetch_messages
 from .viewers import fetch_viewers
 
@@ -25,8 +26,9 @@ def scrape(page) -> tuple[Snapshot, set[str]]:
         ("viewers", fetch_viewers),
         ("applications", fetch_applications),
         ("messages", fetch_messages),
+        ("interviews", fetch_interviews),
     )
-    collected: dict[str, list] = {"viewers": [], "applications": [], "messages": []}
+    collected: dict[str, list] = {"viewers": [], "applications": [], "messages": [], "interviews": []}
     failed: set[str] = set()
     for name, fn in readers:
         try:
@@ -37,6 +39,7 @@ def scrape(page) -> tuple[Snapshot, set[str]]:
         viewers=collected["viewers"],
         applications=collected["applications"],
         messages=collected["messages"],
+        interviews=collected["interviews"],
     )
     return snapshot, failed
 

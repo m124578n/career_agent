@@ -31,6 +31,7 @@ def _carry_forward(conn, snapshot: Snapshot, failed: set[str]) -> Snapshot:
         viewers=prev.viewers if "viewers" in failed else snapshot.viewers,
         applications=prev.applications if "applications" in failed else snapshot.applications,
         messages=prev.messages if "messages" in failed else snapshot.messages,
+        interviews=prev.interviews if "interviews" in failed else snapshot.interviews,
     )
 
 

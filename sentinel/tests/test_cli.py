@@ -1,5 +1,5 @@
 from career_sentinel import cli, store
-from career_sentinel.models import Snapshot
+from career_sentinel.models import Interview, Snapshot
 from career_sentinel.scraper import fake
 
 
@@ -34,3 +34,14 @@ def test_run_pipeline_carries_forward_failed_reader(tmp_path):
     ids = store.latest_two_ids(conn)
     latest = store.load_snapshot(conn, ids[0])
     assert len(latest.viewers) == 2  # 沿用上次的兩筆、未被空清單污染
+
+
+def test_carry_forward_interviews(tmp_path):
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    prev = Snapshot(interviews=[Interview(company="舊公司", when="2026-04-01 09:00:00")])
+    store.save_snapshot(conn, prev, run_at="2026-07-01T09:00:00")
+    # 這次 interviews 抓取失敗 → 應沿用上次
+    fresh = Snapshot(interviews=[])
+    merged = cli._carry_forward(conn, fresh, {"interviews"})
+    assert len(merged.interviews) == 1
+    assert merged.interviews[0].company == "舊公司"
