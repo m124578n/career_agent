@@ -142,6 +142,27 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "score": result.score, "reasons": result.reasons, "gaps": result.gaps,
         }
 
+    @app.get("/api/search")
+    def search(kw: str = "") -> dict:
+        from ..scraper.search import fetch_search
+        if not kw.strip():
+            raise HTTPException(status_code=400, detail="請輸入搜尋關鍵字")
+        try:
+            jobs = fetch_search(kw.strip())
+        except Exception:
+            raise HTTPException(status_code=502, detail="搜尋失敗，請重試")
+        settings = store.load_settings(_conn())
+        return {
+            "jobs": [
+                {
+                    "code": j.code, "url": j.url, "title": j.title,
+                    "company": j.company, "salary": j.salary,
+                    "is_watched": watch.is_watched(j.company, j.title, settings),
+                }
+                for j in jobs
+            ]
+        }
+
     @app.get("/api/recommend")
     def recommend() -> dict:
         from ..scraper.recommend import recommend_session
