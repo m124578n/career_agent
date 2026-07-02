@@ -2,7 +2,7 @@
 
 > 這是 career-sentinel（地端求職 agent）所有**未完成**需求與想法的單一收集處。
 > 新點子、deferred 項目、技術債都記在這。每個子專案各自走 spec → plan → 實作。
-> 最後更新：2026-07-02（SP8 完成）
+> 最後更新：2026-07-03（SP-UIUX 完成）
 
 ## ✅ 已完成
 - **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
@@ -18,6 +18,8 @@
 - **SP7**：行事曆整合（擷取 104 面試場次為第 4 類資料，併入既有 headful 登入態 scrape → 儀表板頂部「即將到來的面試」→ 每筆預填 Google 日曆連結、零 OAuth）。新 `scraper/interviews`(登入態打 `pda.104.com.tw/api/interviews`，`parse_interviews` 純函式壞筆略過、欄位 custName/jobName/interviewTime/address/jobUrl 映射，status 為無 legend 數字碼故存 raw、UI 不顯示 badge)、`calendar_link.build_gcal_link`(有時間→`dates=起/起+1h`、空/不可解析→不帶 dates fallback、全 urlencode)、store `interviews` table round-trip、`real.scrape` 加第 4 reader + `cli._carry_forward` 補第 4 欄位(**順手解掉「寫死三欄位」技術債**)、`GET /api/snapshot` 輸出 interviews+gcal_link(按 when 排序)、前端 Dashboard 區塊。面試**不進 diff/不進 SP6 通知**(新邀約已由 message `has_interview_invite` 粗略涵蓋)。最終全分支 review(opus) Ready to merge，零 Critical/Important。153 測試。**註：spec 原設計的 `thread_url`/status badge/開對話室 fallback，spike 實機確認後改為 `job_url`/「看職缺」+ 無 badge（payload 給 `chatroomId` 非 thread URL、status 無 legend）——刻意取代、非 regression。**
 
 - **SP8**：整理助手（對話式履歷/需求整理）。聊天分頁：SSE 串流聊天（`llm.chat_stream` 兩 provider）、LLM 回覆結尾 `<suggestions>` JSON 由後端 `chat.StreamFilter` 截住解析成建議卡片一鍵套用（`apply_update` 9 項欄位白名單、失敗零部分寫入）、`op=remember` 自動寫入半永久 memory（唯一免確認路徑、只能進 MemoryState、側欄可刪、清空對話不清 memory）、對話 >30 則自動 compact 留 10 則（先 summary 成功才裁切、失敗不丟訊息）、中斷回覆不持久化。新增三張單列表（chat/preferences/memory，store 抽 `_load/_save_single` 共用 helper）。求職偏好檔案 `JobPreferences(locations/conditions/avoid)`。PII 界線：chat/memory 只進 LLM 對話（與 SP3 同級）、不進 digest/通知。最終全分支 review(opus) Ready to merge、零 Critical/Important。真機驗證回饋再收 7 項：聊天分頁 keepMounted 保留狀態（修切分頁紀錄消失）、expected_salary 契約改月薪語意（年薪自動換算）、平滑打字機（實測 provider 每 0.4s 給 ~10 字、SSE 無傳輸緩衝、WS 無益→前端佇列定速釋放）、助手訊息 Markdown 渲染（react-markdown+remark-gfm）、memory 自動維護（去重拒收+op=forget+🧹徽章）、memory LLM 整理 pass（>12 條回合尾端重整、失敗/空/變多不採用）、匯出求職檔案 MD（GET /api/export，帶去其他 LLM 平台續聊）。191 測試。
+
+- **SP-UIUX**：前端整體改版（Cockpit 色系 × Exaggerated Minimalism 版面 × 左側欄）。theme.ts 逐字移植雲端 Cockpit（ink+tangerine/teal/amber/danger、Space Grotesk/IBM Plex）、AppShell 200px 側欄（全域重新抓取+設定移入、SP6 提醒橫幅升 App 層全域、聊天頁 display:none 恆掛載保串流）、六頁全部重整（儀表板大字級 KPI+扁平清單 hover 高亮、健檢雙欄診斷、比對大分數、JobRow 扁平列、聊天氣泡/徽章對齊）、Tabler SVG 全面替換 emoji icon。純前端、後端零 diff（reviewer 驗證）、191 測試不動。視覺方向經 visual companion 三方案 mockup 由使用者選定。最終全分支 review(opus) Ready to merge、零 Critical/Important（hover 高亮/a11y minor 當場修）。
 
 ## 🔭 子專案（待做，建議順序）
 
@@ -47,7 +49,8 @@
 - **reader 名稱常數化**：`"viewers"/"applications"/"messages"` 散在 `real.scrape`/`_carry_forward`/警告字串，宜集中。
 - **`parse_messages` 測試覆蓋**：未斷言 `raw` 與第二筆欄位；`parse_applications` 缺空清單測。
 - **digest 個資外洩注意**：設了 `LLM_API_KEY` 時公司名/訊息會送外部 LLM——本地工具唯一的個資出口，未來上文件提醒。
-- **SP1 儀表板視覺對齊 Cockpit**：SP1 先用 Mantine 預設深色主題；之後複製雲端 `theme.ts`/`.jt-*`、tangerine/teal 雙訊號色做主題 polish。
+- ~~**SP1 儀表板視覺對齊 Cockpit**~~：✅ SP-UIUX 完成（theme.ts 逐字移植＋六頁全面重整）。
+- **SP-UIUX review minors（皆 defer）**：Dashboard/JobRow `key={i}`（既有 pattern）；completion effect dep 陣列已留註解；`@tabler/icons-react` 樹 npm audit 1 moderate+1 high（compile-time only、地端工具低風險，宜開 audit 追蹤）；KPI「新訊息」顯示總數非新增數（amber 後綴才是邀約數，文案語意可再斟酌）。
 - **web runner 跨次共用 LLM digest**：`default_scrape` 走 `run_pipeline` 會算 digest（有 key 時打 LLM）但 web 用 `render_human`，該 digest 被丟棄；無 key 時無成本，有 key 時可改只存不彙整。
 - **digest 彙整走 provider 層**：SP3 的 `llm` 已支援 Foundry，但 `digest.summarize` 仍只打 OpenAI 相容端點；Foundry 使用者的 LLM 每日彙整尚未啟用（走本地 `render_human`）。可把 digest 改用 `llm` 的 provider 分派（補一個 `llm.chat`）。
 - **SP6 review minors**：`Dashboard.refresh()` 殘留空 `if (r.status !== "already_running") {}` dead code（純視覺噪音、行為正確，可刪只留 `setPolling(true)`）；桌面通知/橫幅的**真機 UI 目視**尚待使用者實跑（排程器背景邏輯已實測到點設 due，但通知彈窗+橫幅需瀏覽器目視確認）。
