@@ -22,7 +22,7 @@ export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatc
   }
 
   return (
-    <Paper bg="dark.6" radius="md" px="md" py={12}>
+    <Paper bg="dark.6" radius="md" px="md" py={12} className="flat-row" style={{ transition: "background-color 200ms" }}>
       <Group justify="space-between" wrap="nowrap">
         <div style={{ minWidth: 0 }}>
           <Group gap={8} wrap="nowrap">

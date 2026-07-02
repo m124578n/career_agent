@@ -252,7 +252,7 @@ export default function ChatPage() {
           {(history.data?.memory ?? []).map((f, i) => (
             <Group key={i} justify="space-between" wrap="nowrap" gap={4}>
               <Text size="xs" style={{ flex: 1 }}>{f.text}</Text>
-              <ActionIcon size="xs" variant="subtle" color="red" onClick={() => removeFact(i)}>
+              <ActionIcon size="xs" variant="subtle" color="red" onClick={() => removeFact(i)} title="移除這條記憶">
                 <IconX size={11} />
               </ActionIcon>
             </Group>

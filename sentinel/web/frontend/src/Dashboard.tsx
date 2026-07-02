@@ -16,7 +16,7 @@ function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: st
 function Row({ children }: { children: React.ReactNode }) {
   return (
     <Group justify="space-between" wrap="nowrap" px="md" py={10} mb={6}
-      bg="dark.6" style={{ borderRadius: 8, transition: "background-color 200ms" }}>
+      bg="dark.6" className="flat-row" style={{ borderRadius: 8, transition: "background-color 200ms" }}>
       {children}
     </Group>
   );

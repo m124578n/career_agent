@@ -49,6 +49,7 @@ export default function App() {
       }
       notifyOnDone.current = false;
     }
+    // dep 陣列刻意不含 status.data?.running：status.data 每次 fetch 都是新參照，已涵蓋 running 翻轉
   }, [polling, status.data, qc]);
 
   async function refresh() {
