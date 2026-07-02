@@ -71,3 +71,60 @@ def _foundry_parse_json(prompt, model_cls, system, client):
     )
     text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
     return model_cls.model_validate(json.loads(_extract_json(text)))
+
+
+def chat_stream(messages: list[dict], *, system: str | None = None, client=None):
+    """多輪對話串流，yield 文字增量。依 provider 走 OpenAI 相容或 Foundry(Anthropic)。"""
+    provider = llm_provider()
+    if provider == "openai":
+        yield from _openai_chat_stream(messages, system, client)
+    elif provider == "foundry":
+        yield from _foundry_chat_stream(messages, system, client)
+    else:
+        raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
+
+
+def _openai_chat_stream(messages, system, client):
+    cfg = llm_settings()
+    msgs: list[dict] = []
+    if system:
+        msgs.append({"role": "system", "content": system})
+    msgs.extend(messages)
+    http = client or httpx.Client(timeout=300)
+    owns_client = client is None
+    try:
+        with http.stream(
+            "POST",
+            f"{cfg.base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {cfg.api_key}"},
+            json={"model": cfg.model, "messages": msgs, "stream": True},
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line.startswith("data:"):
+                    continue
+                payload = line[len("data:"):].strip()
+                if payload == "[DONE]":
+                    break
+                choices = json.loads(payload).get("choices") or []
+                if not choices:
+                    continue
+                text = choices[0].get("delta", {}).get("content")
+                if text:
+                    yield text
+    finally:
+        if owns_client:
+            http.close()
+
+
+def _foundry_chat_stream(messages, system, client):
+    fs = foundry_settings()
+    if client is None:
+        from anthropic import AnthropicFoundry
+
+        client = AnthropicFoundry(api_key=fs.api_key, base_url=fs.base_url)
+    kwargs: dict = {"model": fs.model, "max_tokens": 4096, "messages": messages}
+    if system:
+        kwargs["system"] = system
+    with client.messages.stream(**kwargs) as stream:
+        yield from stream.text_stream
