@@ -102,26 +102,50 @@ export default function ChatPage() {
     setMsgs((m) => [...m, { role: "user", content: text }, { role: "assistant", content: "" }]);
     const patchLast = (fn: (m: UiMsg) => UiMsg) =>
       setMsgs((m) => [...m.slice(0, -1), fn(m[m.length - 1])]);
+    // 平滑打字機：LLM 的 delta 一次來一大塊，先進佇列，再以固定節奏逐字釋放（落後越多吐越快）
+    const pending = {
+      text: "",
+      done: false,
+      suggestions: undefined as SuggestedUpdate[] | undefined,
+      remembered: undefined as string[] | undefined,
+      interrupted: false,
+    };
+    const drain = window.setInterval(() => {
+      if (pending.text) {
+        const k = Math.max(1, Math.floor(pending.text.length / 15));
+        const chunk = pending.text.slice(0, k);
+        pending.text = pending.text.slice(k);
+        patchLast((m) => ({ ...m, content: m.content + chunk }));
+      } else if (pending.done) {
+        window.clearInterval(drain);
+        patchLast((m) => ({
+          ...m,
+          suggestions: pending.suggestions ?? m.suggestions,
+          remembered: pending.remembered ?? m.remembered,
+          interrupted: pending.interrupted || m.interrupted,
+        }));
+        setBusy(false);
+        qc.invalidateQueries({ queryKey: ["chat"] });
+      }
+    }, 30);
     try {
       const r = await sendChat(text);
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
-        patchLast((m) => ({ ...m, content: body.detail || "傳送失敗", interrupted: true }));
+        patchLast((m) => ({ ...m, content: body.detail || "傳送失敗" }));
+        pending.interrupted = true;
         return;
       }
       await readSse(r, (event, data) => {
-        if (event === "delta") patchLast((m) => ({ ...m, content: m.content + data.text }));
-        if (event === "suggestions") patchLast((m) => ({ ...m, suggestions: data.items }));
-        if (event === "remembered") {
-          patchLast((m) => ({ ...m, remembered: data.facts }));
-          qc.invalidateQueries({ queryKey: ["chat"] });
-        }
-        if (event === "error") patchLast((m) => ({ ...m, interrupted: true }));
+        if (event === "delta") pending.text += data.text;
+        if (event === "suggestions") pending.suggestions = data.items;
+        if (event === "remembered") pending.remembered = data.facts;
+        if (event === "error") pending.interrupted = true;
       });
     } catch {
-      patchLast((m) => ({ ...m, interrupted: true }));
+      pending.interrupted = true;
     } finally {
-      setBusy(false);
+      pending.done = true; // drain 佇列吐完才收尾（解鎖輸入、掛卡片/徽章）
     }
   };
 

@@ -24,7 +24,7 @@ export default function App() {
       <Tabs.Panel value="match"><MatchPage /></Tabs.Panel>
       <Tabs.Panel value="recommend"><RecommendPage /></Tabs.Panel>
       <Tabs.Panel value="search"><SearchPage /></Tabs.Panel>
-      <Tabs.Panel value="chat"><ChatPage /></Tabs.Panel>
+      <Tabs.Panel value="chat" keepMounted><ChatPage /></Tabs.Panel>
     </Tabs>
   );
 }
