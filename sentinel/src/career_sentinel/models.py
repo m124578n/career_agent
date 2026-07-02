@@ -152,3 +152,36 @@ class Interview(BaseModel):
     status: int | None = None
     job_url: str = ""
     raw: dict = Field(default_factory=dict)
+
+
+class ChatMessage(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
+class ChatState(BaseModel):
+    summary: str = ""  # 更早對話的壓縮摘要
+    messages: list[ChatMessage] = Field(default_factory=list)
+
+
+class JobPreferences(BaseModel):
+    locations: list[str] = Field(default_factory=list)   # 想要的工作地點
+    conditions: list[str] = Field(default_factory=list)  # 軟條件
+    avoid: list[str] = Field(default_factory=list)       # 避雷條件
+
+
+class MemoryFact(BaseModel):
+    text: str
+    created_at: str = ""
+
+
+class MemoryState(BaseModel):
+    facts: list[MemoryFact] = Field(default_factory=list)
+
+
+class SuggestedUpdate(BaseModel):
+    field: str
+    op: str = "set"  # set | replace_snippet | append_section | remember
+    value: str | int | list[str] | None = None
+    old: str | None = None  # replace_snippet 專用
+    new: str | None = None  # replace_snippet 專用

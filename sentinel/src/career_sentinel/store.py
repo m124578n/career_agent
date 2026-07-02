@@ -4,7 +4,10 @@ import json
 import sqlite3
 from pathlib import Path
 
-from .models import Application, Interview, Message, ResumeState, Settings, Snapshot, Viewer
+from .models import (
+    Application, ChatState, Interview, JobPreferences, MemoryState,
+    Message, ResumeState, Settings, Snapshot, Viewer,
+)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -30,6 +33,15 @@ CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS resume (
+    id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat (
+    id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS preferences (
+    id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS memory (
     id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
 );
 """
@@ -102,31 +114,54 @@ def latest_run_at(conn: sqlite3.Connection) -> str | None:
     return row[0] if row else None
 
 
+def _load_single(conn: sqlite3.Connection, table: str, model_cls):
+    row = conn.execute(f"SELECT data FROM {table} WHERE id = 1").fetchone()
+    return model_cls.model_validate_json(row[0]) if row else model_cls()
+
+
+def _save_single(conn: sqlite3.Connection, table: str, obj) -> None:
+    conn.execute(
+        f"INSERT OR REPLACE INTO {table} (id, data) VALUES (1, ?)",
+        (obj.model_dump_json(),),
+    )
+    conn.commit()
+
+
+def load_chat(conn: sqlite3.Connection) -> ChatState:
+    return _load_single(conn, "chat", ChatState)
+
+
+def save_chat(conn: sqlite3.Connection, state: ChatState) -> None:
+    _save_single(conn, "chat", state)
+
+
+def load_preferences(conn: sqlite3.Connection) -> JobPreferences:
+    return _load_single(conn, "preferences", JobPreferences)
+
+
+def save_preferences(conn: sqlite3.Connection, prefs: JobPreferences) -> None:
+    _save_single(conn, "preferences", prefs)
+
+
+def load_memory(conn: sqlite3.Connection) -> MemoryState:
+    return _load_single(conn, "memory", MemoryState)
+
+
+def save_memory(conn: sqlite3.Connection, mem: MemoryState) -> None:
+    _save_single(conn, "memory", mem)
+
+
 def load_settings(conn: sqlite3.Connection) -> Settings:
-    row = conn.execute("SELECT data FROM settings WHERE id = 1").fetchone()
-    if not row:
-        return Settings()
-    return Settings.model_validate_json(row[0])
+    return _load_single(conn, "settings", Settings)
 
 
 def save_settings(conn: sqlite3.Connection, settings: Settings) -> None:
-    conn.execute(
-        "INSERT OR REPLACE INTO settings (id, data) VALUES (1, ?)",
-        (settings.model_dump_json(),),
-    )
-    conn.commit()
+    _save_single(conn, "settings", settings)
 
 
 def load_resume(conn: sqlite3.Connection) -> ResumeState:
-    row = conn.execute("SELECT data FROM resume WHERE id = 1").fetchone()
-    if not row:
-        return ResumeState()
-    return ResumeState.model_validate_json(row[0])
+    return _load_single(conn, "resume", ResumeState)
 
 
 def save_resume(conn: sqlite3.Connection, state: ResumeState) -> None:
-    conn.execute(
-        "INSERT OR REPLACE INTO resume (id, data) VALUES (1, ?)",
-        (state.model_dump_json(),),
-    )
-    conn.commit()
+    _save_single(conn, "resume", state)
