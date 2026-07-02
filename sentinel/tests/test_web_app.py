@@ -117,5 +117,5 @@ def test_snapshot_exposes_thread_and_job_urls(tmp_path):
     ), run_at="2026-07-03T09:00:00")
     body = _client(tmp_path).get("/api/snapshot").json()
     assert body["applications"][0]["job_url"] == "https://www.104.com.tw/job/8jet3"
-    assert body["messages"][0]["thread_url"] == "https://pda.104.com.tw/work/message/chat?chatroomId=8wtoc"
-    assert body["interviews"][0]["thread_url"] == "https://pda.104.com.tw/work/message/chat?chatroomId=8lwq3"
+    assert body["messages"][0]["thread_url"] == "https://pda.104.com.tw/work/message/chat/8wtoc?page=1"
+    assert body["interviews"][0]["thread_url"] == "https://pda.104.com.tw/work/message/chat/8lwq3?page=1"

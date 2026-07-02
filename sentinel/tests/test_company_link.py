@@ -27,7 +27,7 @@ def test_cust_url_wins_over_cust_no():
 def test_chat_url_from_chatroom_id():
     from career_sentinel.company_link import chat_url_from_raw
     assert chat_url_from_raw({"chatroomId": "8wtoc"}) == \
-        "https://pda.104.com.tw/work/message/chat?chatroomId=8wtoc"
+        "https://pda.104.com.tw/work/message/chat/8wtoc?page=1"
     assert chat_url_from_raw({}) == ""
 
 

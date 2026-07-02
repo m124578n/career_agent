@@ -28,9 +28,9 @@ _CHAT_BASE = "https://pda.104.com.tw/work/message/chat"
 
 
 def chat_url_from_raw(raw: dict) -> str:
-    """訊息/面試的 104 聊天室連結（chatroomId 爬蟲當下即入庫）。"""
+    """訊息/面試的 104 聊天室連結（chatroomId 爬蟲當下即入庫；路徑格式經真機確認）。"""
     cid = str(raw.get("chatroomId") or "")
-    return f"{_CHAT_BASE}?chatroomId={cid}" if cid else ""
+    return f"{_CHAT_BASE}/{cid}?page=1" if cid else ""
 
 
 def job_url_from_raw(raw: dict) -> str:
