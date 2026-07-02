@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getRecommend, getResume, type RecommendedJob } from "./api";
 import JobRow from "./JobRow";
-import { PageHeader } from "./ui";
+import { PageContainer, PageHeader } from "./ui";
 
 export default function RecommendPage() {
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
@@ -27,7 +27,8 @@ export default function RecommendPage() {
   }
 
   return (
-    <Stack p={36} maw={860}>
+    <PageContainer>
+      <Stack gap="md">
       <PageHeader
         title="推薦職缺"
         subtitle="拉取 104 個人化推薦，逐筆對履歷比對"
@@ -43,6 +44,7 @@ export default function RecommendPage() {
       <Stack gap={6}>
         {jobs?.map((j) => <JobRow key={j.code} job={j} canMatch={canMatch} />)}
       </Stack>
-    </Stack>
+      </Stack>
+    </PageContainer>
   );
 }

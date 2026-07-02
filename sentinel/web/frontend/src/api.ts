@@ -1,7 +1,7 @@
-export interface Viewer { company: string; job_title: string; viewed_at: string; watched: boolean }
-export interface Application { job_id: string; company: string; title: string; status: string; applied_at: string; watched: boolean }
-export interface Message { thread_id: string; company: string; last_message: string; has_interview_invite: boolean; watched: boolean }
-export interface Interview { company: string; job_title: string; when: string; location: string; job_url: string; gcal_link: string }
+export interface Viewer { company: string; job_title: string; viewed_at: string; watched: boolean; company_url: string }
+export interface Application { job_id: string; company: string; title: string; status: string; applied_at: string; watched: boolean; company_url: string; job_url: string }
+export interface Message { thread_id: string; company: string; last_message: string; has_interview_invite: boolean; watched: boolean; company_url: string; thread_url: string }
+export interface Interview { company: string; job_title: string; when: string; location: string; job_url: string; gcal_link: string; key: string; dismissed: boolean; company_url: string; thread_url: string }
 export interface SnapshotResp {
   run_at: string | null;
   viewers: Viewer[];
@@ -177,4 +177,20 @@ export async function readSse(
       if (ev && data) onEvent(ev[1], JSON.parse(data[1]));
     }
   }
+}
+
+export async function dismissInterview(key: string): Promise<void> {
+  await fetch("/api/interviews/dismiss", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+}
+
+export async function restoreInterview(key: string): Promise<void> {
+  await fetch("/api/interviews/restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
 }

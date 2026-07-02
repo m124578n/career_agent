@@ -2,7 +2,7 @@ import { Button, Group, List, Paper, Progress, Stack, Text, TextInput } from "@m
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getResume, matchJob, type MatchResult } from "./api";
-import { PageHeader } from "./ui";
+import { PageContainer, PageHeader } from "./ui";
 
 export default function MatchPage() {
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
@@ -26,7 +26,8 @@ export default function MatchPage() {
   }
 
   return (
-    <Stack p={36} maw={860}>
+    <PageContainer>
+      <Stack gap="md">
       <PageHeader title="JD 比對" subtitle="貼上 104 職缺網址，對你的履歷算吻合度與缺口" />
       {!resume.data?.has_resume && <Text c="amber.5" size="sm">請先到「履歷健檢」上傳履歷。</Text>}
       <Group wrap="nowrap">
@@ -59,6 +60,7 @@ export default function MatchPage() {
           <List size="sm" spacing={4}>{result.gaps.map((g, i) => <List.Item key={i}>{g}</List.Item>)}</List>
         </Paper>
       )}
-    </Stack>
+      </Stack>
+    </PageContainer>
   );
 }

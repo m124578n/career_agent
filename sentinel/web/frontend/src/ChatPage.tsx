@@ -13,7 +13,7 @@ import "./chat-md.css";
 import {
   applyUpdate, clearChat, deleteMemory, getChat, readSse, sendChat, SuggestedUpdate,
 } from "./api";
-import { PageHeader } from "./ui";
+import { PageContainer, PageHeader } from "./ui";
 
 interface UiMsg {
   role: string;
@@ -181,10 +181,11 @@ export default function ChatPage() {
   };
 
   return (
-    <Group align="flex-start" p={36} gap="xl" wrap="nowrap">
+    <PageContainer size="lg">
+      <Group align="flex-start" gap="xl" wrap="nowrap">
       <Stack style={{ flex: 1, minWidth: 0 }} gap="sm">
         <PageHeader title="整理助手" subtitle="邊聊邊整理履歷與求職偏好；更新建議需按「套用」才會寫入" />
-        <ScrollArea h={480} viewportRef={viewport} type="auto">
+        <ScrollArea h="calc(100vh - 330px)" mih={320} viewportRef={viewport} type="auto">
           <Stack gap="md" pr="sm">
             {msgs.map((m, i) => (
               <Stack key={i} gap={6} align={m.role === "user" ? "flex-end" : "flex-start"}>
@@ -262,6 +263,7 @@ export default function ChatPage() {
           )}
         </Stack>
       </Paper>
-    </Group>
+      </Group>
+    </PageContainer>
   );
 }

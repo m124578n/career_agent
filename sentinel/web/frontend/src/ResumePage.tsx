@@ -5,7 +5,7 @@ import { IconAlertTriangle, IconCheck } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { diagnoseResume, getResume, uploadResume } from "./api";
-import { PageHeader } from "./ui";
+import { PageContainer, PageHeader } from "./ui";
 
 export default function ResumePage() {
   const qc = useQueryClient();
@@ -45,7 +45,8 @@ export default function ResumePage() {
 
   const d = resume.data?.diagnosis;
   return (
-    <Stack p={36} maw={860}>
+    <PageContainer>
+      <Stack gap="md">
       <PageHeader title="履歷健檢" subtitle="上傳履歷，針對目標職位產出優勢與待補強清單" />
       <Paper bg="dark.6" radius="md" p="lg">
         <Stack>
@@ -84,6 +85,7 @@ export default function ResumePage() {
           </Grid.Col>
         </Grid>
       )}
-    </Stack>
+      </Stack>
+    </PageContainer>
   );
 }

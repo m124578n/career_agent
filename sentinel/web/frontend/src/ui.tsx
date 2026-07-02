@@ -1,5 +1,16 @@
-import { Group, Stack, Text, Title } from "@mantine/core";
+import { Box, Group, Stack, Text, Title } from "@mantine/core";
 import type { ReactNode } from "react";
+
+/** 統一頁面容器：置中＋一致的寬度系統（md=閱讀/表單頁、lg=清單/雙欄頁） */
+export function PageContainer({ children, size = "md" }: {
+  children: ReactNode; size?: "md" | "lg";
+}) {
+  return (
+    <Box maw={size === "lg" ? 1060 : 860} mx="auto" px={40} py={32}>
+      {children}
+    </Box>
+  );
+}
 
 export function PageHeader({ title, subtitle, action }: {
   title: string; subtitle?: string; action?: ReactNode;

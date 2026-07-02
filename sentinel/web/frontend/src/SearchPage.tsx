@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getResume, getSettings, searchJobs, type RecommendedJob } from "./api";
 import JobRow from "./JobRow";
-import { PageHeader } from "./ui";
+import { PageContainer, PageHeader } from "./ui";
 
 export default function SearchPage() {
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
@@ -39,7 +39,8 @@ export default function SearchPage() {
   }
 
   return (
-    <Stack p={36} maw={860}>
+    <PageContainer>
+      <Stack gap="md">
       <PageHeader title="職缺搜尋" subtitle="104 站內關鍵字搜尋，逐筆對履歷比對" />
       {!canMatch && <Text c="amber.5" size="sm">請先到「履歷健檢」上傳履歷，才能對職缺做比對。</Text>}
       <Group wrap="nowrap">
@@ -58,6 +59,7 @@ export default function SearchPage() {
       <Stack gap={6}>
         {jobs?.map((j) => <JobRow key={j.code} job={j} canMatch={canMatch} />)}
       </Stack>
-    </Stack>
+      </Stack>
+    </PageContainer>
   );
 }
