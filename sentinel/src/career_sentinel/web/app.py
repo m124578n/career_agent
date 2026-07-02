@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from datetime import date
+
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -288,6 +290,20 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def chat_clear() -> dict:
         store.save_chat(_conn(), ChatState())
         return {"ok": True}
+
+    @app.get("/api/export")
+    def export_md() -> Response:
+        conn2 = _conn()
+        md = chatmod.build_export_md(
+            store.load_resume(conn2), store.load_settings(conn2),
+            store.load_preferences(conn2), store.load_memory(conn2),
+            store.load_chat(conn2),
+        )
+        return Response(
+            content=md,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="career-profile-{date.today().isoformat()}.md"'},
+        )
 
     @app.delete("/api/memory/{index}")
     def memory_delete(index: int) -> dict:

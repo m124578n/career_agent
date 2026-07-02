@@ -239,9 +239,14 @@ export default function ChatPage() {
       <Card withBorder w={280} style={{ flexShrink: 0 }}>
         <Group justify="space-between" mb="xs">
           <Title order={6}>🧠 半永久記憶</Title>
-          <Button size="compact-xs" variant="subtle" color="red" onClick={clear}>
-            清空對話
-          </Button>
+          <Group gap={4}>
+            <Button size="compact-xs" variant="subtle" component="a" href="/api/export">
+              匯出 MD
+            </Button>
+            <Button size="compact-xs" variant="subtle" color="red" onClick={clear}>
+              清空對話
+            </Button>
+          </Group>
         </Group>
         <Stack gap={6}>
           {(history.data?.memory ?? []).map((f, i) => (

@@ -130,3 +130,17 @@ def test_chat_memory_forget_and_dedupe(tmp_path, monkeypatch):
     assert "suggestions" not in d  # memory 項目不成卡片
     texts = [f.text for f in store.load_memory(store.connect(tmp_path / "db.sqlite")).facts]
     assert texts == ["不想進博弈業", "雙北都可以"]
+
+
+def test_export_md(tmp_path):
+    from career_sentinel.models import ResumeState
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.save_resume(conn, ResumeState(
+        resume_text="Python 五年", target_title="後端工程師", expected_salary=90000))
+    store.save_memory(conn, MemoryState(facts=[MemoryFact(text="不想進博弈業", created_at="t")]))
+    r = _client(tmp_path).get("/api/export")
+    assert r.status_code == 200
+    assert "text/markdown" in r.headers["content-type"]
+    assert "attachment" in r.headers["content-disposition"]
+    for needle in ("後端工程師", "90000", "不想進博弈業", "Python 五年", "求職檔案"):
+        assert needle in r.text
