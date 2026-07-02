@@ -10,8 +10,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import calendar_link, chat as chatmod, config, diagnosis, diff, digest, jobfetch, llm, match, resume, store, watch
-from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate
+from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, resume, store, watch
+from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, interview_key
 from . import runner, scheduler
 
 
@@ -28,6 +28,10 @@ class _ChatReq(BaseModel):
     message: str
 
 
+class _InterviewKeyReq(BaseModel):
+    key: str
+
+
 def _snapshot_payload(conn) -> dict:
     failed = runner.status()["last_failed_readers"]
     ids = store.latest_two_ids(conn)
@@ -42,16 +46,21 @@ def _snapshot_payload(conn) -> dict:
     snap = store.load_snapshot(conn, sid)
     d = diff.diff_against_last(conn, sid)
     settings = store.load_settings(conn)
+    dismissed = set(store.load_dismissed(conn).keys)
     return {
         "run_at": store.latest_run_at(conn),
-        "viewers": [{"company": v.company, "job_title": v.job_title, "viewed_at": v.viewed_at, "watched": watch.is_watched(v.company, v.job_title, settings)} for v in snap.viewers],
-        "applications": [{"job_id": a.job_id, "company": a.company, "title": a.title, "status": a.status, "applied_at": a.applied_at, "watched": watch.is_watched(a.company, a.title, settings)} for a in snap.applications],
-        "messages": [{"thread_id": m.thread_id, "company": m.company, "last_message": m.last_message, "has_interview_invite": m.has_interview_invite, "watched": watch.is_watched(m.company, m.last_message, settings)} for m in snap.messages],
+        "viewers": [{"company": v.company, "job_title": v.job_title, "viewed_at": v.viewed_at, "watched": watch.is_watched(v.company, v.job_title, settings), "company_url": company_link.company_url_from_raw(v.raw)} for v in snap.viewers],
+        "applications": [{"job_id": a.job_id, "company": a.company, "title": a.title, "status": a.status, "applied_at": a.applied_at, "watched": watch.is_watched(a.company, a.title, settings), "company_url": company_link.company_url_from_raw(a.raw), "job_url": company_link.job_url_from_raw(a.raw)} for a in snap.applications],
+        "messages": [{"thread_id": m.thread_id, "company": m.company, "last_message": m.last_message, "has_interview_invite": m.has_interview_invite, "watched": watch.is_watched(m.company, m.last_message, settings), "company_url": company_link.company_url_from_raw(m.raw), "thread_url": company_link.chat_url_from_raw(m.raw)} for m in snap.messages],
         "interviews": [
             {
                 "company": iv.company, "job_title": iv.job_title, "when": iv.when,
                 "location": iv.location, "job_url": iv.job_url,
                 "gcal_link": calendar_link.build_gcal_link(iv),
+                "key": interview_key(iv),
+                "dismissed": interview_key(iv) in dismissed,
+                "company_url": company_link.company_url_from_raw(iv.raw),
+                "thread_url": company_link.chat_url_from_raw(iv.raw),
             }
             for iv in sorted(snap.interviews, key=lambda iv: (iv.when == "", iv.when))
         ],
@@ -304,6 +313,24 @@ def create_app(db_path: str | None = None) -> FastAPI:
             media_type="text/markdown; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="career-profile-{date.today().isoformat()}.md"'},
         )
+
+    @app.post("/api/interviews/dismiss")
+    def interviews_dismiss(req: _InterviewKeyReq) -> dict:
+        conn2 = _conn()
+        d = store.load_dismissed(conn2)
+        if req.key not in d.keys:
+            d.keys.append(req.key)
+            store.save_dismissed(conn2, d)
+        return {"ok": True}
+
+    @app.post("/api/interviews/restore")
+    def interviews_restore(req: _InterviewKeyReq) -> dict:
+        conn2 = _conn()
+        d = store.load_dismissed(conn2)
+        if req.key in d.keys:
+            d.keys.remove(req.key)
+            store.save_dismissed(conn2, d)
+        return {"ok": True}
 
     @app.delete("/api/memory/{index}")
     def memory_delete(index: int) -> dict:

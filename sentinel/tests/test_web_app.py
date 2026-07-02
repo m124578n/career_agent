@@ -74,3 +74,48 @@ def test_snapshot_exposes_interviews_with_gcal_link(tmp_path):
     assert ivs[0]["company"] == "甲公司"
     assert "calendar.google.com" in ivs[0]["gcal_link"]
     assert "dates=" in ivs[0]["gcal_link"]
+
+
+def test_interview_dismiss_and_restore(tmp_path):
+    from career_sentinel.models import Interview, Snapshot, interview_key
+    conn = store.connect(tmp_path / "db.sqlite")
+    iv = Interview(company="甲", job_title="後端", when="2026-04-07 10:00:00")
+    store.save_snapshot(conn, Snapshot(interviews=[iv]), run_at="2026-07-03T09:00:00")
+    c = _client(tmp_path)
+    body = c.get("/api/snapshot").json()
+    assert body["interviews"][0]["key"] == interview_key(iv)
+    assert body["interviews"][0]["dismissed"] is False
+    assert c.post("/api/interviews/dismiss", json={"key": interview_key(iv)}).json() == {"ok": True}
+    assert c.get("/api/snapshot").json()["interviews"][0]["dismissed"] is True
+    c.post("/api/interviews/dismiss", json={"key": interview_key(iv)})  # 重複 dismiss 不重複記
+    assert c.post("/api/interviews/restore", json={"key": interview_key(iv)}).json() == {"ok": True}
+    assert c.get("/api/snapshot").json()["interviews"][0]["dismissed"] is False
+
+
+def test_snapshot_exposes_company_url_from_raw(tmp_path):
+    from career_sentinel.models import Application, Snapshot, Viewer
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.save_snapshot(conn, Snapshot(
+        viewers=[Viewer(company="甲", job_title="後端", viewed_at="2026-07-01", raw={"custNo": "1a2x6b"})],
+        applications=[Application(job_id="1", company="乙", title="PM", status="已讀", applied_at="",
+                                  raw={"custUrl": "//www.104.com.tw/company/auxx12g"})],
+    ), run_at="2026-07-03T09:00:00")
+    body = _client(tmp_path).get("/api/snapshot").json()
+    assert body["viewers"][0]["company_url"] == "https://www.104.com.tw/company/1a2x6b"
+    assert body["applications"][0]["company_url"] == "https://www.104.com.tw/company/auxx12g"
+
+
+def test_snapshot_exposes_thread_and_job_urls(tmp_path):
+    from career_sentinel.models import Application, Interview, Message, Snapshot
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.save_snapshot(conn, Snapshot(
+        applications=[Application(job_id="1", company="乙", title="PM", status="已讀", applied_at="",
+                                  raw={"jobUrl": "//www.104.com.tw/job/8jet3"})],
+        messages=[Message(thread_id="8wtoc", company="丙", last_message="hi", raw={"chatroomId": "8wtoc"})],
+        interviews=[Interview(company="甲", job_title="後端", when="2026-04-07 10:00:00",
+                              raw={"chatroomId": "8lwq3"})],
+    ), run_at="2026-07-03T09:00:00")
+    body = _client(tmp_path).get("/api/snapshot").json()
+    assert body["applications"][0]["job_url"] == "https://www.104.com.tw/job/8jet3"
+    assert body["messages"][0]["thread_url"] == "https://pda.104.com.tw/work/message/chat?chatroomId=8wtoc"
+    assert body["interviews"][0]["thread_url"] == "https://pda.104.com.tw/work/message/chat?chatroomId=8lwq3"

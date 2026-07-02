@@ -84,3 +84,11 @@ def test_old_db_gains_new_tables(tmp_path):
     store.connect(p).close()
     conn = store.connect(p)
     assert store.load_chat(conn) == ChatState()
+
+
+def test_dismissed_interviews_roundtrip(tmp_path):
+    from career_sentinel.models import DismissedInterviews
+    conn = store.connect(tmp_path / "db.sqlite")
+    assert store.load_dismissed(conn) == DismissedInterviews()
+    store.save_dismissed(conn, DismissedInterviews(keys=["甲|後端|2026-04-07 10:00:00"]))
+    assert store.load_dismissed(conn).keys == ["甲|後端|2026-04-07 10:00:00"]

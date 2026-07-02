@@ -154,6 +154,15 @@ class Interview(BaseModel):
     raw: dict = Field(default_factory=dict)
 
 
+class DismissedInterviews(BaseModel):
+    keys: list[str] = Field(default_factory=list)
+
+
+def interview_key(iv: "Interview") -> str:
+    """面試的跨抓取穩定鍵（隱藏/還原用）。"""
+    return f"{iv.company}|{iv.job_title}|{iv.when}"
+
+
 class ChatMessage(BaseModel):
     role: str  # "user" | "assistant"
     content: str

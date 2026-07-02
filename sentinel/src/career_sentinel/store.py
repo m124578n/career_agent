@@ -5,8 +5,8 @@ import sqlite3
 from pathlib import Path
 
 from .models import (
-    Application, ChatState, Interview, JobPreferences, MemoryState,
-    Message, ResumeState, Settings, Snapshot, Viewer,
+    Application, ChatState, DismissedInterviews, Interview, JobPreferences,
+    MemoryState, Message, ResumeState, Settings, Snapshot, Viewer,
 )
 
 _SCHEMA = """
@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS preferences (
     id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS memory (
+    id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS dismissed_interviews (
     id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
 );
 """
@@ -165,3 +168,11 @@ def load_resume(conn: sqlite3.Connection) -> ResumeState:
 
 def save_resume(conn: sqlite3.Connection, state: ResumeState) -> None:
     _save_single(conn, "resume", state)
+
+
+def load_dismissed(conn: sqlite3.Connection) -> DismissedInterviews:
+    return _load_single(conn, "dismissed_interviews", DismissedInterviews)
+
+
+def save_dismissed(conn: sqlite3.Connection, d: DismissedInterviews) -> None:
+    _save_single(conn, "dismissed_interviews", d)

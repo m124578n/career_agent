@@ -43,7 +43,10 @@ def test_openai_chat_stream_yields_deltas(monkeypatch):
     out = list(llm.chat_stream([{"role": "user", "content": "hi"}], system="s", client=fake))
     assert out == ["你", "好"]
     assert fake.captured["json"]["stream"] is True
-    assert fake.captured["json"]["messages"][0] == {"role": "system", "content": "s"}
+    sys_msg = fake.captured["json"]["messages"][0]
+    assert sys_msg["role"] == "system"
+    assert sys_msg["content"].startswith("s\n\n")  # 原 system 保留
+    assert "今天日期：" in sys_msg["content"]         # 自動注入今天日期
 
 
 class _FakeAnthropicStream:
@@ -77,7 +80,8 @@ def test_foundry_chat_stream_yields_deltas(monkeypatch):
     fake = _FakeAnthropic(["嗨", "！"])
     out = list(llm.chat_stream([{"role": "user", "content": "hi"}], system="s", client=fake))
     assert out == ["嗨", "！"]
-    assert fake.messages.captured["system"] == "s"
+    assert fake.messages.captured["system"].startswith("s\n\n")
+    assert "今天日期：" in fake.messages.captured["system"]
     assert fake.messages.captured["messages"] == [{"role": "user", "content": "hi"}]
 
 

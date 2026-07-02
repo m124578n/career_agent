@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 
 import httpx
 
@@ -20,8 +21,15 @@ def _extract_json(text: str) -> str:
     return text
 
 
+def _with_today(system: str | None) -> str:
+    """所有 LLM 呼叫的 system 都附上今天日期，避免模型停留在訓練截止時間。"""
+    today = f"今天日期：{datetime.now().strftime('%Y-%m-%d')}"
+    return f"{system}\n\n{today}" if system else today
+
+
 def parse_json(prompt: str, model_cls, *, system: str | None = None, client=None):
     """要 JSON、驗進 Pydantic model_cls。依 provider 走 OpenAI 相容或 Foundry(Anthropic)。"""
+    system = _with_today(system)
     provider = llm_provider()
     if provider == "openai":
         return _openai_parse_json(prompt, model_cls, system, client)
@@ -75,6 +83,7 @@ def _foundry_parse_json(prompt, model_cls, system, client):
 
 def chat_stream(messages: list[dict], *, system: str | None = None, client=None):
     """多輪對話串流，yield 文字增量。依 provider 走 OpenAI 相容或 Foundry(Anthropic)。"""
+    system = _with_today(system)
     provider = llm_provider()
     if provider == "openai":
         yield from _openai_chat_stream(messages, system, client)

@@ -26,7 +26,11 @@ def render_human(diff: Diff, snapshot: Snapshot) -> str:
 
 
 def build_prompt(diff: Diff, snapshot: Snapshot) -> str:
-    instruction = "以下是使用者 104 求職狀態自上次以來的變化，請用繁體中文寫一段精簡的今日彙整："
+    from datetime import datetime
+    instruction = (
+        f"今天日期：{datetime.now().strftime('%Y-%m-%d')}。"
+        "以下是使用者 104 求職狀態自上次以來的變化，請用繁體中文寫一段精簡的今日彙整："
+    )
     return instruction + "\n" + render_human(diff, snapshot)
 
 
