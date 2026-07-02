@@ -29,3 +29,7 @@
 .mantine-TypographyStylesProvider-root.chat-md table {
   margin: 0.4em 0 0.5em;
 }
+
+.mantine-TypographyStylesProvider-root.chat-md {
+  color: var(--mantine-color-dark-1);
+}

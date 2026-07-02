@@ -1,7 +1,10 @@
 import {
-  ActionIcon, Alert, Badge, Button, Card, Group, Loader, Paper, ScrollArea,
-  Stack, Text, TextInput, Title, TypographyStylesProvider,
+  ActionIcon, Alert, Badge, Button, Group, Loader, Paper, ScrollArea,
+  Stack, Text, TextInput, TypographyStylesProvider,
 } from "@mantine/core";
+import {
+  IconBrain, IconDownload, IconEraser, IconTrash, IconX,
+} from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -10,6 +13,7 @@ import "./chat-md.css";
 import {
   applyUpdate, clearChat, deleteMemory, getChat, readSse, sendChat, SuggestedUpdate,
 } from "./api";
+import { PageHeader } from "./ui";
 
 interface UiMsg {
   role: string;
@@ -58,7 +62,7 @@ function SuggestionCard({ s }: { s: SuggestedUpdate }) {
     }
   };
   return (
-    <Card withBorder padding="xs" radius="md">
+    <Paper bg="dark.6" radius="md" px="md" py="xs">
       <Group justify="space-between" wrap="nowrap">
         <Text size="sm" style={{ wordBreak: "break-all" }}>
           <b>{FIELD_LABEL[s.field] ?? s.field}</b> {label}
@@ -74,7 +78,7 @@ function SuggestionCard({ s }: { s: SuggestedUpdate }) {
         )}
       </Group>
       {state === "fail" && msg && <Text size="xs" c="dimmed">{msg}</Text>}
-    </Card>
+    </Paper>
   );
 }
 
@@ -177,49 +181,42 @@ export default function ChatPage() {
   };
 
   return (
-    <Group align="flex-start" p="md" gap="md" wrap="nowrap">
-      <Stack style={{ flex: 1, minWidth: 0 }}>
-        <Title order={4}>整理助手</Title>
-        <Text size="sm" c="dimmed">
-          邊聊邊整理履歷與求職偏好；助手的更新建議需按「套用」才會寫入。
-        </Text>
+    <Group align="flex-start" p={36} gap="xl" wrap="nowrap">
+      <Stack style={{ flex: 1, minWidth: 0 }} gap="sm">
+        <PageHeader title="整理助手" subtitle="邊聊邊整理履歷與求職偏好；更新建議需按「套用」才會寫入" />
         <ScrollArea h={480} viewportRef={viewport} type="auto">
-          <Stack gap="sm" pr="sm">
+          <Stack gap="md" pr="sm">
             {msgs.map((m, i) => (
-              <Stack key={i} gap={4} align={m.role === "user" ? "flex-end" : "flex-start"}>
-                <Paper
-                  withBorder
-                  p="sm"
-                  radius="md"
-                  maw="85%"
-                  bg={m.role === "user" ? "dark.5" : undefined}
-                >
-                  {m.role === "assistant" ? (
+              <Stack key={i} gap={6} align={m.role === "user" ? "flex-end" : "flex-start"}>
+                {m.role === "user" ? (
+                  <Paper bg="dark.5" px="md" py="sm" radius="md" maw="85%">
+                    <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{m.content}</Text>
+                  </Paper>
+                ) : (
+                  <div style={{ maxWidth: "92%" }}>
                     <TypographyStylesProvider fz="sm" className="chat-md">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                     </TypographyStylesProvider>
-                  ) : (
-                    <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{m.content}</Text>
-                  )}
-                  {busy && i === msgs.length - 1 && m.role === "assistant" && (
-                    <Loader size="xs" mt={4} />
-                  )}
-                  {m.interrupted && (
-                    <Text size="xs" c="red">回覆中斷</Text>
-                  )}
-                </Paper>
+                    {busy && i === msgs.length - 1 && <Loader size="xs" mt={4} />}
+                    {m.interrupted && <Text size="xs" c="danger.6">回覆中斷</Text>}
+                  </div>
+                )}
                 {m.suggestions?.map((s, j) => <SuggestionCard key={j} s={s} />)}
                 {m.remembered?.map((f, j) => (
-                  <Badge key={j} variant="light" color="grape">🧠 已記住：{f}</Badge>
+                  <Badge key={j} variant="light" color="grape" leftSection={<IconBrain size={12} />}>
+                    已記住：{f}
+                  </Badge>
                 ))}
                 {m.forgot?.map((f, j) => (
-                  <Badge key={j} variant="light" color="gray">🧹 已忘記：{f}</Badge>
+                  <Badge key={j} variant="light" color="gray" leftSection={<IconEraser size={12} />}>
+                    已忘記：{f}
+                  </Badge>
                 ))}
               </Stack>
             ))}
             {msgs.length === 0 && (
               <Alert color="gray" variant="light">
-                跟我聊聊你的履歷或求職想法，例如「期望薪資改 90 萬」「我只想找雙北的工作」。
+                跟我聊聊你的履歷或求職想法，例如「期望薪資改 9 萬」「我只想找雙北的工作」。
               </Alert>
             )}
           </Stack>
@@ -236,16 +233,19 @@ export default function ChatPage() {
           <Button onClick={send} loading={busy}>送出</Button>
         </Group>
       </Stack>
-      <Card withBorder w={280} style={{ flexShrink: 0 }}>
-        <Group justify="space-between" mb="xs">
-          <Title order={6}>🧠 半永久記憶</Title>
-          <Group gap={4}>
-            <Button size="compact-xs" variant="subtle" component="a" href="/api/export">
-              匯出 MD
-            </Button>
-            <Button size="compact-xs" variant="subtle" color="red" onClick={clear}>
-              清空對話
-            </Button>
+      <Paper bg="dark.6" radius="md" p="md" w={280} style={{ flexShrink: 0 }}>
+        <Group justify="space-between" mb="sm">
+          <Group gap={6}>
+            <IconBrain size={15} style={{ color: "var(--mantine-color-grape-4)" }} />
+            <Text size="sm" fw={600}>半永久記憶</Text>
+          </Group>
+          <Group gap={2}>
+            <ActionIcon variant="subtle" color="gray" size="sm" component="a" href="/api/export" title="匯出求職檔案 MD">
+              <IconDownload size={14} />
+            </ActionIcon>
+            <ActionIcon variant="subtle" color="red" size="sm" onClick={clear} title="清空對話（記憶不清）">
+              <IconTrash size={14} />
+            </ActionIcon>
           </Group>
         </Group>
         <Stack gap={6}>
@@ -253,7 +253,7 @@ export default function ChatPage() {
             <Group key={i} justify="space-between" wrap="nowrap" gap={4}>
               <Text size="xs" style={{ flex: 1 }}>{f.text}</Text>
               <ActionIcon size="xs" variant="subtle" color="red" onClick={() => removeFact(i)}>
-                ✕
+                <IconX size={11} />
               </ActionIcon>
             </Group>
           ))}
@@ -261,7 +261,7 @@ export default function ChatPage() {
             <Text size="xs" c="dimmed">（尚無記憶——聊天中提到的長期偏好會自動記在這）</Text>
           )}
         </Stack>
-      </Card>
+      </Paper>
     </Group>
   );
 }
