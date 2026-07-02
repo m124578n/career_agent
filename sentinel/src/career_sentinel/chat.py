@@ -20,14 +20,15 @@ _RESUME_MAX_CHARS = 8000
 _CONTRACT = """
 當對話中出現應更新上述狀態的資訊時，在回覆文字結束後（最後）輸出一個建議區塊，格式：
 <suggestions>{"items": [
-  {"field": "expected_salary", "op": "set", "value": 900000},
+  {"field": "expected_salary", "op": "set", "value": 60000},
   {"field": "locations", "op": "set", "value": ["台北", "新北"]},
   {"field": "resume_text", "op": "replace_snippet", "old": "原文片段", "new": "改後片段"},
   {"field": "resume_text", "op": "append_section", "value": "要附加的新段落"},
   {"field": "memory", "op": "remember", "value": "值得長期記住的使用者事實"}
 ]}</suggestions>
 規則：
-- 允許的 field/op：target_title/set、expected_salary/set（value 為整數年薪）、
+- 允許的 field/op：target_title/set、expected_salary/set（value 為整數**月薪**；
+  使用者若說年薪，先除以 12 四捨五入換算成月薪再填，並在回覆中說明換算結果）、
   locations/set、conditions/set、avoid/set、watched_companies/set、watched_keywords/set
   （list 類 value 為完整字串列表，整列表取代）、
   resume_text/replace_snippet（old 必須逐字取自履歷全文）、resume_text/append_section、
@@ -46,7 +47,7 @@ def build_system_prompt(
         "你是「career-sentinel 整理助手」：用繁體中文陪使用者整理履歷與求職偏好。回覆口語、精簡。\n\n"
         "目前狀態：\n"
         f"- 目標職稱：{resume.target_title or '（未設定）'}\n"
-        f"- 期望薪資：{resume.expected_salary or '（未設定）'}\n"
+        f"- 期望月薪：{resume.expected_salary or '（未設定）'}\n"
         f"- 求職偏好：地點={prefs.locations}；軟條件={prefs.conditions}；避雷={prefs.avoid}\n"
         f"- 關注公司：{settings.watched_companies}；關注關鍵字：{settings.watched_keywords}\n\n"
         f"長期記憶（半永久）：\n{mem_lines}\n\n"
