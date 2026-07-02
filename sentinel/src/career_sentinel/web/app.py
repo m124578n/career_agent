@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import calendar_link, config, diagnosis, diff, digest, jobfetch, match, resume, store, watch
-from ..models import ResumeState, Settings
+from .. import calendar_link, chat as chatmod, config, diagnosis, diff, digest, jobfetch, llm, match, resume, store, watch
+from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate
 from . import runner, scheduler
 
 
@@ -19,6 +20,10 @@ class _DiagnoseReq(BaseModel):
 
 class _MatchReq(BaseModel):
     job_url: str
+
+
+class _ChatReq(BaseModel):
+    message: str
 
 
 def _snapshot_payload(conn) -> dict:
@@ -206,6 +211,89 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 for j in jobs
             ]
         }
+
+    @app.post("/api/chat")
+    def chat_send(req: _ChatReq):
+        if not config.llm_provider():
+            raise HTTPException(status_code=400, detail="請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
+        conn = _conn()
+        system = chatmod.build_system_prompt(
+            store.load_resume(conn), store.load_settings(conn),
+            store.load_preferences(conn), store.load_memory(conn),
+        )
+        messages = chatmod.build_messages(store.load_chat(conn), req.message)
+
+        def _sse(event: str, data: dict) -> str:
+            return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+        def gen():
+            filt = chatmod.StreamFilter()
+            clean_parts: list[str] = []
+            try:
+                for chunk in llm.chat_stream(messages, system=system):
+                    out = filt.feed(chunk)
+                    if out:
+                        clean_parts.append(out)
+                        yield _sse("delta", {"text": out})
+                rest = filt.finish()
+                if rest:
+                    clean_parts.append(rest)
+                    yield _sse("delta", {"text": rest})
+            except Exception as exc:
+                yield _sse("error", {"message": f"回覆中斷：{exc}"})
+                return  # 中斷的回覆不持久化
+            gconn = _conn()  # generator 可能跑在不同執行緒，sqlite 連線在此建立
+            suggestions = chatmod.parse_suggestions(filt.tail())
+            cards = [s for s in suggestions if s.op != "remember"]
+            remembered = []
+            for s in suggestions:
+                if s.op == "remember" and chatmod.apply_update(gconn, s).ok:
+                    remembered.append(str(s.value or ""))
+            if cards:
+                yield _sse("suggestions", {"items": [c.model_dump() for c in cards]})
+            if remembered:
+                yield _sse("remembered", {"facts": remembered})
+            st = store.load_chat(gconn)
+            st.messages.append(ChatMessage(role="user", content=req.message))
+            st.messages.append(ChatMessage(role="assistant", content="".join(clean_parts)))
+            store.save_chat(gconn, st)
+            chatmod.maybe_compact(gconn, st)
+            yield _sse("done", {})
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
+    @app.post("/api/chat/apply")
+    def chat_apply(upd: SuggestedUpdate) -> dict:
+        res = chatmod.apply_update(_conn(), upd)
+        if not res.ok and res.message.startswith("不允許"):
+            raise HTTPException(status_code=400, detail=res.message)
+        return res.model_dump()
+
+    @app.get("/api/chat")
+    def chat_get() -> dict:
+        conn2 = _conn()
+        st = store.load_chat(conn2)
+        mem = store.load_memory(conn2)
+        return {
+            "summary": st.summary,
+            "messages": [m.model_dump() for m in st.messages],
+            "memory": [f.model_dump() for f in mem.facts],
+        }
+
+    @app.delete("/api/chat")
+    def chat_clear() -> dict:
+        store.save_chat(_conn(), ChatState())
+        return {"ok": True}
+
+    @app.delete("/api/memory/{index}")
+    def memory_delete(index: int) -> dict:
+        conn2 = _conn()
+        mem = store.load_memory(conn2)
+        if not (0 <= index < len(mem.facts)):
+            raise HTTPException(status_code=404, detail="memory 不存在")
+        mem.facts.pop(index)
+        store.save_memory(conn2, mem)
+        return {"ok": True}
 
     dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
     if dist.is_dir():
