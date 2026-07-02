@@ -127,14 +127,22 @@ export default function ChatPage() {
 
   const clear = async () => {
     if (!window.confirm("確定清空對話？（半永久記憶不會清除）")) return;
-    await clearChat();
-    setMsgs([]);
-    qc.invalidateQueries({ queryKey: ["chat"] });
+    try {
+      await clearChat();
+      setMsgs([]);
+      qc.invalidateQueries({ queryKey: ["chat"] });
+    } catch {
+      window.alert("網路錯誤，請重試");
+    }
   };
 
   const removeFact = async (i: number) => {
-    await deleteMemory(i);
-    qc.invalidateQueries({ queryKey: ["chat"] });
+    try {
+      await deleteMemory(i);
+      qc.invalidateQueries({ queryKey: ["chat"] });
+    } catch {
+      window.alert("網路錯誤，請重試");
+    }
   };
 
   return (
