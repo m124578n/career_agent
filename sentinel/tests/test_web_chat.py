@@ -104,3 +104,29 @@ def test_memory_delete(tmp_path):
     assert c.delete("/api/memory/0").json() == {"ok": True}
     assert [f["text"] for f in c.get("/api/chat").json()["memory"]] == ["f1"]
     assert c.delete("/api/memory/9").status_code == 404
+
+
+def test_chat_memory_forget_and_dedupe(tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.save_memory(conn, MemoryState(facts=[
+        MemoryFact(text="只想找台北的工作", created_at="t"),
+        MemoryFact(text="不想進博弈業", created_at="t"),
+    ]))
+    monkeypatch.setattr(llm, "chat_stream", _fake_stream([
+        "更新好了",
+        '<suggestions>{"items":['
+        '{"field":"memory","op":"forget","value":"只想找台北的工作"},'
+        '{"field":"memory","op":"remember","value":"雙北都可以"},'
+        '{"field":"memory","op":"remember","value":"不想進博弈業"}'
+        ']}</suggestions>',
+    ]))
+    c = _client(tmp_path)
+    evs = _events(c.post("/api/chat", json={"message": "台北或新北都行"}).text)
+    d = dict(evs)
+    assert d["remembered"]["facts"] == ["雙北都可以"]  # 重複的不再發徽章
+    assert d["forgot"]["facts"] == ["只想找台北的工作"]
+    assert "suggestions" not in d  # memory 項目不成卡片
+    texts = [f.text for f in store.load_memory(store.connect(tmp_path / "db.sqlite")).facts]
+    assert texts == ["不想進博弈業", "雙北都可以"]

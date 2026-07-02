@@ -94,3 +94,19 @@ def test_compact_llm_failure_keeps_everything(tmp_path, monkeypatch):
     out = chat.maybe_compact(conn, state)
     assert out == state  # 失敗跳過、不丟訊息
     assert store.load_chat(conn) == state
+
+
+def test_apply_remember_dedupes_and_rejects_empty(tmp_path):
+    conn = _conn(tmp_path)
+    assert chat.apply_update(conn, SuggestedUpdate(field="memory", op="remember", value="不想進博弈業")).ok
+    assert not chat.apply_update(conn, SuggestedUpdate(field="memory", op="remember", value="不想進博弈業")).ok
+    assert not chat.apply_update(conn, SuggestedUpdate(field="memory", op="remember", value="")).ok
+    assert len(store.load_memory(conn).facts) == 1
+
+
+def test_apply_forget(tmp_path):
+    conn = _conn(tmp_path)
+    chat.apply_update(conn, SuggestedUpdate(field="memory", op="remember", value="只想找台北"))
+    assert chat.apply_update(conn, SuggestedUpdate(field="memory", op="forget", value="只想找台北")).ok
+    assert store.load_memory(conn).facts == []
+    assert not chat.apply_update(conn, SuggestedUpdate(field="memory", op="forget", value="不存在")).ok

@@ -244,15 +244,18 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 return  # 中斷的回覆不持久化
             gconn = _conn()  # generator 可能跑在不同執行緒，sqlite 連線在此建立
             suggestions = chatmod.parse_suggestions(filt.tail())
-            cards = [s for s in suggestions if s.op != "remember"]
-            remembered = []
+            cards = [s for s in suggestions if s.field != "memory"]
+            remembered: list[str] = []
+            forgot: list[str] = []
             for s in suggestions:
-                if s.op == "remember" and chatmod.apply_update(gconn, s).ok:
-                    remembered.append(str(s.value or ""))
+                if s.field == "memory" and chatmod.apply_update(gconn, s).ok:
+                    (remembered if s.op == "remember" else forgot).append(str(s.value or ""))
             if cards:
                 yield _sse("suggestions", {"items": [c.model_dump() for c in cards]})
             if remembered:
                 yield _sse("remembered", {"facts": remembered})
+            if forgot:
+                yield _sse("forgot", {"facts": forgot})
             st = store.load_chat(gconn)
             st.messages.append(ChatMessage(role="user", content=req.message))
             st.messages.append(ChatMessage(role="assistant", content="".join(clean_parts)))

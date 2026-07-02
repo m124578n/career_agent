@@ -16,6 +16,7 @@ interface UiMsg {
   content: string;
   suggestions?: SuggestedUpdate[];
   remembered?: string[];
+  forgot?: string[];
   interrupted?: boolean;
 }
 
@@ -111,6 +112,7 @@ export default function ChatPage() {
       done: false,
       suggestions: undefined as SuggestedUpdate[] | undefined,
       remembered: undefined as string[] | undefined,
+      forgot: undefined as string[] | undefined,
       interrupted: false,
     };
     const drain = window.setInterval(() => {
@@ -125,6 +127,7 @@ export default function ChatPage() {
           ...m,
           suggestions: pending.suggestions ?? m.suggestions,
           remembered: pending.remembered ?? m.remembered,
+          forgot: pending.forgot ?? m.forgot,
           interrupted: pending.interrupted || m.interrupted,
         }));
         setBusy(false);
@@ -143,6 +146,7 @@ export default function ChatPage() {
         if (event === "delta") pending.text += data.text;
         if (event === "suggestions") pending.suggestions = data.items;
         if (event === "remembered") pending.remembered = data.facts;
+        if (event === "forgot") pending.forgot = data.facts;
         if (event === "error") pending.interrupted = true;
       });
     } catch {
@@ -207,6 +211,9 @@ export default function ChatPage() {
                 {m.suggestions?.map((s, j) => <SuggestionCard key={j} s={s} />)}
                 {m.remembered?.map((f, j) => (
                   <Badge key={j} variant="light" color="grape">🧠 已記住：{f}</Badge>
+                ))}
+                {m.forgot?.map((f, j) => (
+                  <Badge key={j} variant="light" color="gray">🧹 已忘記：{f}</Badge>
                 ))}
               </Stack>
             ))}

@@ -24,7 +24,8 @@ _CONTRACT = """
   {"field": "locations", "op": "set", "value": ["台北", "新北"]},
   {"field": "resume_text", "op": "replace_snippet", "old": "原文片段", "new": "改後片段"},
   {"field": "resume_text", "op": "append_section", "value": "要附加的新段落"},
-  {"field": "memory", "op": "remember", "value": "值得長期記住的使用者事實"}
+  {"field": "memory", "op": "remember", "value": "值得長期記住的使用者事實"},
+  {"field": "memory", "op": "forget", "value": "要刪除的既有記憶原文"}
 ]}</suggestions>
 規則：
 - 允許的 field/op：target_title/set、expected_salary/set（value 為整數**月薪**；
@@ -32,7 +33,10 @@ _CONTRACT = """
   locations/set、conditions/set、avoid/set、watched_companies/set、watched_keywords/set
   （list 類 value 為完整字串列表，整列表取代）、
   resume_text/replace_snippet（old 必須逐字取自履歷全文）、resume_text/append_section、
-  memory/remember（只記長期有效的偏好與事實，不記一次性資訊）。
+  memory/remember（只記長期有效的偏好與事實，不記一次性資訊；「長期記憶」清單已有的
+  內容——包括同義改寫——不要重複 remember）、
+  memory/forget（既有記憶過時或與新資訊矛盾時，主動輸出 forget 刪除舊記憶——value 需
+  逐字等於清單中該條原文——並視需要接著 remember 更新後的內容，保持記憶清單精簡不重複）。
 - 沒有要更新時不要輸出 <suggestions> 區塊。
 - <suggestions> 之後不要再有任何文字。
 """
@@ -138,7 +142,7 @@ ALLOWED: dict[str, set[str]] = {
     "watched_companies": {"set"},
     "watched_keywords": {"set"},
     "resume_text": {"replace_snippet", "append_section"},
-    "memory": {"remember"},
+    "memory": {"remember", "forget"},
 }
 
 
@@ -192,10 +196,22 @@ def apply_update(conn, upd: SuggestedUpdate) -> ApplyResult:
             state.resume_text = state.resume_text.replace(upd.old, upd.new or "", 1)
         store.save_resume(conn, state)
         return ApplyResult(ok=True)
-    # memory / remember
+    # memory / remember / forget（LLM 自動維護：重複不再記、過時的可刪）
     mem = store.load_memory(conn)
+    text = str(upd.value or "").strip()
+    if not text:
+        return ApplyResult(ok=False, message="記憶內容為空")
+    if upd.op == "forget":
+        kept = [f for f in mem.facts if f.text.strip() != text]
+        if len(kept) == len(mem.facts):
+            return ApplyResult(ok=False, message="找不到要刪除的記憶")
+        mem.facts = kept
+        store.save_memory(conn, mem)
+        return ApplyResult(ok=True)
+    if any(f.text.strip() == text for f in mem.facts):
+        return ApplyResult(ok=False, message="已有相同記憶，略過")
     mem.facts.append(MemoryFact(
-        text=str(upd.value or ""),
+        text=text,
         created_at=datetime.now().isoformat(timespec="seconds"),
     ))
     store.save_memory(conn, mem)
