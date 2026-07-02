@@ -1,7 +1,11 @@
-import { Button, Container, FileInput, List, NumberInput, Stack, Text, TextInput, Title } from "@mantine/core";
+import {
+  Button, FileInput, Grid, Group, List, NumberInput, Paper, Stack, Text, TextInput, ThemeIcon,
+} from "@mantine/core";
+import { IconAlertTriangle, IconCheck } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { diagnoseResume, getResume, uploadResume } from "./api";
+import { PageHeader } from "./ui";
 
 export default function ResumePage() {
   const qc = useQueryClient();
@@ -41,24 +45,45 @@ export default function ResumePage() {
 
   const d = resume.data?.diagnosis;
   return (
-    <Container size="md" py="lg">
-      <Title order={2} mb="md">履歷健檢</Title>
-      <Stack>
-        <FileInput label="上傳履歷（PDF / TXT）" placeholder="選擇檔案" accept=".pdf,.txt" onChange={onUpload} />
-        <Text size="sm" c="dimmed">{resume.data?.has_resume ? `已載入 ${resume.data.chars} 字` : "尚未上傳履歷"}</Text>
-        <TextInput label="目標職稱" value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
-        <NumberInput label="期望月薪（選填）" value={salary} onChange={(v) => setSalary(typeof v === "number" ? v : "")} />
-        {err && <Text c="red" size="sm">{err}</Text>}
-        <Button onClick={runDiagnose} loading={busy} disabled={!resume.data?.has_resume || !title.trim()}>執行健檢</Button>
-        {d && (
-          <>
-            <Title order={4} mt="md">優勢</Title>
-            <List>{d.strengths.map((s, i) => <List.Item key={i}>✓ {s}</List.Item>)}</List>
-            <Title order={4} mt="md">待補強</Title>
-            <List>{d.gaps.map((g, i) => <List.Item key={i}>! {g}</List.Item>)}</List>
-          </>
-        )}
-      </Stack>
-    </Container>
+    <Stack p={36} maw={860}>
+      <PageHeader title="履歷健檢" subtitle="上傳履歷，針對目標職位產出優勢與待補強清單" />
+      <Paper bg="dark.6" radius="md" p="lg">
+        <Stack>
+          <FileInput label="上傳履歷（PDF / TXT）" placeholder="選擇檔案" accept=".pdf,.txt" onChange={onUpload} />
+          <Text size="sm" c="dimmed">{resume.data?.has_resume ? `已載入 ${resume.data.chars} 字` : "尚未上傳履歷"}</Text>
+          <Group grow>
+            <TextInput label="目標職稱" value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
+            <NumberInput label="期望月薪（選填）" value={salary} onChange={(v) => setSalary(typeof v === "number" ? v : "")} />
+          </Group>
+          {err && <Text c="danger.6" size="sm">{err}</Text>}
+          <Button onClick={runDiagnose} loading={busy} w="fit-content"
+            disabled={!resume.data?.has_resume || !title.trim()}>
+            執行健檢
+          </Button>
+        </Stack>
+      </Paper>
+      {d && (
+        <Grid mt="md">
+          <Grid.Col span={6}>
+            <Paper bg="dark.6" radius="md" p="lg" h="100%">
+              <Group gap={8} mb="sm">
+                <ThemeIcon variant="light" color="teal" size="sm"><IconCheck size={13} /></ThemeIcon>
+                <Text fw={600}>優勢</Text>
+              </Group>
+              <List size="sm" spacing={6}>{d.strengths.map((s, i) => <List.Item key={i}>{s}</List.Item>)}</List>
+            </Paper>
+          </Grid.Col>
+          <Grid.Col span={6}>
+            <Paper bg="dark.6" radius="md" p="lg" h="100%">
+              <Group gap={8} mb="sm">
+                <ThemeIcon variant="light" color="amber" size="sm"><IconAlertTriangle size={13} /></ThemeIcon>
+                <Text fw={600}>待補強</Text>
+              </Group>
+              <List size="sm" spacing={6}>{d.gaps.map((g, i) => <List.Item key={i}>{g}</List.Item>)}</List>
+            </Paper>
+          </Grid.Col>
+        </Grid>
+      )}
+    </Stack>
   );
 }

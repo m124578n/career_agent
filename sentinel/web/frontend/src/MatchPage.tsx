@@ -1,7 +1,8 @@
-import { Button, Container, List, Progress, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Button, Group, List, Paper, Progress, Stack, Text, TextInput } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getResume, matchJob, type MatchResult } from "./api";
+import { PageHeader } from "./ui";
 
 export default function MatchPage() {
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
@@ -25,32 +26,39 @@ export default function MatchPage() {
   }
 
   return (
-    <Container size="md" py="lg">
-      <Title order={2} mb="md">JD 比對</Title>
-      {!resume.data?.has_resume && (
-        <Text c="orange" mb="sm">請先到「履歷健檢」上傳履歷。</Text>
-      )}
-      <Stack>
+    <Stack p={36} maw={860}>
+      <PageHeader title="JD 比對" subtitle="貼上 104 職缺網址，對你的履歷算吻合度與缺口" />
+      {!resume.data?.has_resume && <Text c="amber.5" size="sm">請先到「履歷健檢」上傳履歷。</Text>}
+      <Group wrap="nowrap">
         <TextInput
-          label="104 職缺網址"
+          style={{ flex: 1 }}
           placeholder="https://www.104.com.tw/job/xxxxx"
           value={url}
           onChange={(e) => setUrl(e.currentTarget.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") run(); }}
         />
-        {err && <Text c="red" size="sm">{err}</Text>}
         <Button onClick={run} loading={busy} disabled={!resume.data?.has_resume || !url.trim()}>比對</Button>
-        {result && (
-          <Stack gap="xs" mt="md">
-            <Title order={4}>{result.title}　<Text span c="dimmed" size="sm">{result.company} · {result.salary}</Text></Title>
-            <Text>吻合度：{result.score} / 100</Text>
-            <Progress value={result.score} />
-            <Title order={5} mt="sm">契合理由</Title>
-            <List>{result.reasons.map((s, i) => <List.Item key={i}>✓ {s}</List.Item>)}</List>
-            <Title order={5} mt="sm">缺少技能 / 待補強</Title>
-            <List>{result.gaps.map((g, i) => <List.Item key={i}>! {g}</List.Item>)}</List>
-          </Stack>
-        )}
-      </Stack>
-    </Container>
+      </Group>
+      {err && <Text c="danger.6" size="sm">{err}</Text>}
+      {result && (
+        <Paper bg="dark.6" radius="md" p="lg" mt="md">
+          <Text fw={600} mb={4}>{result.title}
+            <Text span c="dimmed" size="sm"> · {result.company} · {result.salary}</Text>
+          </Text>
+          <Group align="baseline" gap={8} my="sm">
+            <Text c="teal.5" style={{
+              fontFamily: "'Space Grotesk', sans-serif", fontSize: 44, fontWeight: 700,
+              letterSpacing: "-2px", lineHeight: 1,
+            }}>{result.score}</Text>
+            <Text c="dimmed" size="sm">/ 100 吻合度</Text>
+          </Group>
+          <Progress value={result.score} color="teal" mb="md" />
+          <Text size="sm" fw={600} mb={4}>契合理由</Text>
+          <List size="sm" spacing={4} mb="md">{result.reasons.map((s, i) => <List.Item key={i}>{s}</List.Item>)}</List>
+          <Text size="sm" fw={600} mb={4}>缺少技能 / 待補強</Text>
+          <List size="sm" spacing={4}>{result.gaps.map((g, i) => <List.Item key={i}>{g}</List.Item>)}</List>
+        </Paper>
+      )}
+    </Stack>
   );
 }
