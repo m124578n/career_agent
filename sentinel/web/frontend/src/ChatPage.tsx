@@ -1,9 +1,12 @@
 import {
   ActionIcon, Alert, Badge, Button, Card, Group, Loader, Paper, ScrollArea,
-  Stack, Text, TextInput, Title,
+  Stack, Text, TextInput, Title, TypographyStylesProvider,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import "./chat-md.css";
 import {
   applyUpdate, clearChat, deleteMemory, getChat, readSse, sendChat, SuggestedUpdate,
 } from "./api";
@@ -187,12 +190,16 @@ export default function ChatPage() {
                   maw="85%"
                   bg={m.role === "user" ? "dark.5" : undefined}
                 >
-                  <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-                    {m.content}
-                    {busy && i === msgs.length - 1 && m.role === "assistant" && (
-                      <Loader size="xs" ml={6} display="inline-block" />
-                    )}
-                  </Text>
+                  {m.role === "assistant" ? (
+                    <TypographyStylesProvider fz="sm" className="chat-md">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                    </TypographyStylesProvider>
+                  ) : (
+                    <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{m.content}</Text>
+                  )}
+                  {busy && i === msgs.length - 1 && m.role === "assistant" && (
+                    <Loader size="xs" mt={4} />
+                  )}
                   {m.interrupted && (
                     <Text size="xs" c="red">回覆中斷</Text>
                   )}
