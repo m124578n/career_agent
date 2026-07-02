@@ -126,3 +126,99 @@ def parse_suggestions(tail: str) -> list[SuggestedUpdate]:
         return [SuggestedUpdate.model_validate(it) for it in items]
     except Exception:
         return []
+
+
+ALLOWED: dict[str, set[str]] = {
+    "target_title": {"set"},
+    "expected_salary": {"set"},
+    "locations": {"set"},
+    "conditions": {"set"},
+    "avoid": {"set"},
+    "watched_companies": {"set"},
+    "watched_keywords": {"set"},
+    "resume_text": {"replace_snippet", "append_section"},
+    "memory": {"remember"},
+}
+
+
+class ApplyResult(BaseModel):
+    ok: bool
+    message: str = ""
+
+
+def _as_str_list(value) -> list[str]:
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    if value is None or value == "":
+        return []
+    return [str(value)]
+
+
+def apply_update(conn, upd: SuggestedUpdate) -> ApplyResult:
+    ops = ALLOWED.get(upd.field)
+    if ops is None or upd.op not in ops:
+        return ApplyResult(ok=False, message=f"不允許的欄位或操作：{upd.field}/{upd.op}")
+    if upd.field == "target_title":
+        state = store.load_resume(conn)
+        state.target_title = str(upd.value or "")
+        store.save_resume(conn, state)
+        return ApplyResult(ok=True)
+    if upd.field == "expected_salary":
+        state = store.load_resume(conn)
+        try:
+            state.expected_salary = int(upd.value) if upd.value not in (None, "") else None
+        except (TypeError, ValueError):
+            return ApplyResult(ok=False, message="期望薪資需為數字")
+        store.save_resume(conn, state)
+        return ApplyResult(ok=True)
+    if upd.field in ("locations", "conditions", "avoid"):
+        prefs = store.load_preferences(conn)
+        setattr(prefs, upd.field, _as_str_list(upd.value))
+        store.save_preferences(conn, prefs)
+        return ApplyResult(ok=True)
+    if upd.field in ("watched_companies", "watched_keywords"):
+        settings = store.load_settings(conn)
+        setattr(settings, upd.field, _as_str_list(upd.value))
+        store.save_settings(conn, settings)
+        return ApplyResult(ok=True)
+    if upd.field == "resume_text":
+        state = store.load_resume(conn)
+        if upd.op == "append_section":
+            state.resume_text = (state.resume_text.rstrip() + "\n\n" + str(upd.value or "")).strip()
+        else:  # replace_snippet
+            if not upd.old or upd.old not in state.resume_text:
+                return ApplyResult(ok=False, message="找不到要替換的原文片段，請手動修改")
+            state.resume_text = state.resume_text.replace(upd.old, upd.new or "", 1)
+        store.save_resume(conn, state)
+        return ApplyResult(ok=True)
+    # memory / remember
+    mem = store.load_memory(conn)
+    mem.facts.append(MemoryFact(
+        text=str(upd.value or ""),
+        created_at=datetime.now().isoformat(timespec="seconds"),
+    ))
+    store.save_memory(conn, mem)
+    return ApplyResult(ok=True)
+
+
+def maybe_compact(conn, state: ChatState) -> ChatState:
+    """messages 超過門檻時把舊訊息壓成 summary、留最近 COMPACT_KEEP 則。失敗整個跳過。"""
+    if len(state.messages) <= COMPACT_THRESHOLD:
+        return state
+    old = state.messages[:-COMPACT_KEEP]
+    recent = state.messages[-COMPACT_KEEP:]
+    lines = "\n".join(f"{m.role}: {m.content}" for m in old)
+    prompt = (
+        ("先前摘要：\n" + state.summary + "\n\n" if state.summary else "")
+        + "以下是求職整理對話的較舊片段，請壓縮成一段保留關鍵事實與決定的摘要（500 字內），"
+        + "直接輸出摘要文字：\n" + lines
+    )
+    try:
+        new_summary = "".join(llm.chat_stream([{"role": "user", "content": prompt}]))
+    except Exception:
+        return state  # 失敗跳過、下輪再試，永不丟逐字訊息
+    if not new_summary.strip():
+        return state
+    new_state = ChatState(summary=new_summary.strip(), messages=recent)
+    store.save_chat(conn, new_state)  # 先寫入新 summary+裁切後訊息（單一原子寫）
+    return new_state
