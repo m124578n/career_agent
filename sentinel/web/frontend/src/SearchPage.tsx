@@ -1,8 +1,10 @@
-import { Button, Container, Group, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
+import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getResume, getSettings, searchJobs, type RecommendedJob } from "./api";
 import JobRow from "./JobRow";
+import { PageHeader } from "./ui";
 
 export default function SearchPage() {
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
@@ -37,24 +39,25 @@ export default function SearchPage() {
   }
 
   return (
-    <Container size="md" py="lg">
-      <Title order={2} mb="md">職缺搜尋</Title>
-      {!canMatch && <Text c="orange" mb="sm">請先到「履歷健檢」上傳履歷，才能對職缺做比對。</Text>}
-      <Stack>
-        <Group>
-          <TextInput
-            style={{ flex: 1 }}
-            placeholder="輸入關鍵字，如 Python 後端"
-            value={kw}
-            onChange={(e) => setKw(e.currentTarget.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") run(); }}
-          />
-          <Button onClick={run} loading={busy} disabled={!kw.trim()}>搜尋</Button>
-        </Group>
-        {err && <Text c="red" size="sm">{err}</Text>}
-        {jobs && jobs.length === 0 && <Text c="dimmed">找不到符合的職缺。</Text>}
+    <Stack p={36} maw={860}>
+      <PageHeader title="職缺搜尋" subtitle="104 站內關鍵字搜尋，逐筆對履歷比對" />
+      {!canMatch && <Text c="amber.5" size="sm">請先到「履歷健檢」上傳履歷，才能對職缺做比對。</Text>}
+      <Group wrap="nowrap">
+        <TextInput
+          style={{ flex: 1 }}
+          leftSection={<IconSearch size={15} />}
+          placeholder="輸入關鍵字，如 Python 後端"
+          value={kw}
+          onChange={(e) => setKw(e.currentTarget.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") run(); }}
+        />
+        <Button onClick={run} loading={busy} disabled={!kw.trim()}>搜尋</Button>
+      </Group>
+      {err && <Text c="danger.6" size="sm">{err}</Text>}
+      {jobs && jobs.length === 0 && <Text c="dimmed" size="sm">找不到符合的職缺。</Text>}
+      <Stack gap={6}>
         {jobs?.map((j) => <JobRow key={j.code} job={j} canMatch={canMatch} />)}
       </Stack>
-    </Container>
+    </Stack>
   );
 }

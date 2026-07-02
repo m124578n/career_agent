@@ -1,4 +1,5 @@
-import { Anchor, Badge, Button, Card, Group, List, Progress, Stack, Text } from "@mantine/core";
+import { Anchor, Button, Group, List, Paper, Progress, Stack, Text } from "@mantine/core";
+import { IconStarFilled } from "@tabler/icons-react";
 import { useState } from "react";
 import { matchJob, type MatchResult, type RecommendedJob } from "./api";
 
@@ -21,31 +22,36 @@ export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatc
   }
 
   return (
-    <Card withBorder padding="md">
+    <Paper bg="dark.6" radius="md" px="md" py={12}>
       <Group justify="space-between" wrap="nowrap">
-        <div>
-          <Group gap="xs">
-            <Text fw={600}>{job.title}</Text>
-            {job.is_watched && <Badge color="orange">★關注</Badge>}
+        <div style={{ minWidth: 0 }}>
+          <Group gap={8} wrap="nowrap">
+            {job.is_watched && (
+              <IconStarFilled size={12} style={{ color: "var(--mantine-color-tangerine-5)", flexShrink: 0 }} />
+            )}
+            <Text fw={600} size="sm" truncate>{job.title}</Text>
           </Group>
-          <Text size="sm" c="dimmed">{job.company} · {job.salary}</Text>
+          <Text size="xs" c="dimmed">{job.company} · <Text span c="teal.5" ff="monospace">{job.salary}</Text></Text>
         </div>
-        <Group gap="xs" wrap="nowrap">
-          <Anchor href={job.url} target="_blank" size="sm">去 104 看</Anchor>
-          <Button size="xs" onClick={run} loading={busy} disabled={!canMatch}>比對</Button>
+        <Group gap="sm" wrap="nowrap">
+          <Anchor href={job.url} target="_blank" size="xs" c="dimmed">去 104 看</Anchor>
+          <Button size="compact-sm" variant="light" onClick={run} loading={busy} disabled={!canMatch}>比對</Button>
         </Group>
       </Group>
-      {err && <Text c="red" size="sm" mt="xs">{err}</Text>}
+      {err && <Text c="danger.6" size="sm" mt="xs">{err}</Text>}
       {result && (
-        <Stack gap="xs" mt="sm">
-          <Text size="sm">吻合度：{result.score} / 100</Text>
-          <Progress value={result.score} />
-          <Text size="sm" fw={600}>契合理由</Text>
-          <List size="sm">{result.reasons.map((s, i) => <List.Item key={i}>✓ {s}</List.Item>)}</List>
-          <Text size="sm" fw={600}>缺少技能 / 待補強</Text>
-          <List size="sm">{result.gaps.map((g, i) => <List.Item key={i}>! {g}</List.Item>)}</List>
+        <Stack gap={6} mt="sm">
+          <Group align="baseline" gap={6}>
+            <Text c="teal.5" fw={700} ff="'Space Grotesk', sans-serif" size="xl">{result.score}</Text>
+            <Text c="dimmed" size="xs">/ 100</Text>
+          </Group>
+          <Progress value={result.score} color="teal" size="sm" />
+          <Text size="xs" fw={600}>契合理由</Text>
+          <List size="xs" spacing={2}>{result.reasons.map((s, i) => <List.Item key={i}>{s}</List.Item>)}</List>
+          <Text size="xs" fw={600}>缺少技能 / 待補強</Text>
+          <List size="xs" spacing={2}>{result.gaps.map((g, i) => <List.Item key={i}>{g}</List.Item>)}</List>
         </Stack>
       )}
-    </Card>
+    </Paper>
   );
 }

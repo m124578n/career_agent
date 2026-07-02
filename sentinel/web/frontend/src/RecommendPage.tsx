@@ -1,8 +1,10 @@
-import { Button, Container, Stack, Text, Title } from "@mantine/core";
+import { Button, Stack, Text } from "@mantine/core";
+import { IconSparkles } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getRecommend, getResume, type RecommendedJob } from "./api";
 import JobRow from "./JobRow";
+import { PageHeader } from "./ui";
 
 export default function RecommendPage() {
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
@@ -25,17 +27,22 @@ export default function RecommendPage() {
   }
 
   return (
-    <Container size="md" py="lg">
-      <Title order={2} mb="md">推薦職缺</Title>
-      {!canMatch && <Text c="orange" mb="sm">請先到「履歷健檢」上傳履歷，才能對職缺做比對。</Text>}
-      <Stack>
-        <Button onClick={pull} loading={busy} w="fit-content">
-          {busy ? "正在開啟瀏覽器拉取…" : "拉取推薦"}
-        </Button>
-        {err && <Text c="red" size="sm">{err}</Text>}
-        {jobs && jobs.length === 0 && <Text c="dimmed">目前沒有推薦職缺。</Text>}
+    <Stack p={36} maw={860}>
+      <PageHeader
+        title="推薦職缺"
+        subtitle="拉取 104 個人化推薦，逐筆對履歷比對"
+        action={
+          <Button leftSection={<IconSparkles size={16} />} onClick={pull} loading={busy}>
+            {busy ? "正在開啟瀏覽器拉取…" : "拉取推薦"}
+          </Button>
+        }
+      />
+      {!canMatch && <Text c="amber.5" size="sm">請先到「履歷健檢」上傳履歷，才能對職缺做比對。</Text>}
+      {err && <Text c="danger.6" size="sm">{err}</Text>}
+      {jobs && jobs.length === 0 && <Text c="dimmed" size="sm">目前沒有推薦職缺。</Text>}
+      <Stack gap={6}>
         {jobs?.map((j) => <JobRow key={j.code} job={j} canMatch={canMatch} />)}
       </Stack>
-    </Container>
+    </Stack>
   );
 }
