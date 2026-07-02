@@ -2,7 +2,7 @@
 
 > 這是 career-sentinel（地端求職 agent）所有**未完成**需求與想法的單一收集處。
 > 新點子、deferred 項目、技術債都記在這。每個子專案各自走 spec → plan → 實作。
-> 最後更新：2026-07-02
+> 最後更新：2026-07-02（SP8 完成）
 
 ## ✅ 已完成
 - **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
@@ -17,6 +17,8 @@
 - **SP6**：定期檢視提醒 + 桌面通知（serve 開著到 `notify_time` 提醒該檢視、桌面通知+儀表板橫幅、一鍵拉動態）。因 headful 限制採「到點提醒、一鍵執行」（排程器只設旗標不自爬）。新 `web/scheduler`(到點判斷純函式 + daemon thread + 記憶體狀態)、`GET /api/schedule`+`ack`、`run_pipeline` 回 `ChangeCounts`(拉完發「N 筆新動態」通知)、前端 `notify.ts`(Web Notification 未授權靜默 fallback)+controlled tab+儀表板橫幅。實測背景 thread 到點設 due。141 測試。
 - **SP7**：行事曆整合（擷取 104 面試場次為第 4 類資料，併入既有 headful 登入態 scrape → 儀表板頂部「即將到來的面試」→ 每筆預填 Google 日曆連結、零 OAuth）。新 `scraper/interviews`(登入態打 `pda.104.com.tw/api/interviews`，`parse_interviews` 純函式壞筆略過、欄位 custName/jobName/interviewTime/address/jobUrl 映射，status 為無 legend 數字碼故存 raw、UI 不顯示 badge)、`calendar_link.build_gcal_link`(有時間→`dates=起/起+1h`、空/不可解析→不帶 dates fallback、全 urlencode)、store `interviews` table round-trip、`real.scrape` 加第 4 reader + `cli._carry_forward` 補第 4 欄位(**順手解掉「寫死三欄位」技術債**)、`GET /api/snapshot` 輸出 interviews+gcal_link(按 when 排序)、前端 Dashboard 區塊。面試**不進 diff/不進 SP6 通知**(新邀約已由 message `has_interview_invite` 粗略涵蓋)。最終全分支 review(opus) Ready to merge，零 Critical/Important。153 測試。**註：spec 原設計的 `thread_url`/status badge/開對話室 fallback，spike 實機確認後改為 `job_url`/「看職缺」+ 無 badge（payload 給 `chatroomId` 非 thread URL、status 無 legend）——刻意取代、非 regression。**
 
+- **SP8**：整理助手（對話式履歷/需求整理）。聊天分頁：SSE 串流聊天（`llm.chat_stream` 兩 provider）、LLM 回覆結尾 `<suggestions>` JSON 由後端 `chat.StreamFilter` 截住解析成建議卡片一鍵套用（`apply_update` 9 項欄位白名單、失敗零部分寫入）、`op=remember` 自動寫入半永久 memory（唯一免確認路徑、只能進 MemoryState、側欄可刪、清空對話不清 memory）、對話 >30 則自動 compact 留 10 則（先 summary 成功才裁切、失敗不丟訊息）、中斷回覆不持久化。新增三張單列表（chat/preferences/memory，store 抽 `_load/_save_single` 共用 helper）。求職偏好檔案 `JobPreferences(locations/conditions/avoid)`。PII 界線：chat/memory 只進 LLM 對話（與 SP3 同級）、不進 digest/通知。最終全分支 review(opus) Ready to merge、零 Critical/Important。184 測試。
+
 ## 🔭 子專案（待做，建議順序）
 
 | # | 子專案 | 內容 | 來源 |
@@ -29,13 +31,14 @@
 | ~~SP-Search~~ | ~~🔎 站內關鍵字職缺搜尋 + 比對~~ | ✅ 已完成（見上） | — |
 | ~~SP6~~ | ~~⏰ 定期檢視 + 通知排程~~ | ✅ 已完成（見上） | — |
 | ~~SP7~~ | ~~📅 行事曆整合~~ | ✅ 已完成（見上） | — |
-| **SP8** | 💬 對話式履歷/需求整理 | 聊天介面邊聊邊整理履歷與求職偏好（SSE 串流＋建議卡片一鍵套用；範圍只到「整理+寫回本地狀態」） | 舊 deferred（原始願景） |
+| ~~SP8~~ | ~~💬 對話式履歷/需求整理~~ | ✅ 已完成（見上） | — |
 | **SP9** | 🌐 公司評價 web 研究 | 自動上網查公司評價並彙整 | 舊 deferred（原始願景） |
 | **SP10** | 🔍 聊天中即時推職缺 | SP8 對話中 LLM 依偏好適時呼叫既有 SP-Search/推薦，聊天內帶出職缺卡片（需工具呼叫架構） | SP8 brainstorm 拆出（2026-07-02） |
 | **SP11** | ✉️ 客製化履歷/求職信 + 投遞 + 追蹤 | 針對特定職缺客製化履歷與求職信→使用者逐筆確認後投遞→加追蹤清單。**投遞是高影響外部動作，104 投遞端點需先 spike、必須逐筆人工確認** | SP8 brainstorm 拆出（2026-07-02） |
 | **SP12** | 📤 履歷回寫 104 | 本地整理好的履歷同步回 104 網站上的履歷。**登入態寫入操作、104 履歷編輯端點需先 spike、寫回前必須讓使用者確認 diff** | 使用者需求（2026-07-02） |
 
 ## 🔧 技術債 / 精修（穿插各 SP 或獨立小修）
+- **SP8 review minors（皆 defer、無阻塞）**：`chat_apply` 的 400 判斷耦合「不允許」訊息前綴（下次動 `apply_update` 時改結構化欄位如 `ApplyResult.code`）；無效非 remember 建議會成「套用必失敗」死卡片（可在 cards 過濾 ALLOWED 合法組合）；`readSse` 無終端 `dec.decode()` flush（理論多位元組尾字遺失）；`clearChat`/`deleteMemory` 未檢 `r.ok`（非 2xx 無聲成功）；SSE `error` 事件的 message 前端被丟只顯示固定「回覆中斷」；compact 在 `done` 前同步跑第二次 LLM 呼叫（spec 明訂接受、輸入鎖到結束）；中斷丟整輪含 user 訊息（spec 只要求丟回覆）；`keepMounted={false}` 串流中切分頁 setState on unmounted（console warning）；失敗卡片無重試；store `_load/_save_single` 無型別註記；`test_old_db_gains_new_tables` 未真模擬舊 schema DB。
 - **全分頁**：目前每類只抓第 1 頁；需逐頁抓完整清單。
 - **面試判斷精修**：目前「訊息含『面試』」啟發式可能誤判（婉拒信也提面試）；改用 `lastEvent.type` 對應或面試專屬端點。
 - **應徵狀態細分**：目前只到 已送出/已讀/公司已回覆；想分 邀面試/婉拒（需跨訊息頁判斷）。
