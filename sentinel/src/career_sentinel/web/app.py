@@ -261,6 +261,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             st.messages.append(ChatMessage(role="assistant", content="".join(clean_parts)))
             store.save_chat(gconn, st)
             chatmod.maybe_compact(gconn, st)
+            chatmod.maybe_curate_memory(gconn)
             yield _sse("done", {})
 
         return StreamingResponse(gen(), media_type="text/event-stream")

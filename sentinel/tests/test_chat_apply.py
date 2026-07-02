@@ -110,3 +110,45 @@ def test_apply_forget(tmp_path):
     assert chat.apply_update(conn, SuggestedUpdate(field="memory", op="forget", value="只想找台北")).ok
     assert store.load_memory(conn).facts == []
     assert not chat.apply_update(conn, SuggestedUpdate(field="memory", op="forget", value="不存在")).ok
+
+
+def _mk_mem(n):
+    from career_sentinel.models import MemoryFact, MemoryState
+    return MemoryState(facts=[MemoryFact(text=f"f{i}", created_at="t") for i in range(n)])
+
+
+def test_curate_below_threshold_noop(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    store.save_memory(conn, _mk_mem(12))
+    called = {"n": 0}
+    monkeypatch.setattr(chat.llm, "parse_json", lambda *a, **k: called.__setitem__("n", 1))
+    chat.maybe_curate_memory(conn)
+    assert called["n"] == 0
+    assert len(store.load_memory(conn).facts) == 12
+
+
+def test_curate_over_threshold_merges(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    store.save_memory(conn, _mk_mem(13))
+    monkeypatch.setattr(
+        chat.llm, "parse_json",
+        lambda *a, **k: chat.CuratedFacts(facts=["f0", "合併後的新事實"]),
+    )
+    chat.maybe_curate_memory(conn)
+    facts = store.load_memory(conn).facts
+    assert [f.text for f in facts] == ["f0", "合併後的新事實"]
+    assert facts[0].created_at == "t"   # 既有條目保留原時間
+    assert facts[1].created_at != "t"   # 合併新條目給現在時間
+
+
+def test_curate_failure_or_empty_keeps_original(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    store.save_memory(conn, _mk_mem(13))
+    def boom(*a, **k):
+        raise RuntimeError("down")
+    monkeypatch.setattr(chat.llm, "parse_json", boom)
+    chat.maybe_curate_memory(conn)
+    assert len(store.load_memory(conn).facts) == 13
+    monkeypatch.setattr(chat.llm, "parse_json", lambda *a, **k: chat.CuratedFacts(facts=[]))
+    chat.maybe_curate_memory(conn)
+    assert len(store.load_memory(conn).facts) == 13

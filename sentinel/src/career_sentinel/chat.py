@@ -15,6 +15,7 @@ SUGGESTIONS_OPEN = "<suggestions>"
 SUGGESTIONS_CLOSE = "</suggestions>"
 COMPACT_THRESHOLD = 30  # messages 超過此數觸發 compact
 COMPACT_KEEP = 10       # compact 後保留的近期逐字訊息數
+CURATE_THRESHOLD = 12   # memory facts 超過此數觸發 LLM 整理
 _RESUME_MAX_CHARS = 8000
 
 _CONTRACT = """
@@ -239,3 +240,32 @@ def maybe_compact(conn, state: ChatState) -> ChatState:
     new_state = ChatState(summary=new_summary.strip(), messages=recent)
     store.save_chat(conn, new_state)  # 先寫入新 summary+裁切後訊息（單一原子寫）
     return new_state
+
+
+class CuratedFacts(BaseModel):
+    facts: list[str] = []
+
+
+def maybe_curate_memory(conn) -> None:
+    """memory 超過門檻時用 LLM 整理（合併同義、依時間去過時矛盾）。失敗跳過、絕不清空。"""
+    mem = store.load_memory(conn)
+    if len(mem.facts) <= CURATE_THRESHOLD:
+        return
+    lines = "\n".join(f"- {f.text}（記於 {f.created_at}）" for f in mem.facts)
+    prompt = (
+        "以下是求職助手為使用者累積的長期記憶清單。請整理：合併重複與同義項、"
+        "刪除已被較新資訊取代或互相矛盾的舊項（以記錄時間較新者為準）、"
+        "保留所有仍有效的獨立事實，每條一句話。"
+        '只輸出 JSON：{"facts": ["..."]}\n\n' + lines
+    )
+    try:
+        curated = llm.parse_json(prompt, CuratedFacts)
+    except Exception:
+        return  # 失敗跳過，下輪再試
+    texts = [t.strip() for t in curated.facts if t.strip()]
+    if not texts or len(texts) > len(mem.facts):
+        return  # 空清單或越整理越多都不採用
+    by_text = {f.text: f for f in mem.facts}
+    now = datetime.now().isoformat(timespec="seconds")
+    mem.facts = [by_text.get(t) or MemoryFact(text=t, created_at=now) for t in texts]
+    store.save_memory(conn, mem)
