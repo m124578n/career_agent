@@ -114,3 +114,67 @@ export async function getSchedule(): Promise<ScheduleState> {
 export async function ackSchedule(): Promise<void> {
   await fetch("/api/schedule/ack", { method: "POST" });
 }
+
+export interface ChatMsg { role: string; content: string }
+export interface SuggestedUpdate {
+  field: string;
+  op: string;
+  value: string | number | string[] | null;
+  old: string | null;
+  new: string | null;
+}
+export interface MemoryFact { text: string; created_at: string }
+export interface ChatHistory { summary: string; messages: ChatMsg[]; memory: MemoryFact[] }
+
+export async function getChat(): Promise<ChatHistory> {
+  const r = await fetch("/api/chat");
+  return r.json();
+}
+
+export function sendChat(message: string): Promise<Response> {
+  return fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+}
+
+export async function applyUpdate(u: SuggestedUpdate): Promise<Response> {
+  return fetch("/api/chat/apply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(u),
+  });
+}
+
+export async function clearChat(): Promise<void> {
+  await fetch("/api/chat", { method: "DELETE" });
+}
+
+export async function deleteMemory(index: number): Promise<void> {
+  await fetch(`/api/memory/${index}`, { method: "DELETE" });
+}
+
+// 解析 SSE 串流（event/data 區塊以空行分隔；處理跨 chunk 邊界）
+export async function readSse(
+  resp: Response,
+  onEvent: (event: string, data: any) => void,
+): Promise<void> {
+  const reader = resp.body!.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    for (;;) {
+      const i = buf.indexOf("\n\n");
+      if (i === -1) break;
+      const block = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      const ev = block.match(/^event: (.+)$/m);
+      const data = block.match(/^data: (.+)$/m);
+      if (ev && data) onEvent(ev[1], JSON.parse(data[1]));
+    }
+  }
+}
