@@ -215,12 +215,17 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.post("/api/apply/open")
     def apply_open(req: _MatchReq) -> dict:
-        if not req.job_url.strip():
+        url = req.job_url.strip()
+        if not url:
             raise HTTPException(status_code=400, detail="請提供職缺網址")
+        if not url.startswith(("http://", "https://")):
+            raise HTTPException(status_code=400, detail="職缺網址格式不正確")
         if not runner.try_begin_browser():
             raise HTTPException(status_code=409, detail="瀏覽器忙碌中（可能正在抓取），請稍候再試")
         try:
-            ok = apply.open_job_page(req.job_url.strip())
+            ok = apply.open_job_page(url)
+        except Exception:
+            raise HTTPException(status_code=500, detail="開啟失敗，請重試")
         finally:
             runner.end_browser()
         if not ok:

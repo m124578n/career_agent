@@ -242,7 +242,7 @@ def test_apply_open_browser_busy(tmp_path, monkeypatch):
     flags = {"end": 0}
     monkeypatch.setattr(runner, "try_begin_browser", lambda: False)
     monkeypatch.setattr(runner, "end_browser", lambda: flags.__setitem__("end", 1))
-    r = _client(tmp_path).post("/api/apply/open", json={"job_url": "u"})
+    r = _client(tmp_path).post("/api/apply/open", json={"job_url": "https://www.104.com.tw/job/u"})
     assert r.status_code == 409
     assert flags["end"] == 0  # 未 begin 不該 end
 
@@ -253,6 +253,11 @@ def test_apply_open_no_chrome(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, "try_begin_browser", lambda: True)
     monkeypatch.setattr(runner, "end_browser", lambda: flags.__setitem__("end", 1))
     monkeypatch.setattr(apply, "open_job_page", lambda url: False)
-    r = _client(tmp_path).post("/api/apply/open", json={"job_url": "u"})
+    r = _client(tmp_path).post("/api/apply/open", json={"job_url": "https://www.104.com.tw/job/u"})
     assert r.status_code == 500
     assert flags["end"] == 1  # begin 成功後即使 no-chrome 也要 end
+
+
+def test_apply_open_bad_scheme(tmp_path):
+    r = _client(tmp_path).post("/api/apply/open", json={"job_url": "--proxy-server=evil"})
+    assert r.status_code == 400

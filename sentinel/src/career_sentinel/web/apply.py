@@ -23,6 +23,7 @@ def open_job_page(job_url: str) -> bool:
             f"--user-data-dir={profile}",
             "--no-first-run",
             "--no-default-browser-check",
+            "--",
             job_url,
         ]
     )
