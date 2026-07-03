@@ -11,6 +11,7 @@ import ResumePage from "./ResumePage";
 import SearchPage from "./SearchPage";
 import SettingsModal from "./SettingsModal";
 import Sidebar, { type PageKey } from "./Sidebar";
+import TailorPage from "./TailorPage";
 
 export default function App() {
   const qc = useQueryClient();
@@ -100,6 +101,7 @@ export default function App() {
         {page === "match" && <MatchPage />}
         {page === "recommend" && <RecommendPage />}
         {page === "search" && <SearchPage />}
+        {page === "tailor" && <TailorPage />}
         {/* 聊天頁：display:none 隱藏而非卸載——保住串流/訊息狀態（原 keepMounted 行為） */}
         <div style={{ display: page === "chat" ? undefined : "none" }}><ChatPage /></div>
       </AppShell.Main>

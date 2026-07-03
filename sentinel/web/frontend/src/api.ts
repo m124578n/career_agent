@@ -212,3 +212,20 @@ export interface CompanyResearch {
 export async function getResearch(company: string, force = false): Promise<Response> {
   return fetch(`/api/research?company=${encodeURIComponent(company)}${force ? "&force=1" : ""}`);
 }
+
+export interface TailoredApplication {
+  job_title: string;
+  company: string;
+  resume_tips: string[];
+  resume_adjustments: string[];
+  missing_keywords: string[];
+  cover_letter: string;
+}
+
+export async function tailorApplication(job_url: string): Promise<Response> {
+  return fetch("/api/tailor", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_url }),
+  });
+}

@@ -1,10 +1,10 @@
 import { Button, NavLink, Stack, Text } from "@mantine/core";
 import {
   IconArrowsExchange, IconFileText, IconLayoutDashboard, IconMessageCircle,
-  IconRefresh, IconSearch, IconSettings, IconStars,
+  IconRefresh, IconSearch, IconSettings, IconStars, IconWand,
 } from "@tabler/icons-react";
 
-export type PageKey = "dashboard" | "resume" | "match" | "recommend" | "search" | "chat";
+export type PageKey = "dashboard" | "resume" | "match" | "recommend" | "search" | "tailor" | "chat";
 
 const NAV: { key: PageKey; label: string; icon: typeof IconSearch }[] = [
   { key: "dashboard", label: "儀表板", icon: IconLayoutDashboard },
@@ -12,6 +12,7 @@ const NAV: { key: PageKey; label: string; icon: typeof IconSearch }[] = [
   { key: "match", label: "JD 比對", icon: IconArrowsExchange },
   { key: "recommend", label: "推薦", icon: IconStars },
   { key: "search", label: "職缺搜尋", icon: IconSearch },
+  { key: "tailor", label: "客製化", icon: IconWand },
   { key: "chat", label: "整理助手", icon: IconMessageCircle },
 ];
 
