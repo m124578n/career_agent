@@ -3,7 +3,7 @@ import {
   Stack, Text, TextInput, TypographyStylesProvider,
 } from "@mantine/core";
 import {
-  IconBrain, IconDownload, IconEraser, IconTrash, IconX,
+  IconBrain, IconDownload, IconEraser, IconSearch, IconTrash, IconX,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -11,8 +11,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./chat-md.css";
 import {
-  applyUpdate, clearChat, deleteMemory, getChat, readSse, sendChat, SuggestedUpdate,
+  applyUpdate, clearChat, deleteMemory, getChat, getResume, readSse, sendChat,
+  SuggestedUpdate, type RecommendedJob,
 } from "./api";
+import JobRow from "./JobRow";
 import { PageContainer, PageHeader } from "./ui";
 
 interface UiMsg {
@@ -22,6 +24,7 @@ interface UiMsg {
   remembered?: string[];
   forgot?: string[];
   interrupted?: boolean;
+  jobsBlocks?: { keyword: string; items: RecommendedJob[] }[];
 }
 
 const FIELD_LABEL: Record<string, string> = {
@@ -85,6 +88,8 @@ function SuggestionCard({ s }: { s: SuggestedUpdate }) {
 export default function ChatPage() {
   const qc = useQueryClient();
   const history = useQuery({ queryKey: ["chat"], queryFn: getChat });
+  const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
+  const canMatch = !!resume.data?.has_resume;
   const [msgs, setMsgs] = useState<UiMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -148,6 +153,7 @@ export default function ChatPage() {
       }
       await readSse(r, (event, data) => {
         if (event === "delta") pending.text += data.text;
+        if (event === "jobs") patchLast((m) => ({ ...m, jobsBlocks: [...(m.jobsBlocks ?? []), { keyword: data.keyword, items: data.items }] }));
         if (event === "suggestions") pending.suggestions = data.items;
         if (event === "remembered") pending.remembered = data.facts;
         if (event === "forgot") pending.forgot = data.facts;
@@ -202,6 +208,16 @@ export default function ChatPage() {
                     {m.interrupted && <Text size="xs" c="danger.6">回覆中斷</Text>}
                   </div>
                 )}
+                {m.jobsBlocks?.map((b, j) => (
+                  <Stack key={j} gap={6} w="100%" maw="92%">
+                    <Group gap={6}>
+                      <IconSearch size={13} style={{ color: "var(--mantine-color-dark-2)" }} />
+                      <Text size="xs" c="dimmed">搜尋：{b.keyword}</Text>
+                    </Group>
+                    {b.items.length === 0 && <Text size="xs" c="dimmed">找不到符合的職缺</Text>}
+                    {b.items.map((job) => <JobRow key={job.code} job={job} canMatch={canMatch} />)}
+                  </Stack>
+                ))}
                 {m.suggestions?.map((s, j) => <SuggestionCard key={j} s={s} />)}
                 {m.remembered?.map((f, j) => (
                   <Badge key={j} variant="light" color="grape" leftSection={<IconBrain size={12} />}>
