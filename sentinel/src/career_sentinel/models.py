@@ -194,3 +194,25 @@ class SuggestedUpdate(BaseModel):
     value: str | int | list[str] | None = None
     old: str | None = None  # replace_snippet 專用
     new: str | None = None  # replace_snippet 專用
+
+
+class ResearchSource(BaseModel):
+    title: str = ""
+    url: str = ""
+
+
+class CompanyResearch(BaseModel):
+    company: str = ""
+    summary: str = ""
+    pros: list[str] = Field(default_factory=list)
+    cons: list[str] = Field(default_factory=list)
+    salary_notes: str = ""
+    interview_notes: str = ""
+    risk_level: str = "mid"  # low | mid | high
+    sources: list[ResearchSource] = Field(default_factory=list)
+    researched_at: str = ""  # ISO
+
+    @field_validator("risk_level", mode="before")
+    @classmethod
+    def _check_risk(cls, v):
+        return v if v in ("low", "mid", "high") else "mid"

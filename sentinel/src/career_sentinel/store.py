@@ -5,7 +5,7 @@ import sqlite3
 from pathlib import Path
 
 from .models import (
-    Application, ChatState, DismissedInterviews, Interview, JobPreferences,
+    Application, ChatState, CompanyResearch, DismissedInterviews, Interview, JobPreferences,
     MemoryState, Message, ResumeState, Settings, Snapshot, Viewer,
 )
 
@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS memory (
 );
 CREATE TABLE IF NOT EXISTS dismissed_interviews (
     id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS company_research (
+    company TEXT PRIMARY KEY, data TEXT NOT NULL
 );
 """
 
@@ -176,3 +179,18 @@ def load_dismissed(conn: sqlite3.Connection) -> DismissedInterviews:
 
 def save_dismissed(conn: sqlite3.Connection, d: DismissedInterviews) -> None:
     _save_single(conn, "dismissed_interviews", d)
+
+
+def load_research(conn: sqlite3.Connection, company: str) -> CompanyResearch | None:
+    row = conn.execute(
+        "SELECT data FROM company_research WHERE company = ?", (company,)
+    ).fetchone()
+    return CompanyResearch.model_validate_json(row[0]) if row else None
+
+
+def save_research(conn: sqlite3.Connection, r: CompanyResearch) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO company_research (company, data) VALUES (?, ?)",
+        (r.company, r.model_dump_json()),
+    )
+    conn.commit()

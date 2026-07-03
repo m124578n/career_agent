@@ -92,3 +92,26 @@ def test_dismissed_interviews_roundtrip(tmp_path):
     assert store.load_dismissed(conn) == DismissedInterviews()
     store.save_dismissed(conn, DismissedInterviews(keys=["甲|後端|2026-04-07 10:00:00"]))
     assert store.load_dismissed(conn).keys == ["甲|後端|2026-04-07 10:00:00"]
+
+
+def test_company_research_roundtrip(tmp_path):
+    from career_sentinel.models import CompanyResearch, ResearchSource
+    conn = store.connect(tmp_path / "db.sqlite")
+    assert store.load_research(conn, "台積電") is None
+    r = CompanyResearch(
+        company="台積電", summary="整體評價正面", pros=["福利好"], cons=["工時長"],
+        salary_notes="高於同業", interview_notes="流程長", risk_level="low",
+        sources=[ResearchSource(title="面試趣", url="https://interview.tw/x")],
+        researched_at="2026-07-03T10:00:00",
+    )
+    store.save_research(conn, r)
+    assert store.load_research(conn, "台積電") == r
+    r2 = r.model_copy(update={"summary": "更新後"})
+    store.save_research(conn, r2)  # 同公司覆寫
+    assert store.load_research(conn, "台積電").summary == "更新後"
+
+
+def test_company_research_risk_whitelist(tmp_path):
+    from career_sentinel.models import CompanyResearch
+    assert CompanyResearch(risk_level="weird").risk_level == "mid"
+    assert CompanyResearch(risk_level="high").risk_level == "high"
