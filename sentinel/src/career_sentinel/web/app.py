@@ -35,6 +35,15 @@ class _InterviewKeyReq(BaseModel):
     key: str
 
 
+def _chat_events(messages, system):
+    """依 provider 產聊天事件流：foundry 走工具迴圈、openai 走既有純聊天。"""
+    if config.llm_provider() == "foundry":
+        yield from chatmod.stream_with_tools(messages, system=system)
+    else:
+        for chunk in llm.chat_stream(messages, system=system):
+            yield {"type": "text", "text": chunk}
+
+
 def _snapshot_payload(conn) -> dict:
     failed = runner.status()["last_failed_readers"]
     ids = store.latest_two_ids(conn)
@@ -236,6 +245,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             store.load_preferences(conn), store.load_memory(conn),
         )
         messages = chatmod.build_messages(store.load_chat(conn), req.message)
+        settings_snapshot = store.load_settings(conn)
 
         def _sse(event: str, data: dict) -> str:
             return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -244,8 +254,21 @@ def create_app(db_path: str | None = None) -> FastAPI:
             filt = chatmod.StreamFilter()
             clean_parts: list[str] = []
             try:
-                for chunk in llm.chat_stream(messages, system=system):
-                    out = filt.feed(chunk)
+                for ev in _chat_events(messages, system):
+                    if ev["type"] == "jobs":
+                        yield _sse("jobs", {
+                            "keyword": ev["keyword"],
+                            "items": [
+                                {
+                                    "code": j.code, "url": j.url, "title": j.title,
+                                    "company": j.company, "salary": j.salary,
+                                    "is_watched": watch.is_watched(j.company, j.title, settings_snapshot),
+                                }
+                                for j in ev["items"]
+                            ],
+                        })
+                        continue
+                    out = filt.feed(ev["text"])
                     if out:
                         clean_parts.append(out)
                         yield _sse("delta", {"text": out})

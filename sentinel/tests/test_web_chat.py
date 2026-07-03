@@ -132,6 +132,46 @@ def test_chat_memory_forget_and_dedupe(tmp_path, monkeypatch):
     assert texts == ["不想進博弈業", "雙北都可以"]
 
 
+def test_chat_foundry_streams_jobs_events(tmp_path, monkeypatch):
+    from career_sentinel import chat as chatmod
+    from career_sentinel.models import RecommendedJob, Settings
+    monkeypatch.setenv("FOUNDRY_API_KEY", "k")
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.save_settings(conn, Settings(watched_companies=["公司0"]))
+
+    def fake_stream(messages, *, system):
+        yield {"type": "text", "text": "我來搜尋"}
+        yield {"type": "jobs", "keyword": "python 後端", "items": [
+            RecommendedJob(code="c0", url="u0", title="職缺0", company="公司0", salary="月薪 5萬"),
+            RecommendedJob(code="c1", url="u1", title="職缺1", company="公司1", salary="月薪 6萬"),
+        ]}
+        yield {"type": "text", "text": "找到了"}
+
+    monkeypatch.setattr(chatmod, "stream_with_tools", fake_stream)
+    c = _client(tmp_path)
+    evs = _events(c.post("/api/chat", json={"message": "幫我找 python 後端"}).text)
+    kinds = [k for k, _ in evs]
+    assert kinds == ["delta", "jobs", "delta", "done"]
+    jobs = dict(evs)["jobs"]
+    assert jobs["keyword"] == "python 後端"
+    assert jobs["items"][0]["is_watched"] is True   # 關注公司標記
+    assert jobs["items"][1]["is_watched"] is False
+    assert set(jobs["items"][0].keys()) == {"code", "url", "title", "company", "salary", "is_watched"}
+    # 持久化的 assistant 訊息只含文字
+    st = store.load_chat(store.connect(tmp_path / "db.sqlite"))
+    assert st.messages[-1].content == "我來搜尋找到了"
+
+
+def test_chat_openai_path_unchanged(tmp_path, monkeypatch):
+    # openai 路徑仍走 llm.chat_stream（無工具），行為與 SP8 相同
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
+    monkeypatch.setattr(llm, "chat_stream", _fake_stream(["hi"]))
+    evs = _events(_client(tmp_path).post("/api/chat", json={"message": "hi"}).text)
+    assert [k for k, _ in evs] == ["delta", "done"]
+
+
 def test_export_md(tmp_path):
     from career_sentinel.models import ResumeState
     conn = store.connect(tmp_path / "db.sqlite")
