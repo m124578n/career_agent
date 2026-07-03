@@ -1,10 +1,10 @@
 import {
   ActionIcon, Button, Group, List, Paper, Stack, Text, TextInput, ThemeIcon,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconAlertTriangle } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconAlertTriangle, IconExternalLink } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { getResume, tailorApplication, type TailoredApplication } from "./api";
+import { getResume, tailorApplication, openApplyPage, type TailoredApplication } from "./api";
 import { PageContainer, PageHeader } from "./ui";
 
 export default function TailorPage() {
@@ -14,6 +14,8 @@ export default function TailorPage() {
   const [err, setErr] = useState<string | null>(null);
   const [data, setData] = useState<TailoredApplication | null>(null);
   const [copied, setCopied] = useState(false);
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyErr, setApplyErr] = useState<string | null>(null);
 
   async function run() {
     if (!url.trim()) return;
@@ -40,6 +42,22 @@ export default function TailorPage() {
       setTimeout(() => setCopied(false), 1500);
     } catch {
       setErr("複製失敗");
+    }
+  }
+
+  async function openApply() {
+    setApplyErr(null);
+    setApplyBusy(true);
+    try {
+      const r = await openApplyPage(url.trim());
+      if (!r.ok) {
+        const b = await r.json().catch(() => ({}));
+        setApplyErr(b.detail ?? "開啟失敗");
+      }
+    } catch {
+      setApplyErr("網路錯誤，請重試");
+    } finally {
+      setApplyBusy(false);
     }
   }
 
@@ -103,6 +121,19 @@ export default function TailorPage() {
               </ActionIcon>
             </Group>
             <Text size="sm" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>{data.cover_letter}</Text>
+          </Paper>
+          <Paper bg="dark.6" radius="md" p="lg">
+            <Text size="sm" c="dimmed" mb="sm">
+              將用你的登入態 Chrome 開啟該職缺頁，請在瀏覽器中親手應徵、貼上求職信並送出。
+            </Text>
+            <Button
+              leftSection={<IconExternalLink size={16} />}
+              onClick={openApply}
+              loading={applyBusy}
+            >
+              開啟投遞頁
+            </Button>
+            {applyErr && <Text c="danger.6" size="sm" mt="sm">{applyErr}</Text>}
           </Paper>
         </Stack>
       )}

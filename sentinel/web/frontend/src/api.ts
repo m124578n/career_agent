@@ -229,3 +229,11 @@ export async function tailorApplication(job_url: string): Promise<Response> {
     body: JSON.stringify({ job_url }),
   });
 }
+
+export async function openApplyPage(job_url: string): Promise<Response> {
+  return fetch("/api/apply/open", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_url }),
+  });
+}
