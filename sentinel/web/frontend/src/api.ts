@@ -194,3 +194,21 @@ export async function restoreInterview(key: string): Promise<void> {
     body: JSON.stringify({ key }),
   });
 }
+
+export interface ResearchSource { title: string; url: string }
+export interface CompanyResearch {
+  company: string;
+  summary: string;
+  pros: string[];
+  cons: string[];
+  salary_notes: string;
+  interview_notes: string;
+  risk_level: string;
+  sources: ResearchSource[];
+  researched_at: string;
+  cached: boolean;
+}
+
+export async function getResearch(company: string, force = false): Promise<Response> {
+  return fetch(`/api/research?company=${encodeURIComponent(company)}${force ? "&force=1" : ""}`);
+}

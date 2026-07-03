@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconArrowBackUp, IconCalendarPlus, IconCheck, IconMe
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { type Interview, dismissInterview, getSnapshot, getStatus, restoreInterview } from "./api";
+import ResearchButton from "./ResearchButton";
 import { Kpi, PageContainer } from "./ui";
 
 const SHOW_LIMIT = 8; // 清單預設顯示筆數，超過收合
@@ -137,6 +138,7 @@ export default function Dashboard() {
                 <CompanyLink name={iv.company} href={iv.job_url || iv.company_url || undefined} />
                 <Text span c="dimmed"> · {iv.job_title}{iv.location ? ` · ${iv.location}` : ""}</Text>
               </Text>
+              <ResearchButton company={iv.company} />
               <Group gap="md" wrap="nowrap" style={{ flexShrink: 0 }}>
                 <Text c="teal.5" ff="monospace" size="xs">{iv.when || "日期未擷取"}</Text>
                 {iv.job_url && <Anchor href={iv.job_url} target="_blank" size="xs" c="dimmed">看職缺</Anchor>}
@@ -193,6 +195,7 @@ export default function Dashboard() {
                   <CompanyLink name={v.company} href={v.company_url || undefined} />
                   <Text span c="dimmed"> · {v.job_title}</Text>
                 </Text>
+                <ResearchButton company={v.company} />
               </Group>
               <Text c="dimmed" ff="monospace" size="xs">{v.viewed_at}</Text>
             </Row>
@@ -215,6 +218,7 @@ export default function Dashboard() {
                     <Text span c="dimmed">{a.title}</Text>
                   )}
                 </Text>
+                <ResearchButton company={a.company} />
               </Group>
               <Badge size="sm" variant="light" color="teal">{a.status}</Badge>
             </Row>
@@ -232,6 +236,7 @@ export default function Dashboard() {
                     <CompanyLink name={m.company} href={m.company_url || undefined} />
                     <Text span c="dimmed">：{m.last_message}</Text>
                   </Text>
+                  <ResearchButton company={m.company} />
                 </Group>
                 {m.thread_url && (
                   <ActionIcon component="a" href={m.thread_url} target="_blank"

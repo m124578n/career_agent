@@ -2,6 +2,7 @@ import { Anchor, Button, Group, List, Paper, Progress, Stack, Text } from "@mant
 import { IconStarFilled } from "@tabler/icons-react";
 import { useState } from "react";
 import { matchJob, type MatchResult, type RecommendedJob } from "./api";
+import ResearchButton from "./ResearchButton";
 
 export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatch: boolean }) {
   const [busy, setBusy] = useState(false);
@@ -30,6 +31,7 @@ export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatc
               <IconStarFilled size={12} style={{ color: "var(--mantine-color-tangerine-5)", flexShrink: 0 }} />
             )}
             <Text fw={600} size="sm" truncate>{job.title}</Text>
+            <ResearchButton company={job.company} />
           </Group>
           <Text size="xs" c="dimmed">{job.company} · <Text span c="teal.5" ff="monospace">{job.salary}</Text></Text>
         </div>
