@@ -16,6 +16,8 @@ SUGGESTIONS_CLOSE = "</suggestions>"
 COMPACT_THRESHOLD = 30  # messages 超過此數觸發 compact
 COMPACT_KEEP = 10       # compact 後保留的近期逐字訊息數
 CURATE_THRESHOLD = 12   # memory facts 超過此數觸發 LLM 整理
+TOOL_LOOP_MAX = 2       # 每輪對話最多執行幾次工具
+JOBS_RESULT_LIMIT = 8   # tool_result 給 LLM 的精簡職缺數上限
 _RESUME_MAX_CHARS = 8000
 
 _CONTRACT = """
@@ -56,6 +58,8 @@ def build_system_prompt(
         f"- 求職偏好：地點={prefs.locations}；軟條件={prefs.conditions}；避雷={prefs.avoid}\n"
         f"- 關注公司：{settings.watched_companies}；關注關鍵字：{settings.watched_keywords}\n\n"
         f"長期記憶（半永久）：\n{mem_lines}\n\n"
+        "工具：你有 search_jobs 工具可搜尋 104 職缺。"
+        "只在使用者明確要求找職缺時使用 search_jobs；關鍵字精簡（2–4 個詞）；每輪對話至多 2 次。\n\n"
         f"履歷全文（前 {_RESUME_MAX_CHARS} 字）：\n{resume_text}\n"
     )
     return head + _CONTRACT
@@ -303,3 +307,76 @@ def build_export_md(
         lines += ["", "## 先前討論摘要", state.summary]
     lines += ["", "## 履歷全文", resume.resume_text or "（尚未上傳履歷）", ""]
     return "\n".join(lines)
+
+
+TOOLS = [{
+    "name": "search_jobs",
+    "description": "在 104 站內以關鍵字搜尋職缺。只在使用者明確要求找職缺時使用。",
+    "input_schema": {
+        "type": "object",
+        "properties": {"keyword": {"type": "string", "description": "精簡的搜尋關鍵字"}},
+        "required": ["keyword"],
+    },
+}]
+
+
+def _execute_search(keyword: str):
+    """執行站內搜尋工具。回 (jobs, tool_result文字, is_error)。"""
+    from .scraper import search as search_mod
+
+    try:
+        jobs = search_mod.fetch_search(keyword.strip())
+    except Exception as exc:
+        return [], f"搜尋失敗：{exc}", True
+    brief = [
+        {"title": j.title, "company": j.company, "salary": j.salary, "url": j.url}
+        for j in jobs[:JOBS_RESULT_LIMIT]
+    ]
+    return jobs, json.dumps(brief, ensure_ascii=False), False
+
+
+def stream_with_tools(messages: list[dict], *, system: str, client=None):
+    """Foundry 原生 tool use 串流：yield {"type":"text"} 與 {"type":"jobs"} 事件。
+
+    工具執行達 TOOL_LOOP_MAX 後，最後一輪不帶 tools 強制作答。
+    """
+    from .config import foundry_settings
+
+    fs = foundry_settings()
+    if client is None:
+        from anthropic import AnthropicFoundry
+
+        client = AnthropicFoundry(api_key=fs.api_key, base_url=fs.base_url, timeout=180)
+    system = llm._with_today(system)
+    msgs = list(messages)
+    tool_runs = 0
+    while True:
+        kwargs: dict = {
+            "model": fs.model, "max_tokens": 4096,
+            "system": system, "messages": msgs,
+        }
+        if tool_runs < TOOL_LOOP_MAX:
+            kwargs["tools"] = TOOLS
+        with client.messages.stream(**kwargs) as stream:
+            for text in stream.text_stream:
+                yield {"type": "text", "text": text}
+            final = stream.get_final_message()
+        if final.stop_reason != "tool_use":
+            return
+        results = []
+        for block in final.content:
+            if getattr(block, "type", None) != "tool_use":
+                continue
+            keyword = str((block.input or {}).get("keyword", ""))
+            jobs, result_text, is_error = _execute_search(keyword)
+            tool_runs += 1
+            if not is_error:
+                yield {"type": "jobs", "keyword": keyword, "items": jobs}
+            entry = {"type": "tool_result", "tool_use_id": block.id, "content": result_text}
+            if is_error:
+                entry["is_error"] = True
+            results.append(entry)
+        msgs = msgs + [
+            {"role": "assistant", "content": final.content},
+            {"role": "user", "content": results},
+        ]
