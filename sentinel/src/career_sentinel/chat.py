@@ -324,6 +324,8 @@ def _execute_search(keyword: str):
     """執行站內搜尋工具。回 (jobs, tool_result文字, is_error)。"""
     from .scraper import search as search_mod
 
+    if not keyword.strip():
+        return [], "搜尋失敗：關鍵字為空", True
     try:
         jobs = search_mod.fetch_search(keyword.strip())
     except Exception as exc:
@@ -350,7 +352,8 @@ def stream_with_tools(messages: list[dict], *, system: str, client=None):
     system = llm._with_today(system)
     msgs = list(messages)
     tool_runs = 0
-    while True:
+    # 結構性終止上限：即使 provider 在無 tools 輪仍回 tool_use 也不會無限迴圈
+    for _ in range(TOOL_LOOP_MAX + 1):
         kwargs: dict = {
             "model": fs.model, "max_tokens": 4096,
             "system": system, "messages": msgs,

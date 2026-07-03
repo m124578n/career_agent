@@ -130,3 +130,8 @@ def test_system_prompt_mentions_tool_rules():
     from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
     assert "search_jobs" in p and "至多 2 次" in p
+
+
+def test_execute_search_empty_keyword_is_error():
+    jobs, text, is_error = chat._execute_search("  ")
+    assert jobs == [] and is_error is True and "關鍵字為空" in text
