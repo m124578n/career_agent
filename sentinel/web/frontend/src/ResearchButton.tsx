@@ -102,11 +102,16 @@ export default function ResearchButton({ company }: { company: string }) {
               <Text size="sm" fw={600} mb={2}>來源</Text>
               {data.sources.length === 0 && <Text size="sm" c="dimmed">（無來源）</Text>}
               <Stack gap={2}>
-                {data.sources.map((s, i) => (
-                  <Anchor key={i} href={s.url} target="_blank" size="xs">
-                    {s.title || s.url}
-                  </Anchor>
-                ))}
+                {data.sources.map((s, i) => {
+                  const safe = /^https?:\/\//i.test(s.url) ? s.url : undefined;
+                  return safe ? (
+                    <Anchor key={i} href={safe} target="_blank" rel="noopener noreferrer" size="xs">
+                      {s.title || s.url}
+                    </Anchor>
+                  ) : (
+                    <Text key={i} size="xs" c="dimmed">{s.title || s.url}</Text>
+                  );
+                })}
               </Stack>
             </div>
             <Group justify="space-between" mt="xs">

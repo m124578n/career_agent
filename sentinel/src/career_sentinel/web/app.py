@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from datetime import date
@@ -13,6 +14,8 @@ from pydantic import BaseModel
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, research, resume, store, watch
 from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, interview_key
 from . import runner, scheduler
+
+logger = logging.getLogger("career_sentinel.web")
 
 
 class _DiagnoseReq(BaseModel):
@@ -330,6 +333,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         except Exception:
+            logger.exception("公司評價查詢失敗：%s", name)
             raise HTTPException(status_code=502, detail="查詢失敗，請重試")
         store.save_research(conn2, r)
         return {**r.model_dump(), "cached": False}

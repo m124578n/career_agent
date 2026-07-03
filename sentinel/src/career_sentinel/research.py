@@ -54,7 +54,7 @@ def _openai_research(prompt, client):
             f"{cfg.base_url}/chat/completions",
             headers={"Authorization": f"Bearer {cfg.api_key}"},
             json={
-                "model": cfg.model + ":online",  # OpenRouter web search
+                "model": cfg.model + ":online",  # OpenRouter web search 慣例；非 OpenRouter 的 OpenAI 相容端點不支援此後綴
                 "messages": [{"role": "user", "content": prompt}],
             },
         )
@@ -70,7 +70,7 @@ def _foundry_research(prompt, client):
     if client is None:
         from anthropic import AnthropicFoundry
 
-        client = AnthropicFoundry(api_key=fs.api_key, base_url=fs.base_url)
+        client = AnthropicFoundry(api_key=fs.api_key, base_url=fs.base_url, timeout=_TIMEOUT)
     resp = client.messages.create(
         model=fs.model,
         max_tokens=4096,
