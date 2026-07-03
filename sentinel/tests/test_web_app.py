@@ -201,3 +201,22 @@ def test_tailor_endpoint_errors(tmp_path, monkeypatch):
         raise RuntimeError("boom")
     monkeypatch.setattr(jobfetch, "fetch_job_detail", boom)
     assert c.post("/api/tailor", json={"job_url": "u"}).status_code == 502
+
+
+def test_tailor_endpoint_no_key_and_missing_field(tmp_path, monkeypatch):
+    from career_sentinel import jobfetch, tailor
+    from career_sentinel.models import JobDetail, ResumeState
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
+    conn = store.connect(tmp_path / "db.sqlite")
+    c = _client(tmp_path)
+    # 缺 job_url 欄位 → 422（pydantic）
+    assert c.post("/api/tailor", json={}).status_code == 422
+    # 無 LLM key（tailor 內 raise RuntimeError）→ 400
+    store.save_resume(conn, ResumeState(resume_text="履歷"))
+    monkeypatch.setattr(jobfetch, "extract_job_code", lambda u: "abc")
+    monkeypatch.setattr(jobfetch, "fetch_job_detail", lambda code: JobDetail(title="後端", company="甲"))
+    def no_key(rt, tt, jd, **kw):
+        raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
+    monkeypatch.setattr(tailor, "tailor_application", no_key)
+    assert c.post("/api/tailor", json={"job_url": "u"}).status_code == 400
