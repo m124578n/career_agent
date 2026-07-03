@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, research, resume, store, tailor, watch
 from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, interview_key
-from . import runner, scheduler
+from . import apply, runner, scheduler
 
 logger = logging.getLogger("career_sentinel.web")
 
@@ -212,6 +212,20 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except Exception:
             raise HTTPException(status_code=500, detail="生成失敗，請重試")
         return result.model_dump()
+
+    @app.post("/api/apply/open")
+    def apply_open(req: _MatchReq) -> dict:
+        if not req.job_url.strip():
+            raise HTTPException(status_code=400, detail="請提供職缺網址")
+        if not runner.try_begin_browser():
+            raise HTTPException(status_code=409, detail="瀏覽器忙碌中（可能正在抓取），請稍候再試")
+        try:
+            ok = apply.open_job_page(req.job_url.strip())
+        finally:
+            runner.end_browser()
+        if not ok:
+            raise HTTPException(status_code=500, detail="找不到 Google Chrome，請確認已安裝")
+        return {"status": "opened"}
 
     @app.get("/api/search")
     def search(kw: str = "") -> dict:

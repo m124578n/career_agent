@@ -220,3 +220,39 @@ def test_tailor_endpoint_no_key_and_missing_field(tmp_path, monkeypatch):
         raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
     monkeypatch.setattr(tailor, "tailor_application", no_key)
     assert c.post("/api/tailor", json={"job_url": "u"}).status_code == 400
+
+
+def test_apply_open_success(tmp_path, monkeypatch):
+    from career_sentinel.web import apply, runner
+    flags = {"begin": 0, "end": 0}
+    monkeypatch.setattr(runner, "try_begin_browser", lambda: flags.__setitem__("begin", flags["begin"] + 1) or True)
+    monkeypatch.setattr(runner, "end_browser", lambda: flags.__setitem__("end", flags["end"] + 1))
+    monkeypatch.setattr(apply, "open_job_page", lambda url: True)
+    r = _client(tmp_path).post("/api/apply/open", json={"job_url": "https://www.104.com.tw/job/abc"})
+    assert r.status_code == 200 and r.json() == {"status": "opened"}
+    assert flags["begin"] == 1 and flags["end"] == 1  # 成對
+
+
+def test_apply_open_empty_url(tmp_path):
+    assert _client(tmp_path).post("/api/apply/open", json={"job_url": ""}).status_code == 400
+
+
+def test_apply_open_browser_busy(tmp_path, monkeypatch):
+    from career_sentinel.web import runner
+    flags = {"end": 0}
+    monkeypatch.setattr(runner, "try_begin_browser", lambda: False)
+    monkeypatch.setattr(runner, "end_browser", lambda: flags.__setitem__("end", 1))
+    r = _client(tmp_path).post("/api/apply/open", json={"job_url": "u"})
+    assert r.status_code == 409
+    assert flags["end"] == 0  # 未 begin 不該 end
+
+
+def test_apply_open_no_chrome(tmp_path, monkeypatch):
+    from career_sentinel.web import apply, runner
+    flags = {"end": 0}
+    monkeypatch.setattr(runner, "try_begin_browser", lambda: True)
+    monkeypatch.setattr(runner, "end_browser", lambda: flags.__setitem__("end", 1))
+    monkeypatch.setattr(apply, "open_job_page", lambda url: False)
+    r = _client(tmp_path).post("/api/apply/open", json={"job_url": "u"})
+    assert r.status_code == 500
+    assert flags["end"] == 1  # begin 成功後即使 no-chrome 也要 end
