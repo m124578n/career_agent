@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, resume, store, watch
+from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, research, resume, store, watch
 from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, interview_key
 from . import runner, scheduler
 
@@ -313,6 +313,26 @@ def create_app(db_path: str | None = None) -> FastAPI:
             media_type="text/markdown; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="career-profile-{date.today().isoformat()}.md"'},
         )
+
+    @app.get("/api/research")
+    def research_get(company: str = "", force: int = 0) -> dict:
+        name = company.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="請提供公司名稱")
+        if not config.llm_provider():
+            raise HTTPException(status_code=400, detail="請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
+        conn2 = _conn()
+        cached = store.load_research(conn2, name)
+        if cached and not force and research.is_fresh(cached):
+            return {**cached.model_dump(), "cached": True}
+        try:
+            r = research.research_company(name)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception:
+            raise HTTPException(status_code=502, detail="查詢失敗，請重試")
+        store.save_research(conn2, r)
+        return {**r.model_dump(), "cached": False}
 
     @app.post("/api/interviews/dismiss")
     def interviews_dismiss(req: _InterviewKeyReq) -> dict:

@@ -119,3 +119,44 @@ def test_snapshot_exposes_thread_and_job_urls(tmp_path):
     assert body["applications"][0]["job_url"] == "https://www.104.com.tw/job/8jet3"
     assert body["messages"][0]["thread_url"] == "https://pda.104.com.tw/work/message/chat/8wtoc?page=1"
     assert body["interviews"][0]["thread_url"] == "https://pda.104.com.tw/work/message/chat/8lwq3?page=1"
+
+
+def test_research_endpoint_cache_force_and_errors(tmp_path, monkeypatch):
+    from datetime import datetime
+    from career_sentinel import research
+    from career_sentinel.models import CompanyResearch
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
+    calls = {"n": 0}
+
+    def fake(name, **kw):
+        calls["n"] += 1
+        return CompanyResearch(
+            company=name, summary=f"v{calls['n']}", risk_level="low",
+            researched_at=datetime.now().isoformat(timespec="seconds"),
+        )
+
+    monkeypatch.setattr(research, "research_company", fake)
+    c = _client(tmp_path)
+    assert c.get("/api/research").status_code == 400  # 無 company
+    r1 = c.get("/api/research", params={"company": "甲"}).json()
+    assert r1["cached"] is False and r1["summary"] == "v1" and calls["n"] == 1
+    r2 = c.get("/api/research", params={"company": "甲"}).json()
+    assert r2["cached"] is True and calls["n"] == 1  # 快取命中不重查
+    r3 = c.get("/api/research", params={"company": "甲", "force": 1}).json()
+    assert r3["cached"] is False and r3["summary"] == "v2" and calls["n"] == 2
+
+
+def test_research_endpoint_no_key_and_failure(tmp_path, monkeypatch):
+    from career_sentinel import research
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
+    c = _client(tmp_path)
+    assert c.get("/api/research", params={"company": "甲"}).status_code == 400
+    monkeypatch.setenv("LLM_API_KEY", "k")
+
+    def boom(name, **kw):
+        raise ValueError("bad json")
+
+    monkeypatch.setattr(research, "research_company", boom)
+    assert c.get("/api/research", params={"company": "甲"}).status_code == 502
