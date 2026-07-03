@@ -216,3 +216,12 @@ class CompanyResearch(BaseModel):
     @classmethod
     def _check_risk(cls, v):
         return v if v in ("low", "mid", "high") else "mid"
+
+
+class TailoredApplication(BaseModel):
+    job_title: str = ""
+    company: str = ""
+    resume_tips: list[str] = Field(default_factory=list)
+    resume_adjustments: list[str] = Field(default_factory=list)
+    missing_keywords: list[str] = Field(default_factory=list)
+    cover_letter: str = ""
