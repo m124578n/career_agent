@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from career_sentinel.web import app as webapp
 from career_sentinel.web import runner
 from career_sentinel import store
-from career_sentinel.models import Application, Message, Snapshot, Viewer
+from career_sentinel.models import Application, Message, ResumeState, Snapshot, Viewer
 
 
 def _client(tmp_path):
@@ -160,3 +160,44 @@ def test_research_endpoint_no_key_and_failure(tmp_path, monkeypatch):
 
     monkeypatch.setattr(research, "research_company", boom)
     assert c.get("/api/research", params={"company": "甲"}).status_code == 502
+
+
+def test_tailor_endpoint(tmp_path, monkeypatch):
+    from career_sentinel import jobfetch, tailor
+    from career_sentinel.models import JobDetail, TailoredApplication
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
+    conn = store.connect(tmp_path / "db.sqlite")
+    c = _client(tmp_path)
+
+    # 無 job_url → 422/400（pydantic 缺欄位 422；空字串→400）
+    assert c.post("/api/tailor", json={"job_url": ""}).status_code == 400
+
+    store.save_resume(conn, ResumeState(resume_text="Python 五年", target_title="後端"))
+    monkeypatch.setattr(jobfetch, "extract_job_code", lambda u: "abc")
+    monkeypatch.setattr(jobfetch, "fetch_job_detail",
+                        lambda code: JobDetail(title="後端工程師", company="甲公司"))
+    monkeypatch.setattr(tailor, "tailor_application",
+                        lambda rt, tt, jd, **kw: TailoredApplication(
+                            job_title=jd.title, company=jd.company,
+                            resume_tips=["強調 Python"], cover_letter="敬啟者…"))
+    body = c.post("/api/tailor", json={"job_url": "https://www.104.com.tw/job/abc"}).json()
+    assert body["job_title"] == "後端工程師" and body["company"] == "甲公司"
+    assert body["resume_tips"] == ["強調 Python"] and body["cover_letter"] == "敬啟者…"
+
+
+def test_tailor_endpoint_errors(tmp_path, monkeypatch):
+    from career_sentinel import jobfetch
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
+    conn = store.connect(tmp_path / "db.sqlite")
+    c = _client(tmp_path)
+    monkeypatch.setattr(jobfetch, "extract_job_code", lambda u: "abc")
+    # 無履歷 → 400
+    assert c.post("/api/tailor", json={"job_url": "u"}).status_code == 400
+    # 抓取失敗 → 502
+    store.save_resume(conn, ResumeState(resume_text="履歷"))
+    def boom(code):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(jobfetch, "fetch_job_detail", boom)
+    assert c.post("/api/tailor", json={"job_url": "u"}).status_code == 502

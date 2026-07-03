@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, research, resume, store, watch
+from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, research, resume, store, tailor, watch
 from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, interview_key
 from . import runner, scheduler
 
@@ -188,6 +188,30 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "title": jd.title, "company": jd.company, "salary": jd.salary,
             "score": result.score, "reasons": result.reasons, "gaps": result.gaps,
         }
+
+    @app.post("/api/tailor")
+    def tailor_job(req: _MatchReq) -> dict:
+        conn = _conn()
+        if not req.job_url.strip():
+            raise HTTPException(status_code=400, detail="請提供職缺網址")
+        try:
+            code = jobfetch.extract_job_code(req.job_url)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        state = store.load_resume(conn)
+        if not state.resume_text.strip():
+            raise HTTPException(status_code=400, detail="請先上傳履歷")
+        try:
+            jd = jobfetch.fetch_job_detail(code)
+        except Exception:
+            raise HTTPException(status_code=502, detail="抓取職缺失敗，請確認網址")
+        try:
+            result = tailor.tailor_application(state.resume_text, state.target_title or "（未指定）", jd)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception:
+            raise HTTPException(status_code=500, detail="生成失敗，請重試")
+        return result.model_dump()
 
     @app.get("/api/search")
     def search(kw: str = "") -> dict:
