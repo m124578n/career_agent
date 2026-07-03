@@ -2,7 +2,7 @@
 
 > 這是 career-sentinel（地端求職 agent）所有**未完成**需求與想法的單一收集處。
 > 新點子、deferred 項目、技術債都記在這。每個子專案各自走 spec → plan → 實作。
-> 最後更新：2026-07-03（SP-UIUX 完成）
+> 最後更新：2026-07-03（SP9 完成）
 
 ## ✅ 已完成
 - **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
@@ -21,6 +21,8 @@
 
 - **SP-UIUX**：前端整體改版（Cockpit 色系 × Exaggerated Minimalism 版面 × 左側欄）。theme.ts 逐字移植雲端 Cockpit（ink+tangerine/teal/amber/danger、Space Grotesk/IBM Plex）、AppShell 200px 側欄（全域重新抓取+設定移入、SP6 提醒橫幅升 App 層全域、聊天頁 display:none 恆掛載保串流）、六頁全部重整（儀表板大字級 KPI+扁平清單 hover 高亮、健檢雙欄診斷、比對大分數、JobRow 扁平列、聊天氣泡/徽章對齊）、Tabler SVG 全面替換 emoji icon。純前端、後端零 diff（reviewer 驗證）、191 測試不動。視覺方向經 visual companion 三方案 mockup 由使用者選定。最終全分支 review(opus) Ready to merge、零 Critical/Important（hover 高亮/a11y minor 當場修）。
 
+- **SP9**：公司評價 web 研究。公司名旁 🔍 一鍵查→LLM 自帶 web search（**spike 實證 Foundry `web_search_20250305` 可用**、真實來源經交叉驗證；OpenAI 相容路徑走 OpenRouter `:online` 慣例、未測）→`research.py` provider-aware＋台灣站點優先 prompt→`CompanyResearch`（風險燈號白名單）→`company_research` KV 快取（TTL 7 天＋force）→`GET /api/research`→`ResearchButton` Modal（嵌儀表板四清單＋JobRow）。真機實測：精藤 37 秒查得 4 優點/5 缺點/8 真實來源（面試趣/比薪水/GoodJob）、快取命中 0.06 秒。安全：LLM 來源連結 scheme guard＋noopener（唯一新增的不可信 URL 面）。211 測試。
+
 ## 🔭 子專案（待做，建議順序）
 
 | # | 子專案 | 內容 | 來源 |
@@ -34,12 +36,13 @@
 | ~~SP6~~ | ~~⏰ 定期檢視 + 通知排程~~ | ✅ 已完成（見上） | — |
 | ~~SP7~~ | ~~📅 行事曆整合~~ | ✅ 已完成（見上） | — |
 | ~~SP8~~ | ~~💬 對話式履歷/需求整理~~ | ✅ 已完成（見上） | — |
-| **SP9** | 🌐 公司評價 web 研究 | 自動上網查公司評價並彙整 | 舊 deferred（原始願景） |
+| ~~SP9~~ | ~~🌐 公司評價 web 研究~~ | ✅ 已完成（見上） | — |
 | **SP10** | 🔍 聊天中即時推職缺 | SP8 對話中 LLM 依偏好適時呼叫既有 SP-Search/推薦，聊天內帶出職缺卡片（需工具呼叫架構） | SP8 brainstorm 拆出（2026-07-02） |
 | **SP11** | ✉️ 客製化履歷/求職信 + 投遞 + 追蹤 | 針對特定職缺客製化履歷與求職信→使用者逐筆確認後投遞→加追蹤清單。**投遞是高影響外部動作，104 投遞端點需先 spike、必須逐筆人工確認** | SP8 brainstorm 拆出（2026-07-02） |
 | **SP12** | 📤 履歷回寫 104 | 本地整理好的履歷同步回 104 網站上的履歷。**登入態寫入操作、104 履歷編輯端點需先 spike、寫回前必須讓使用者確認 diff** | 使用者需求（2026-07-02） |
 
 ## 🔧 技術債 / 精修（穿插各 SP 或獨立小修）
+- **SP9 review minors（皆 defer）**：sources 由 LLM 在最終 JSON 自報（可改從 `web_search_tool_result` 結構化 block 抽取更可靠）；同公司多列併發雙擊可能重複查（後端無鎖、單人可接受殘餘風險）；快取 key 未正規化（全形空白等變體會分裂快取）；三清單 ResearchButton 在 truncate Group 內（面試列在外、視覺不一致）；per-row idle Modal；`force` int 可改 bool；stale-cache 端點路徑無專測。
 - **SP8 review minors（皆 defer、無阻塞）**：`chat_apply` 的 400 判斷耦合「不允許」訊息前綴（下次動 `apply_update` 時改結構化欄位如 `ApplyResult.code`）；無效非 remember 建議會成「套用必失敗」死卡片（可在 cards 過濾 ALLOWED 合法組合）；`readSse` 無終端 `dec.decode()` flush（理論多位元組尾字遺失）；`clearChat`/`deleteMemory` 未檢 `r.ok`（非 2xx 無聲成功）；SSE `error` 事件的 message 前端被丟只顯示固定「回覆中斷」；compact 在 `done` 前同步跑第二次 LLM 呼叫（spec 明訂接受、輸入鎖到結束）；中斷丟整輪含 user 訊息（spec 只要求丟回覆）；`keepMounted={false}` 串流中切分頁 setState on unmounted（console warning）；失敗卡片無重試；store `_load/_save_single` 無型別註記；`test_old_db_gains_new_tables` 未真模擬舊 schema DB。
 - **全分頁**：目前每類只抓第 1 頁；需逐頁抓完整清單。
 - **面試判斷精修**：目前「訊息含『面試』」啟發式可能誤判（婉拒信也提面試）；改用 `lastEvent.type` 對應或面試專屬端點。
