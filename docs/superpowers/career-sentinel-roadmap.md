@@ -2,7 +2,7 @@
 
 > 這是 career-sentinel（地端求職 agent）所有**未完成**需求與想法的單一收集處。
 > 新點子、deferred 項目、技術債都記在這。每個子專案各自走 spec → plan → 實作。
-> 最後更新：2026-07-03（SP11 完成）
+> 最後更新：2026-07-04（SP11b 完成）
 
 ## ✅ 已完成
 - **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
@@ -27,6 +27,8 @@
 
 - **SP11**：客製化履歷 + 求職信。貼 104 網址→重用 SP4 jobfetch 抓 JD→`tailor.py`（照 match.py 模式、身分欄位回填 JD 防幻覺、prompt 明訂不重寫全文/不捏造/求職信 300-400 字只據履歷事實）→`POST /api/tailor`（同 match 錯誤對映、不快取）→第七分頁「客製化」（要強調重點 teal/建議調整/該補關鍵字 amber/求職信全文+複製鍵）。追蹤已由儀表板「我的應徵」涵蓋。最終 review Ready to merge、零 Critical/Important。225 測試。
 
+- **SP11b**：半自動投遞（開頁+帶文案）。客製化分頁「開啟投遞頁」→`POST /api/apply/open`→`web/apply.open_job_page`（`subprocess.Popen` 用登入態純 Chrome 開職缺頁、同 login 機制）→使用者在真瀏覽器親手應徵+貼求職信+送出。**關鍵安全模型：agent 全程不寫入 104、只開網址、不 POST/不填表/不碰投遞 API——故原「需 spike 逆向投遞端點」前提取消、風險由高降低**。`try_begin_browser` 守 launch 瞬間、job_url scheme 驗證+Popen `--` 分隔防 arg-injection。追蹤沿用「我的應徵」、不新增爬蟲/資料表。最終 review Ready to merge、零 Critical/Important（arg-injection 硬化當場修）。233 測試。
+
 ## 🔭 子專案（待做，建議順序）
 
 | # | 子專案 | 內容 | 來源 |
@@ -43,10 +45,11 @@
 | ~~SP9~~ | ~~🌐 公司評價 web 研究~~ | ✅ 已完成（見上） | — |
 | ~~SP10~~ | ~~🔍 聊天中即時推職缺~~ | ✅ 已完成（見上） | — |
 | ~~SP11~~ | ~~✉️ 客製化履歷 + 求職信~~ | ✅ 已完成（見上） | — |
-| **SP11b** | 📮 自動投遞 | 客製化後一鍵投遞到 104→加追蹤。**登入態寫入、104 投遞端點需先 spike（可能被擋/需 CSRF token）、必須逐筆人工確認** | SP11 brainstorm 分拆（2026-07-03） |
+| ~~SP11b~~ | ~~📮 半自動投遞~~ | ✅ 已完成（見上） | — |
 | **SP12** | 📤 履歷回寫 104 | 本地整理好的履歷同步回 104 網站上的履歷。**登入態寫入操作、104 履歷編輯端點需先 spike、寫回前必須讓使用者確認 diff** | 使用者需求（2026-07-02） |
 
 ## 🔧 技術債 / 精修（穿插各 SP 或獨立小修）
+- **SP11b review minors（皆 defer）**：`openApply` 讀 live `url` 輸入而非客製化當下快照（使用者若在客製化後改網址會開到改後的、spec 接受）；殘餘邊界（手開投遞 Chrome 時觸發 scrape 撞 SingletonLock、fail loud、單人可接受）；無投遞成功正向 UI 回饋（Chrome 視窗出現即回饋）。
 - **SP11 review minors（皆 defer）**：`_conn()` 開在空 job_url 檢查之前（無效輸入仍開連線、同 match 慣例）；`tailor._SYSTEM` 與 `match._SYSTEM` 前綴重複（兩處、暫不抽取）。
 - **SP10 review minors（皆 defer）**：單輪多 tool_use block 可暫超 TOOL_LOOP_MAX（迴圈頂才擋，可改逐 block 上限）；`load_settings` 每聊天請求讀兩次；同輪同關鍵字重搜無去重；`AnthropicFoundry` client 未顯式關閉（全 app 既有慣例）；重載頁面後職缺卡片消失（設計如此，訊息文字仍在）；`stream_with_tools`/`_execute_search` 無回傳型別註記。
 - **SP9 review minors（皆 defer）**：sources 由 LLM 在最終 JSON 自報（可改從 `web_search_tool_result` 結構化 block 抽取更可靠）；同公司多列併發雙擊可能重複查（後端無鎖、單人可接受殘餘風險）；快取 key 未正規化（全形空白等變體會分裂快取）；三清單 ResearchButton 在 truncate Group 內（面試列在外、視覺不一致）；per-row idle Modal；`force` int 可改 bool；stale-cache 端點路徑無專測。
