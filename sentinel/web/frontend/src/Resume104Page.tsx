@@ -6,6 +6,7 @@ import {
   diagnoseResume104, getResume, getResume104, openApplyPage,
   type Resume104, type ResumeDiagnosis,
 } from "./api";
+import BusyHint from "./BusyHint";
 import { PageContainer, PageHeader } from "./ui";
 
 export default function Resume104Page() {
@@ -57,14 +58,17 @@ export default function Resume104Page() {
         subtitle="讀取你 104 上的真實履歷、針對它健檢、開編輯頁親手修改"
         action={<Button onClick={read} loading={busy}>讀取我的 104 履歷</Button>}
       />
+      <BusyHint active={busy} label="讀取中" />
       {err && <Text c="danger.6" size="sm" mb="sm">{err}</Text>}
       {data && (
         <Stack gap="md">
           <Group>
             <Badge variant="light" color="teal">完成度 {data.progress}%</Badge>
             <Button size="compact-sm" variant="light" onClick={runDiag} loading={diagBusy}>健檢</Button>
+            <BusyHint active={diagBusy} label="分析中" />
             <Button size="compact-sm" leftSection={<IconExternalLink size={15} />}
               onClick={openEdit} loading={applyBusy}>開啟編輯頁</Button>
+            <BusyHint active={applyBusy} label="開啟中" />
           </Group>
 
           {diag && (

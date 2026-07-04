@@ -3,6 +3,7 @@ import { IconSparkles } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getRecommend, getResume, type RecommendedJob } from "./api";
+import BusyHint from "./BusyHint";
 import JobRow from "./JobRow";
 import { PageContainer, PageHeader } from "./ui";
 
@@ -38,6 +39,7 @@ export default function RecommendPage() {
           </Button>
         }
       />
+      <BusyHint active={busy} label="抓取中" />
       {!canMatch && <Text c="amber.5" size="sm">請先到「履歷健檢」上傳履歷，才能對職缺做比對。</Text>}
       {err && <Text c="danger.6" size="sm">{err}</Text>}
       {jobs && jobs.length === 0 && <Text c="dimmed" size="sm">目前沒有推薦職缺。</Text>}

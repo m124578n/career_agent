@@ -5,6 +5,7 @@ import { IconCheck, IconCopy, IconAlertTriangle, IconExternalLink } from "@table
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getResume, tailorApplication, openApplyPage, type TailoredApplication } from "./api";
+import BusyHint from "./BusyHint";
 import { PageContainer, PageHeader } from "./ui";
 
 export default function TailorPage() {
@@ -82,6 +83,7 @@ export default function TailorPage() {
           客製化
         </Button>
       </Group>
+      <BusyHint active={busy} label="產生中" />
       {err && <Text c="danger.6" size="sm" mt="sm">{err}</Text>}
       {data && (
         <Stack gap="md" mt="lg">
@@ -133,6 +135,7 @@ export default function TailorPage() {
             >
               開啟投遞頁
             </Button>
+            <BusyHint active={applyBusy} label="開啟中" />
             {applyErr && <Text c="danger.6" size="sm" mt="sm">{applyErr}</Text>}
           </Paper>
         </Stack>

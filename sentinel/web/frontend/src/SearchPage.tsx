@@ -3,6 +3,7 @@ import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getResume, getSettings, searchJobs, type RecommendedJob } from "./api";
+import BusyHint from "./BusyHint";
 import JobRow from "./JobRow";
 import { PageContainer, PageHeader } from "./ui";
 
@@ -54,6 +55,7 @@ export default function SearchPage() {
         />
         <Button onClick={run} loading={busy} disabled={!kw.trim()}>搜尋</Button>
       </Group>
+      <BusyHint active={busy} label="搜尋中" />
       {err && <Text c="danger.6" size="sm">{err}</Text>}
       {jobs && jobs.length === 0 && <Text c="dimmed" size="sm">找不到符合的職缺。</Text>}
       <Stack gap={6}>

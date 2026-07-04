@@ -2,6 +2,7 @@ import { Anchor, Button, Group, List, Paper, Progress, Stack, Text } from "@mant
 import { IconStarFilled } from "@tabler/icons-react";
 import { useState } from "react";
 import { matchJob, type MatchResult, type RecommendedJob } from "./api";
+import BusyHint from "./BusyHint";
 import ResearchButton from "./ResearchButton";
 
 export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatch: boolean }) {
@@ -38,6 +39,7 @@ export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatc
         <Group gap="sm" wrap="nowrap">
           <Anchor href={job.url} target="_blank" size="xs" c="dimmed">去 104 看</Anchor>
           <Button size="compact-sm" variant="light" onClick={run} loading={busy} disabled={!canMatch}>比對</Button>
+          <BusyHint active={busy} label="比對中" />
         </Group>
       </Group>
       {err && <Text c="danger.6" size="sm" mt="xs">{err}</Text>}

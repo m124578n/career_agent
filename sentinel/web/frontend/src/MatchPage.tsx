@@ -2,6 +2,7 @@ import { Button, Group, List, Paper, Progress, Stack, Text, TextInput } from "@m
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getResume, matchJob, type MatchResult } from "./api";
+import BusyHint from "./BusyHint";
 import { PageContainer, PageHeader } from "./ui";
 
 export default function MatchPage() {
@@ -40,6 +41,7 @@ export default function MatchPage() {
         />
         <Button onClick={run} loading={busy} disabled={!resume.data?.has_resume || !url.trim()}>比對</Button>
       </Group>
+      <BusyHint active={busy} label="比對中" />
       {err && <Text c="danger.6" size="sm">{err}</Text>}
       {result && (
         <Paper bg="dark.6" radius="md" p="lg" mt="md">

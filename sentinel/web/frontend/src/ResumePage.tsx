@@ -5,6 +5,7 @@ import { IconAlertTriangle, IconCheck } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { diagnoseResume, getResume, uploadResume } from "./api";
+import BusyHint from "./BusyHint";
 import { PageContainer, PageHeader } from "./ui";
 
 export default function ResumePage() {
@@ -61,6 +62,7 @@ export default function ResumePage() {
             disabled={!resume.data?.has_resume || !title.trim()}>
             執行健檢
           </Button>
+          <BusyHint active={busy} label="分析中" />
         </Stack>
       </Paper>
       {d && (
