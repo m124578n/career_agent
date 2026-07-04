@@ -97,14 +97,16 @@ export default function App() {
             </Group>
           </Alert>
         )}
-        {page === "dashboard" && <Dashboard />}
-        {page === "resume" && <ResumePage />}
-        {page === "resume104" && <Resume104Page />}
-        {page === "match" && <MatchPage />}
-        {page === "recommend" && <RecommendPage />}
-        {page === "search" && <SearchPage />}
-        {page === "tailor" && <TailorPage />}
-        {/* 聊天頁：display:none 隱藏而非卸載——保住串流/訊息狀態（原 keepMounted 行為） */}
+        {/* 所有分頁保持掛載、以 display:none 切換——切分頁不卸載，保住各頁結果與
+            進行中的操作狀態（原本只有聊天頁這樣做，其餘條件掛載會在切走時清空 local state）。
+            各頁 mount 時只 seed 表單、不自動觸發爬蟲/LLM，故全掛載安全。 */}
+        <div style={{ display: page === "dashboard" ? undefined : "none" }}><Dashboard /></div>
+        <div style={{ display: page === "resume" ? undefined : "none" }}><ResumePage /></div>
+        <div style={{ display: page === "resume104" ? undefined : "none" }}><Resume104Page /></div>
+        <div style={{ display: page === "match" ? undefined : "none" }}><MatchPage /></div>
+        <div style={{ display: page === "recommend" ? undefined : "none" }}><RecommendPage /></div>
+        <div style={{ display: page === "search" ? undefined : "none" }}><SearchPage /></div>
+        <div style={{ display: page === "tailor" ? undefined : "none" }}><TailorPage /></div>
         <div style={{ display: page === "chat" ? undefined : "none" }}><ChatPage /></div>
       </AppShell.Main>
       <SettingsModal opened={settingsOpen} onClose={() => setSettingsOpen(false)} />
