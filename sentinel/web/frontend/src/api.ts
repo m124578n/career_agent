@@ -12,7 +12,7 @@ export interface SnapshotResp {
   failed_readers: string[];
 }
 export interface ChangeCounts { new_viewers: number; status_changes: number; new_messages: number; new_invites: number }
-export interface StatusResp { running: boolean; last_run: string | null; last_error: string | null; last_failed_readers: string[]; last_change_counts: ChangeCounts }
+export interface StatusResp { running: boolean; last_run: string | null; last_error: string | null; last_failed_readers: string[]; last_change_counts: ChangeCounts; phase: string }
 
 export async function getSnapshot(): Promise<SnapshotResp> {
   const r = await fetch("/api/snapshot");

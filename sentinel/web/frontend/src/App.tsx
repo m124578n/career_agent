@@ -9,6 +9,7 @@ import { ensurePermission, notify } from "./notify";
 import RecommendPage from "./RecommendPage";
 import Resume104Page from "./Resume104Page";
 import ResumePage from "./ResumePage";
+import ScrapeStepper from "./ScrapeStepper";
 import SearchPage from "./SearchPage";
 import SettingsModal from "./SettingsModal";
 import Sidebar, { type PageKey } from "./Sidebar";
@@ -89,6 +90,7 @@ export default function App() {
         />
       </AppShell.Navbar>
       <AppShell.Main>
+        <ScrapeStepper phase={status.data?.phase ?? ""} />
         {due && (
           <Alert color="amber" m="md" mb={0} withCloseButton onClose={onBannerDismiss} title="該檢視求職動態了">
             <Group>
