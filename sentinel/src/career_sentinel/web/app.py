@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, research, resume, store, tailor, watch
+from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, research, resume, store, tailor, usage as usagemod, watch
 from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, interview_key
 from . import apply, runner, scheduler
 
@@ -108,6 +108,15 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/api/status")
     def status() -> dict:
         return runner.status()
+
+    @app.get("/api/usage")
+    def usage_summary() -> dict:
+        return usagemod.summary(_conn())
+
+    @app.delete("/api/usage")
+    def usage_reset() -> dict:
+        usagemod.reset(_conn())
+        return {"status": "reset"}
 
     @app.get("/api/schedule")
     def schedule() -> dict:

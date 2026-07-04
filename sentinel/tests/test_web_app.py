@@ -311,3 +311,36 @@ def test_resume104_diagnose_strips_pii(tmp_path, monkeypatch):
     assert body["strengths"] == ["強"]
     assert "王小明" not in captured["text"] and "a@b.c" not in captured["text"]  # PII 未送 LLM
     assert "甲公司" in captured["text"]
+
+
+def test_get_usage_returns_summary(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from career_sentinel import usage
+    from career_sentinel.web.app import create_app
+
+    db = tmp_path / "u.db"
+    usage.record("履歷健檢", "claude-sonnet-4-5",
+                 __import__("types").SimpleNamespace(
+                     input_tokens=1_000_000, output_tokens=0,
+                     cache_creation_input_tokens=0, cache_read_input_tokens=0), db=db)
+    c = TestClient(create_app(db_path=str(db)))
+    body = c.get("/api/usage").json()
+    assert body["total_tokens"] == 1_000_000
+    assert body["by_feature"][0]["feature"] == "履歷健檢"
+
+
+def test_delete_usage_resets(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from career_sentinel import usage
+    from career_sentinel.web.app import create_app
+
+    db = tmp_path / "u.db"
+    usage.record("JD比對", "claude-sonnet-4-5",
+                 __import__("types").SimpleNamespace(
+                     input_tokens=1_000_000, output_tokens=0,
+                     cache_creation_input_tokens=0, cache_read_input_tokens=0), db=db)
+    c = TestClient(create_app(db_path=str(db)))
+    assert c.delete("/api/usage").json() == {"status": "reset"}
+    assert c.get("/api/usage").json()["total_tokens"] == 0
