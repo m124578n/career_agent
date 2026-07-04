@@ -88,3 +88,16 @@
 
 ## 對應 fixture（去識別化，供 Phase 2 解析 TDD）
 - `tests/fixtures/viewers.json`、`tests/fixtures/messages.json`、`tests/fixtures/applications_empty.json`
+
+## SP12 履歷讀取（2026-07-04 spike，capture_resume.py）
+**結論：104 線上履歷是結構化、且登入態 XHR 讀得到** → SP12 可做真正的結構化比對/健檢。
+- 履歷編輯頁：`pda.104.com.tw/profile/edit?vno=<vno>`（`my/resume/list` 會 302 轉到這、帶 vno）。
+- **主端點**：`GET pda.104.com.tw/profile/ajax/resumeByBlock?vno=<vno>` → `{data, metadata}` 信封。
+- 履歷清單（拿 vno/master）：`GET pda.104.com.tw/profile/ajax/completeResumeList?top=isMaster`。
+- 其他：`profile/ajax/overview`、`inputField`、`options`、`resume-settings`、`api/user`。
+- 我猜的 `/api/resume*` 直打端點全 404——履歷走 `profile/ajax/*` 而非 `/api/*`。
+- **resumeByBlock.data 區塊**（每塊 `formData` 內）：
+  info(基本資料)、education(educations[])、experience(experiences[]、seniority)、
+  jobCondition(求職條件)、skill(skills[])、certificate、language、project(projects[])、
+  portfolio、bio(自傳)、referrer；另有 progress(完成度%)、sidebar[](各塊 completed 旗標)。
+- **PII 注意**：payload 含姓名/email/手機/地址/生日/身分證欄位——SP12 讀取後若送 LLM 是重個資出口，需審慎（captured/ 已 gitignore、FINDINGS 不記實值）。
