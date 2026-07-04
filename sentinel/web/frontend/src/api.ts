@@ -252,3 +252,14 @@ export async function diagnoseResume104(target_title: string, resume104: Resume1
     body: JSON.stringify({ target_title, resume104 }),
   });
 }
+
+export interface UsageFeature { feature: string; calls: number; tokens: number; usd: number }
+export interface UsageSummary { total_tokens: number; total_usd: number; by_feature: UsageFeature[] }
+
+export async function getUsage(): Promise<UsageSummary> {
+  const r = await fetch("/api/usage");
+  return r.json();
+}
+export async function resetUsage(): Promise<Response> {
+  return fetch("/api/usage", { method: "DELETE" });
+}
