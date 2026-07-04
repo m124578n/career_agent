@@ -6,6 +6,7 @@ from datetime import datetime
 
 import httpx
 
+from . import usage
 from .config import foundry_settings, llm_provider, llm_settings
 
 
@@ -27,18 +28,18 @@ def _with_today(system: str | None) -> str:
     return f"{system}\n\n{today}" if system else today
 
 
-def parse_json(prompt: str, model_cls, *, system: str | None = None, client=None):
+def parse_json(prompt: str, model_cls, *, system: str | None = None, client=None, feature: str = ""):
     """要 JSON、驗進 Pydantic model_cls。依 provider 走 OpenAI 相容或 Foundry(Anthropic)。"""
     system = _with_today(system)
     provider = llm_provider()
     if provider == "openai":
-        return _openai_parse_json(prompt, model_cls, system, client)
+        return _openai_parse_json(prompt, model_cls, system, client, feature)
     if provider == "foundry":
-        return _foundry_parse_json(prompt, model_cls, system, client)
+        return _foundry_parse_json(prompt, model_cls, system, client, feature)
     raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
 
 
-def _openai_parse_json(prompt, model_cls, system, client):
+def _openai_parse_json(prompt, model_cls, system, client, feature):
     cfg = llm_settings()
     messages: list[dict] = []
     if system:
@@ -57,14 +58,16 @@ def _openai_parse_json(prompt, model_cls, system, client):
             },
         )
         resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
+        data = resp.json()
+        usage.record(feature, cfg.model, data.get("usage"))
+        content = data["choices"][0]["message"]["content"]
         return model_cls.model_validate(json.loads(_extract_json(content)))
     finally:
         if owns_client:
             http.close()
 
 
-def _foundry_parse_json(prompt, model_cls, system, client):
+def _foundry_parse_json(prompt, model_cls, system, client, feature):
     fs = foundry_settings()
     if client is None:
         from anthropic import AnthropicFoundry
@@ -77,6 +80,7 @@ def _foundry_parse_json(prompt, model_cls, system, client):
         system=sys_text,
         messages=[{"role": "user", "content": prompt}],
     )
+    usage.record(feature, fs.model, getattr(resp, "usage", None))
     text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
     return model_cls.model_validate(json.loads(_extract_json(text)))
 

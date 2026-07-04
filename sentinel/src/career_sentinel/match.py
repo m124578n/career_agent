@@ -25,4 +25,5 @@ def match(resume_text: str, target_title: str, jd: JobDetail, *, client=None) ->
         MatchResult,
         system=_SYSTEM,
         client=client,
+        feature="JD比對",
     )

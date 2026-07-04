@@ -33,6 +33,7 @@ def tailor_application(
         TailoredApplication,
         system=_SYSTEM,
         client=client,
+        feature="客製化",
     )
     result.job_title = jd.title
     result.company = jd.company

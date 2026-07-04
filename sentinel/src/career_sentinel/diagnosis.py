@@ -22,4 +22,5 @@ def diagnose(resume_text: str, target_title: str, expected_salary: int | None, *
         ResumeDiagnosis,
         system=_SYSTEM,
         client=client,
+        feature="履歷健檢",
     )

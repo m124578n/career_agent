@@ -263,7 +263,7 @@ def maybe_curate_memory(conn) -> None:
         '只輸出 JSON：{"facts": ["..."]}\n\n' + lines
     )
     try:
-        curated = llm.parse_json(prompt, CuratedFacts)
+        curated = llm.parse_json(prompt, CuratedFacts, feature="整理助手")
     except Exception:
         return  # 失敗跳過，下輪再試
     texts = [t.strip() for t in curated.facts if t.strip()]

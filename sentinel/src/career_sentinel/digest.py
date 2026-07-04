@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 
+from . import usage
 from .config import llm_settings
 from .models import Diff, Snapshot
 
@@ -57,7 +58,9 @@ def summarize(diff: Diff, snapshot: Snapshot, *, client: object | None = None) -
             },
         )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        data = resp.json()
+        usage.record("每日彙整", cfg.model, data.get("usage"))
+        return data["choices"][0]["message"]["content"]
     except Exception:
         return "（今日彙整暫無）\n" + render_human(diff, snapshot)
     finally:

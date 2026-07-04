@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 import httpx
 
-from . import llm
+from . import llm, usage
 from .config import foundry_settings, llm_provider, llm_settings
 from .models import CompanyResearch
 
@@ -30,13 +30,13 @@ def build_research_prompt(name: str) -> str:
     )
 
 
-def research_company(name: str, *, client=None) -> CompanyResearch:
+def research_company(name: str, *, client=None, feature: str = "公司研究") -> CompanyResearch:
     provider = llm_provider()
     prompt = build_research_prompt(name)
     if provider == "openai":
-        text = _openai_research(prompt, client)
+        text = _openai_research(prompt, client, feature)
     elif provider == "foundry":
-        text = _foundry_research(prompt, client)
+        text = _foundry_research(prompt, client, feature)
     else:
         raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
     r = CompanyResearch.model_validate(json.loads(llm._extract_json(text)))
@@ -45,7 +45,7 @@ def research_company(name: str, *, client=None) -> CompanyResearch:
     return r
 
 
-def _openai_research(prompt, client):
+def _openai_research(prompt, client, feature):
     cfg = llm_settings()
     http = client or httpx.Client(timeout=_TIMEOUT)
     owns_client = client is None
@@ -59,13 +59,15 @@ def _openai_research(prompt, client):
             },
         )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        data = resp.json()
+        usage.record(feature, cfg.model, data.get("usage"))
+        return data["choices"][0]["message"]["content"]
     finally:
         if owns_client:
             http.close()
 
 
-def _foundry_research(prompt, client):
+def _foundry_research(prompt, client, feature):
     fs = foundry_settings()
     if client is None:
         from anthropic import AnthropicFoundry
@@ -77,6 +79,7 @@ def _foundry_research(prompt, client):
         tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
         messages=[{"role": "user", "content": prompt}],
     )
+    usage.record(feature, fs.model, getattr(resp, "usage", None))
     return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
 
 
