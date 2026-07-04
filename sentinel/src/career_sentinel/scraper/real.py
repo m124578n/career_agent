@@ -20,8 +20,8 @@ def establish_session(page) -> bool:
     return not browser.is_login_url(page.url)
 
 
-def scrape(page) -> tuple[Snapshot, set[str]]:
-    """逐讀取器抓取；單一失敗只記進 failed、不中斷其他。"""
+def scrape(page, on_phase=None) -> tuple[Snapshot, set[str]]:
+    """逐讀取器抓取；單一失敗只記進 failed、不中斷其他。on_phase(name) 在每個 reader 前回報階段。"""
     readers = (
         ("viewers", fetch_viewers),
         ("applications", fetch_applications),
@@ -31,6 +31,8 @@ def scrape(page) -> tuple[Snapshot, set[str]]:
     collected: dict[str, list] = {"viewers": [], "applications": [], "messages": [], "interviews": []}
     failed: set[str] = set()
     for name, fn in readers:
+        if on_phase:
+            on_phase(name)
         try:
             collected[name] = fn(page)
         except Exception:
@@ -44,7 +46,7 @@ def scrape(page) -> tuple[Snapshot, set[str]]:
     return snapshot, failed
 
 
-def scrape_session() -> tuple[Snapshot, set[str]] | None:
+def scrape_session(on_phase=None) -> tuple[Snapshot, set[str]] | None:
     """開 headful context → establish_session → scrape。未登入回 None。需真瀏覽器、不單測。"""
     from rebrowser_playwright.sync_api import sync_playwright
 
@@ -54,6 +56,6 @@ def scrape_session() -> tuple[Snapshot, set[str]] | None:
         try:
             if not establish_session(page):
                 return None
-            return scrape(page)
+            return scrape(page, on_phase=on_phase)
         finally:
             ctx.close()

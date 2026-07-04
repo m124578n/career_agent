@@ -75,7 +75,7 @@ def test_default_scrape_saves_to_given_db(tmp_path, monkeypatch):
     from career_sentinel.scraper import real
 
     snap = Snapshot(viewers=[Viewer(company="A", job_title="x", viewed_at="t")])
-    monkeypatch.setattr(real, "scrape_session", lambda: (snap, set()))
+    monkeypatch.setattr(real, "scrape_session", lambda on_phase=None: (snap, set()))
     db = str(tmp_path / "db.sqlite")
     failed = runner.default_scrape(db)
     assert failed == set()
@@ -90,11 +90,11 @@ def test_default_scrape_records_change_counts(tmp_path, monkeypatch):
     db = str(tmp_path / "db.sqlite")
     # 第一次：一個 viewer（相對空前次 → 新增 1）
     snap1 = Snapshot(viewers=[Viewer(company="A", job_title="x", viewed_at="t")])
-    monkeypatch.setattr(real, "scrape_session", lambda: (snap1, set()))
+    monkeypatch.setattr(real, "scrape_session", lambda on_phase=None: (snap1, set()))
     runner.default_scrape(db)
     assert runner.status()["last_change_counts"]["new_viewers"] == 1
     # 第二次：同一 viewer（無新增 → 0）
-    monkeypatch.setattr(real, "scrape_session", lambda: (snap1, set()))
+    monkeypatch.setattr(real, "scrape_session", lambda on_phase=None: (snap1, set()))
     runner.default_scrape(db)
     assert runner.status()["last_change_counts"]["new_viewers"] == 0
 
@@ -111,7 +111,7 @@ def test_default_scrape_resets_counts_on_login_required(tmp_path, monkeypatch):
     from career_sentinel.scraper import real
     _reset()
     runner._state.last_change_counts = ChangeCounts(new_viewers=3)  # 模擬上次成功的殘留
-    monkeypatch.setattr(real, "scrape_session", lambda: None)       # 這次未登入
+    monkeypatch.setattr(real, "scrape_session", lambda on_phase=None: None)       # 這次未登入
     with pytest.raises(runner.LoginRequired):
         runner.default_scrape(str(tmp_path / "db.sqlite"))
     assert runner.status()["last_change_counts"]["new_viewers"] == 0

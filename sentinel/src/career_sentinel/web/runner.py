@@ -19,6 +19,7 @@ class _State:
     last_error: str | None = None
     last_failed_readers: list[str] = field(default_factory=list)
     last_change_counts: ChangeCounts = field(default_factory=ChangeCounts)
+    phase: str = ""
 
 
 _state = _State()
@@ -32,6 +33,7 @@ def status() -> dict:
         "last_error": _state.last_error,
         "last_failed_readers": list(_state.last_failed_readers),
         "last_change_counts": _state.last_change_counts.model_dump(),
+        "phase": _state.phase,
     }
 
 
@@ -47,6 +49,12 @@ def try_begin_browser() -> bool:
 def end_browser() -> None:
     with _lock:
         _state.running = False
+
+
+def set_phase(name: str) -> None:
+    """回報目前爬蟲階段（best-effort，供 stepper 顯示）。"""
+    with _lock:
+        _state.phase = name
 
 
 def start_scrape(launch_scrape: Callable[[], set[str]]) -> bool:
@@ -69,6 +77,7 @@ def _run(launch_scrape: Callable[[], set[str]]) -> None:
         _state.last_error = str(exc)
     finally:
         end_browser()
+        set_phase("")
 
 
 def default_scrape(db_path: str | None = None) -> set[str]:
@@ -77,12 +86,14 @@ def default_scrape(db_path: str | None = None) -> set[str]:
     from ..scraper import real
 
     _state.last_change_counts = ChangeCounts()  # 先重置，避免失敗/未登入時殘留上次計數
-    result = real.scrape_session()
+    set_phase("establish")
+    result = real.scrape_session(on_phase=set_phase)
     if result is None:
         raise LoginRequired()
     failed = result[1]
     conn = store.connect(db_path or config.db_path())
     try:
+        set_phase("digest")
         _report, counts = cli.run_pipeline(lambda: result, conn, now=datetime.now().isoformat(timespec="seconds"))
         _state.last_change_counts = counts
     finally:
