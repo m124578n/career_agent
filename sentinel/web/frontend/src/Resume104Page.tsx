@@ -1,5 +1,5 @@
 import { Badge, Button, Group, List, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
-import { IconAlertTriangle, IconCheck, IconDownload, IconExternalLink } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCheck, IconLock, IconExternalLink } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -90,7 +90,7 @@ export default function Resume104Page() {
             <Paper key={b.id} bg="dark.6" radius="md" p="lg">
               <Group gap={8} mb="xs">
                 <Text fw={600}>{b.label}</Text>
-                {b.is_pii && <Badge size="xs" variant="light" color="gray" leftSection={<IconDownload size={10} />}>個資（不送 LLM）</Badge>}
+                {b.is_pii && <Badge size="xs" variant="light" color="gray" leftSection={<IconLock size={10} />}>個資（不送 LLM）</Badge>}
                 {b.completed && <Badge size="xs" variant="light" color="teal">已完成</Badge>}
               </Group>
               <Text size="sm" c="dark.1" style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{b.text}</Text>
