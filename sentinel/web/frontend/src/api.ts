@@ -237,3 +237,18 @@ export async function openApplyPage(job_url: string): Promise<Response> {
     body: JSON.stringify({ job_url }),
   });
 }
+
+export interface Resume104Block { id: string; label: string; text: string; is_pii: boolean; completed: boolean }
+export interface Resume104 { vno: string; progress: number; blocks: Resume104Block[] }
+
+export async function getResume104(): Promise<Response> {
+  return fetch("/api/resume104");
+}
+
+export async function diagnoseResume104(target_title: string, resume104: Resume104): Promise<Response> {
+  return fetch("/api/resume104/diagnose", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_title, resume104 }),
+  });
+}

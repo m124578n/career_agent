@@ -7,6 +7,7 @@ import Dashboard from "./Dashboard";
 import MatchPage from "./MatchPage";
 import { ensurePermission, notify } from "./notify";
 import RecommendPage from "./RecommendPage";
+import Resume104Page from "./Resume104Page";
 import ResumePage from "./ResumePage";
 import SearchPage from "./SearchPage";
 import SettingsModal from "./SettingsModal";
@@ -98,6 +99,7 @@ export default function App() {
         )}
         {page === "dashboard" && <Dashboard />}
         {page === "resume" && <ResumePage />}
+        {page === "resume104" && <Resume104Page />}
         {page === "match" && <MatchPage />}
         {page === "recommend" && <RecommendPage />}
         {page === "search" && <SearchPage />}
