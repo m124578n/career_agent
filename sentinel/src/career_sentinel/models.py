@@ -225,3 +225,17 @@ class TailoredApplication(BaseModel):
     resume_adjustments: list[str] = Field(default_factory=list)
     missing_keywords: list[str] = Field(default_factory=list)
     cover_letter: str = ""
+
+
+class Resume104Block(BaseModel):
+    id: str
+    label: str
+    text: str = ""
+    is_pii: bool = False
+    completed: bool = False
+
+
+class Resume104(BaseModel):
+    vno: str = ""
+    progress: int = 0
+    blocks: list[Resume104Block] = Field(default_factory=list)

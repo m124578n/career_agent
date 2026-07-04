@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+from ..models import Resume104, Resume104Block
+
+RESUME_LIST_URL = "https://pda.104.com.tw/profile/ajax/completeResumeList?top=isMaster"
+RESUME_BLOCK_URL = "https://pda.104.com.tw/profile/ajax/resumeByBlock?vno={vno}"
+
+_LABELS = {
+    "info": "基本資料", "experience": "工作經歷", "education": "學歷",
+    "skill": "技能", "language": "語言", "project": "專案", "bio": "自傳",
+}
+# 內容區塊（非 PII）——健檢用
+_CONTENT = ["experience", "education", "skill", "language", "project", "bio"]
+
+
+def _s(v) -> str:
+    return str(v).strip() if v is not None else ""
+
+
+def _dur(d) -> str:
+    if not isinstance(d, dict):
+        return ""
+    sy, sm = d.get("startYear"), d.get("startMonth")
+    ey, em = d.get("endYear"), d.get("endMonth")
+    start = f"{sy}/{sm}" if sy else ""
+    end = f"{ey}/{em}" if ey else "至今"
+    return f"{start} ~ {end}".strip(" ~") if start or ey else ""
+
+
+def _des_join(lst) -> str:
+    if not isinstance(lst, list):
+        return ""
+    return "、".join(_s(x.get("des")) for x in lst if isinstance(x, dict) and x.get("des"))
+
+
+def _flatten_info(data: dict) -> str:
+    info = (data.get("ACData") or {}).get("info") or {}
+    if not isinstance(info, dict):
+        return ""
+    city = _des_join(info.get("city"))
+    parts = [
+        f"姓名：{_s(info.get('name'))}",
+        f"Email：{_s(info.get('email'))}",
+        f"手機：{_s(info.get('cellphone'))}",
+        f"居住地：{city} {_s(info.get('street'))}".strip(),
+    ]
+    return "\n".join(p for p in parts if p.split("：", 1)[-1].strip())
+
+
+def _flatten_experience(fd: dict) -> str:
+    out = []
+    for e in fd.get("experiences") or []:
+        if not isinstance(e, dict):
+            continue
+        head = f"{_s(e.get('companyName'))}｜{_s(e.get('jobName'))}（{_dur(e.get('duration'))}）"
+        lines = [head]
+        cat = _des_join(e.get("jobCat"))
+        if cat:
+            lines.append(f"職類：{cat}")
+        if _s(e.get("description")):
+            lines.append(_s(e.get("description")))
+        out.append("\n".join(lines))
+    return "\n\n".join(out)
+
+
+def _flatten_education(fd: dict) -> str:
+    out = []
+    for e in fd.get("educations") or []:
+        if not isinstance(e, dict):
+            continue
+        dep = "、".join(_s(x.get("name")) for x in (e.get("departments") or []) if isinstance(x, dict))
+        highest = _s((e.get("highest") or {}).get("text")) if isinstance(e.get("highest"), dict) else ""
+        status = _s((e.get("status") or {}).get("text")) if isinstance(e.get("status"), dict) else ""
+        out.append(f"{_s(e.get('name'))} {dep} {highest}（{_dur(e.get('duration'))}）{status}".strip())
+    return "\n".join(out)
+
+
+def _flatten_skill(fd: dict) -> str:
+    out = []
+    for s in fd.get("skills") or []:
+        if not isinstance(s, dict):
+            continue
+        name = _s(s.get("name"))
+        desc = _s(s.get("desc"))
+        out.append(f"{name}：{desc}" if desc else name)
+    return "\n".join(x for x in out if x)
+
+
+def _flatten_language(fd: dict) -> str:
+    langs = fd.get("languages")
+    if not isinstance(langs, dict):
+        return ""
+    out = []
+    for f in langs.get("foreign") or []:
+        if isinstance(f, dict) and isinstance(f.get("type"), dict):
+            out.append(_s(f["type"].get("text")))
+    return "、".join(x for x in out if x)
+
+
+def _flatten_project(fd: dict) -> str:
+    out = []
+    for p in fd.get("projects") or []:
+        if not isinstance(p, dict):
+            continue
+        head = f"{_s(p.get('name'))}（{_dur(p.get('duration'))}）"
+        intro = _s(p.get("introduction"))
+        out.append(f"{head}\n{intro}" if intro else head)
+    return "\n\n".join(out)
+
+
+def _flatten_bio(fd: dict) -> str:
+    bio = fd.get("bio")
+    if not isinstance(bio, dict):
+        return ""
+    return _s(bio.get("chi")) or _s(bio.get("eng"))
+
+
+_FLATTEN = {
+    "experience": _flatten_experience, "education": _flatten_education,
+    "skill": _flatten_skill, "language": _flatten_language,
+    "project": _flatten_project, "bio": _flatten_bio,
+}
+
+
+def parse_resume104(payload: dict) -> Resume104:
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return Resume104()
+    vno = _s((data.get("resume") or {}).get("vno"))
+    progress = data.get("progress") if isinstance(data.get("progress"), int) else 0
+    sidebar = {
+        _s(s.get("id")): bool(s.get("completed"))
+        for s in (data.get("sidebar") or []) if isinstance(s, dict)
+    }
+    blocks: list[Resume104Block] = []
+    info_text = _flatten_info(data)
+    if info_text:
+        blocks.append(Resume104Block(id="info", label=_LABELS["info"], text=info_text,
+                                      is_pii=True, completed=sidebar.get("info", False)))
+    for bid in _CONTENT:
+        fd = (data.get(bid) or {}).get("formData") or {}
+        text = _FLATTEN[bid](fd) if isinstance(fd, dict) else ""
+        if text.strip():
+            blocks.append(Resume104Block(id=bid, label=_LABELS[bid], text=text,
+                                         is_pii=False, completed=sidebar.get(bid, False)))
+    return Resume104(vno=vno, progress=progress, blocks=blocks)
+
+
+def flatten_for_diagnosis(r: Resume104) -> str:
+    """健檢用文字：只取非 PII 區塊，含區塊標題。"""
+    return "\n\n".join(
+        f"【{b.label}】\n{b.text}" for b in r.blocks if not b.is_pii and b.text.strip()
+    )
