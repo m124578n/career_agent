@@ -64,3 +64,14 @@ def test_flatten_for_diagnosis_strips_pii():
     assert "王小明" not in flat and "test@example.com" not in flat and "0900000000" not in flat and "測試路" not in flat
     # 內容出現
     assert "甲公司" in flat and "後端工程師" in flat and "測試大學" in flat and "Python" in flat
+
+
+def test_parse_resume104_non_dict_nested_no_crash():
+    for bad in [
+        {"data": {"resume": "not-a-dict"}},
+        {"data": {"ACData": "not-a-dict"}},
+        {"data": {"experience": "not-a-dict"}},
+        {"data": {"education": 123, "skill": "x", "bio": []}},
+    ]:
+        r = resume104.parse_resume104(bad)  # 不得 crash
+        assert r.vno == "" or isinstance(r.vno, str)

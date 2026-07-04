@@ -17,6 +17,11 @@ def _s(v) -> str:
     return str(v).strip() if v is not None else ""
 
 
+def _d(v) -> dict:
+    """安全取 dict：非 dict 回空 dict（防 104 回傳非預期形狀）。"""
+    return v if isinstance(v, dict) else {}
+
+
 def _dur(d) -> str:
     if not isinstance(d, dict):
         return ""
@@ -34,9 +39,7 @@ def _des_join(lst) -> str:
 
 
 def _flatten_info(data: dict) -> str:
-    info = (data.get("ACData") or {}).get("info") or {}
-    if not isinstance(info, dict):
-        return ""
+    info = _d(_d(data.get("ACData")).get("info"))
     city = _des_join(info.get("city"))
     parts = [
         f"姓名：{_s(info.get('name'))}",
@@ -69,8 +72,8 @@ def _flatten_education(fd: dict) -> str:
         if not isinstance(e, dict):
             continue
         dep = "、".join(_s(x.get("name")) for x in (e.get("departments") or []) if isinstance(x, dict))
-        highest = _s((e.get("highest") or {}).get("text")) if isinstance(e.get("highest"), dict) else ""
-        status = _s((e.get("status") or {}).get("text")) if isinstance(e.get("status"), dict) else ""
+        highest = _s(_d(e.get("highest")).get("text"))
+        status = _s(_d(e.get("status")).get("text"))
         out.append(f"{_s(e.get('name'))} {dep} {highest}（{_dur(e.get('duration'))}）{status}".strip())
     return "\n".join(out)
 
@@ -87,13 +90,11 @@ def _flatten_skill(fd: dict) -> str:
 
 
 def _flatten_language(fd: dict) -> str:
-    langs = fd.get("languages")
-    if not isinstance(langs, dict):
-        return ""
+    langs = _d(fd.get("languages"))
     out = []
     for f in langs.get("foreign") or []:
-        if isinstance(f, dict) and isinstance(f.get("type"), dict):
-            out.append(_s(f["type"].get("text")))
+        if isinstance(f, dict):
+            out.append(_s(_d(f.get("type")).get("text")))
     return "、".join(x for x in out if x)
 
 
@@ -126,7 +127,7 @@ def parse_resume104(payload: dict) -> Resume104:
     data = payload.get("data")
     if not isinstance(data, dict):
         return Resume104()
-    vno = _s((data.get("resume") or {}).get("vno"))
+    vno = _s(_d(data.get("resume")).get("vno"))
     progress = data.get("progress") if isinstance(data.get("progress"), int) else 0
     sidebar = {
         _s(s.get("id")): bool(s.get("completed"))
@@ -138,8 +139,8 @@ def parse_resume104(payload: dict) -> Resume104:
         blocks.append(Resume104Block(id="info", label=_LABELS["info"], text=info_text,
                                       is_pii=True, completed=sidebar.get("info", False)))
     for bid in _CONTENT:
-        fd = (data.get(bid) or {}).get("formData") or {}
-        text = _FLATTEN[bid](fd) if isinstance(fd, dict) else ""
+        fd = _d(_d(data.get(bid)).get("formData"))
+        text = _FLATTEN[bid](fd)
         if text.strip():
             blocks.append(Resume104Block(id=bid, label=_LABELS[bid], text=text,
                                          is_pii=False, completed=sidebar.get(bid, False)))
