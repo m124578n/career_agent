@@ -10,6 +10,7 @@ def _reset():
     runner._state.last_error = None
     runner._state.last_failed_readers = []
     runner._state.last_change_counts = ChangeCounts()
+    runner._state.phase = ""
 
 
 def test_start_scrape_success_updates_state():
