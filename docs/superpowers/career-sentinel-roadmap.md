@@ -2,7 +2,7 @@
 
 > 這是 career-sentinel（地端求職 agent）所有**未完成**需求與想法的單一收集處。
 > 新點子、deferred 項目、技術債都記在這。每個子專案各自走 spec → plan → 實作。
-> 最後更新：2026-07-04（SP12 完成、backlog 清空）
+> 最後更新：2026-07-04（SP13 token 用量/花費追蹤 完成；原始 backlog 空、SP13 為使用者新需求）
 
 ## ✅ 已完成
 - **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
@@ -29,7 +29,8 @@
 
 - **SP11b**：半自動投遞（開頁+帶文案）。客製化分頁「開啟投遞頁」→`POST /api/apply/open`→`web/apply.open_job_page`（`subprocess.Popen` 用登入態純 Chrome 開職缺頁、同 login 機制）→使用者在真瀏覽器親手應徵+貼求職信+送出。**關鍵安全模型：agent 全程不寫入 104、只開網址、不 POST/不填表/不碰投遞 API——故原「需 spike 逆向投遞端點」前提取消、風險由高降低**。`try_begin_browser` 守 launch 瞬間、job_url scheme 驗證+Popen `--` 分隔防 arg-injection。追蹤沿用「我的應徵」、不新增爬蟲/資料表。最終 review Ready to merge、零 Critical/Important（arg-injection 硬化當場修）。233 測試。
 
-- **SP12**：讀 104 履歷 + 健檢（spike 先行）。**spike 發現 104 履歷是結構化、登入態 XHR 讀得到**（`profile/ajax/resumeByBlock?vno=`）→ 原「結構不對稱、需寫回」的顧慮翻轉。`scraper/resume104`（登入態讀、`parse_resume104` 純函式解析各區塊、`_d` 防禦非預期形狀）→`GET /api/resume104`（on-demand、瀏覽器序列化、結果只回前端顯示不外送）→`POST /api/resume104/diagnose`（**`flatten_for_diagnosis` 剝除 info(PII) 區塊才送 LLM**、重用 SP3 diagnosis）→第八分頁「104 履歷」（讀取/健檢/開編輯頁；開編輯頁重用 SP11b `openApplyPage`）。**agent 不寫入 104**（改履歷由使用者在編輯頁親手做）。PII 邊界端到端雙層測試鎖。最終 review Ready to merge、零 Critical/Important。240 測試。**backlog 至此清空——原始願景全數落地。**
+- **SP12**：讀 104 履歷 + 健檢（spike 先行）。**spike 發現 104 履歷是結構化、登入態 XHR 讀得到**（`profile/ajax/resumeByBlock?vno=`）→ 原「結構不對稱、需寫回」的顧慮翻轉。`scraper/resume104`（登入態讀、`parse_resume104` 純函式解析各區塊、`_d` 防禦非預期形狀）→`GET /api/resume104`（on-demand、瀏覽器序列化、結果只回前端顯示不外送）→`POST /api/resume104/diagnose`（**`flatten_for_diagnosis` 剝除 info(PII) 區塊才送 LLM**、重用 SP3 diagnosis）→第八分頁「104 履歷」（讀取/健檢/開編輯頁；開編輯頁重用 SP11b `openApplyPage`）。**agent 不寫入 104**（改履歷由使用者在編輯頁親手做）。PII 邊界端到端雙層測試鎖。最終 review Ready to merge、零 Critical/Important。240 測試。**原始願景全數落地。**
+- **SP13**：Token 用量與花費追蹤（使用者新需求）。側欄左下角常駐 badge 顯示累計 token+預估 USD、點開 Modal 逐功能明細+歸零。新 `usage.py`（`_PRICING` 定價表可調、預設 Sonnet 4.5 官方價；`cost_of`；`normalize` 兩家 provider——**Anthropic input 直取/OpenAI 扣 cached**；`record` **best-effort 吞所有例外**、自開 `store.connect(config.db_path())`；`summary`/`reset`）+`store` `usage_log` 表。**8 個 LLM 出口全插樁**（parse_json/chat_stream/stream_with_tools/research/digest × provider），記帳嚴格在回應後、**絕不影響 LLM 回傳/yield**（測試斷言鎖）。`GET/DELETE /api/usage`（純本地 DB）+前端 UsageBadge（TanStack Query 30s 輪詢）。順手加 autouse conftest（`SENTINEL_DATA_DIR`→tmp）隔離測試避免污染真 DB。最終 review Ready to merge、零 Critical/Important。252 測試。**注意：USD 用 Anthropic 官方價估算，Foundry 實際計費可能不同、改 `_PRICING` 即可。**
 
 ## 🔭 子專案（待做，建議順序）
 
@@ -51,6 +52,7 @@
 | ~~SP12~~ | ~~📤 讀 104 履歷 + 健檢~~ | ✅ 已完成（見上） | — |
 
 ## 🔧 技術債 / 精修（穿插各 SP 或獨立小修）
+- **SP13 review minors（皆 defer）**：feature 字串呼叫端硬打、無集中常數（typo 只會多一列分組、無行為影響）；`_price_for` 目前僅 `sonnet`+`default`、未來多模型時 dict 順序 load-bearing；`usage.record` `except pass` 無 debug log；research 記 `cfg.model` 不含 `:online`（OpenRouter 路由後綴、非計費 model、仍能 substring 匹配定價）；串流 instrument 測試沒斷言 model（非串流 sibling 有）；`getUsage()` 無 `r.ok`/shape 驗證、歸零按鈕沒檢查 DELETE 回應狀態（皆 fail-safe：react-query 錯→data undefined→顯示「—」，reset 後必重抓真狀態）；`_foundry_chat_stream` 的 `get_final_message()` 未包在 `usage.record` try/except（同 `stream_with_tools` 既有 pattern、串流耗盡後不發網路呼叫故不 raise、低風險）。**Foundry 實際計費可能與 `_PRICING` 預設(Anthropic Sonnet 官方價)不同——可調。**
 - **SP12 review minors（皆 defer）**：`fetch_resume104` 未帶 `Referer`（pda host 可能不需、真機驗證確認；若 403 補 `Referer: pda 首頁`）；`vno` 選取在無 master 旗標時取最後一筆（單 master 常態無害）；`_flatten_bio` chi 優先 eng 無註解；`progress` bool 視為 int（顯示用無害）。
 - **SP11b review minors（皆 defer）**：`openApply` 讀 live `url` 輸入而非客製化當下快照（使用者若在客製化後改網址會開到改後的、spec 接受）；殘餘邊界（手開投遞 Chrome 時觸發 scrape 撞 SingletonLock、fail loud、單人可接受）；無投遞成功正向 UI 回饋（Chrome 視窗出現即回饋）。
 - **SP11 review minors（皆 defer）**：`_conn()` 開在空 job_url 檢查之前（無效輸入仍開連線、同 match 慣例）；`tailor._SYSTEM` 與 `match._SYSTEM` 前綴重複（兩處、暫不抽取）。
