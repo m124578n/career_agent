@@ -50,6 +50,17 @@ CREATE TABLE IF NOT EXISTS dismissed_interviews (
 CREATE TABLE IF NOT EXISTS company_research (
     company TEXT PRIMARY KEY, data TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS usage_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    feature TEXT NOT NULL,
+    model TEXT NOT NULL DEFAULT '',
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read INTEGER NOT NULL DEFAULT 0,
+    cache_write INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    at TEXT NOT NULL
+);
 """
 
 
