@@ -2,7 +2,7 @@
 
 > 這是 career-sentinel（地端求職 agent）所有**未完成**需求與想法的單一收集處。
 > 新點子、deferred 項目、技術債都記在這。每個子專案各自走 spec → plan → 實作。
-> 最後更新：2026-07-04（SP11b 完成）
+> 最後更新：2026-07-04（SP12 完成、backlog 清空）
 
 ## ✅ 已完成
 - **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
@@ -29,6 +29,8 @@
 
 - **SP11b**：半自動投遞（開頁+帶文案）。客製化分頁「開啟投遞頁」→`POST /api/apply/open`→`web/apply.open_job_page`（`subprocess.Popen` 用登入態純 Chrome 開職缺頁、同 login 機制）→使用者在真瀏覽器親手應徵+貼求職信+送出。**關鍵安全模型：agent 全程不寫入 104、只開網址、不 POST/不填表/不碰投遞 API——故原「需 spike 逆向投遞端點」前提取消、風險由高降低**。`try_begin_browser` 守 launch 瞬間、job_url scheme 驗證+Popen `--` 分隔防 arg-injection。追蹤沿用「我的應徵」、不新增爬蟲/資料表。最終 review Ready to merge、零 Critical/Important（arg-injection 硬化當場修）。233 測試。
 
+- **SP12**：讀 104 履歷 + 健檢（spike 先行）。**spike 發現 104 履歷是結構化、登入態 XHR 讀得到**（`profile/ajax/resumeByBlock?vno=`）→ 原「結構不對稱、需寫回」的顧慮翻轉。`scraper/resume104`（登入態讀、`parse_resume104` 純函式解析各區塊、`_d` 防禦非預期形狀）→`GET /api/resume104`（on-demand、瀏覽器序列化、結果只回前端顯示不外送）→`POST /api/resume104/diagnose`（**`flatten_for_diagnosis` 剝除 info(PII) 區塊才送 LLM**、重用 SP3 diagnosis）→第八分頁「104 履歷」（讀取/健檢/開編輯頁；開編輯頁重用 SP11b `openApplyPage`）。**agent 不寫入 104**（改履歷由使用者在編輯頁親手做）。PII 邊界端到端雙層測試鎖。最終 review Ready to merge、零 Critical/Important。240 測試。**backlog 至此清空——原始願景全數落地。**
+
 ## 🔭 子專案（待做，建議順序）
 
 | # | 子專案 | 內容 | 來源 |
@@ -46,9 +48,10 @@
 | ~~SP10~~ | ~~🔍 聊天中即時推職缺~~ | ✅ 已完成（見上） | — |
 | ~~SP11~~ | ~~✉️ 客製化履歷 + 求職信~~ | ✅ 已完成（見上） | — |
 | ~~SP11b~~ | ~~📮 半自動投遞~~ | ✅ 已完成（見上） | — |
-| **SP12** | 📤 履歷回寫 104 | 本地整理好的履歷同步回 104 網站上的履歷。**登入態寫入操作、104 履歷編輯端點需先 spike、寫回前必須讓使用者確認 diff** | 使用者需求（2026-07-02） |
+| ~~SP12~~ | ~~📤 讀 104 履歷 + 健檢~~ | ✅ 已完成（見上） | — |
 
 ## 🔧 技術債 / 精修（穿插各 SP 或獨立小修）
+- **SP12 review minors（皆 defer）**：`fetch_resume104` 未帶 `Referer`（pda host 可能不需、真機驗證確認；若 403 補 `Referer: pda 首頁`）；`vno` 選取在無 master 旗標時取最後一筆（單 master 常態無害）；`_flatten_bio` chi 優先 eng 無註解；`progress` bool 視為 int（顯示用無害）。
 - **SP11b review minors（皆 defer）**：`openApply` 讀 live `url` 輸入而非客製化當下快照（使用者若在客製化後改網址會開到改後的、spec 接受）；殘餘邊界（手開投遞 Chrome 時觸發 scrape 撞 SingletonLock、fail loud、單人可接受）；無投遞成功正向 UI 回饋（Chrome 視窗出現即回饋）。
 - **SP11 review minors（皆 defer）**：`_conn()` 開在空 job_url 檢查之前（無效輸入仍開連線、同 match 慣例）；`tailor._SYSTEM` 與 `match._SYSTEM` 前綴重複（兩處、暫不抽取）。
 - **SP10 review minors（皆 defer）**：單輪多 tool_use block 可暫超 TOOL_LOOP_MAX（迴圈頂才擋，可改逐 block 上限）；`load_settings` 每聊天請求讀兩次；同輪同關鍵字重搜無去重；`AnthropicFoundry` client 未顯式關閉（全 app 既有慣例）；重載頁面後職缺卡片消失（設計如此，訊息文字仍在）；`stream_with_tools`/`_execute_search` 無回傳型別註記。
