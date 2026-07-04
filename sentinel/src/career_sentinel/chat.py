@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from . import llm, store
+from . import llm, store, usage
 from .models import (
     ChatState, JobPreferences, MemoryFact, MemoryState, ResumeState, Settings, SuggestedUpdate,
 )
@@ -236,7 +236,8 @@ def maybe_compact(conn, state: ChatState) -> ChatState:
         + "直接輸出摘要文字：\n" + lines
     )
     try:
-        new_summary = "".join(llm.chat_stream([{"role": "user", "content": prompt}]))
+        new_summary = "".join(llm.chat_stream(
+            [{"role": "user", "content": prompt}], feature="整理助手"))
     except Exception:
         return state  # 失敗跳過、下輪再試，永不丟逐字訊息
     if not new_summary.strip():
@@ -337,7 +338,7 @@ def _execute_search(keyword: str):
     return jobs, json.dumps(brief, ensure_ascii=False), False
 
 
-def stream_with_tools(messages: list[dict], *, system: str, client=None):
+def stream_with_tools(messages: list[dict], *, system: str, client=None, feature: str = "整理助手"):
     """Foundry 原生 tool use 串流：yield {"type":"text"} 與 {"type":"jobs"} 事件。
 
     工具執行達 TOOL_LOOP_MAX 後，最後一輪不帶 tools 強制作答。
@@ -364,6 +365,7 @@ def stream_with_tools(messages: list[dict], *, system: str, client=None):
             for text in stream.text_stream:
                 yield {"type": "text", "text": text}
             final = stream.get_final_message()
+        usage.record(feature, fs.model, getattr(final, "usage", None))
         if final.stop_reason != "tool_use":
             return
         results = []

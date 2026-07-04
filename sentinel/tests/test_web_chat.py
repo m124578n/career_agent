@@ -20,7 +20,7 @@ def _events(text: str) -> list[tuple[str, dict]]:
 
 
 def _fake_stream(chunks):
-    def fake(messages, *, system=None, client=None):
+    def fake(messages, *, system=None, client=None, feature=""):
         return iter(chunks)
     return fake
 
@@ -60,7 +60,7 @@ def test_chat_streams_and_persists(tmp_path, monkeypatch):
 def test_chat_error_event_and_no_persist(tmp_path, monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "k")
     monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
-    def boom(messages, *, system=None, client=None):
+    def boom(messages, *, system=None, client=None, feature=""):
         yield "半句"
         raise RuntimeError("connection reset")
     monkeypatch.setattr(llm, "chat_stream", boom)

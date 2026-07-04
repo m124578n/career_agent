@@ -85,19 +85,19 @@ def _foundry_parse_json(prompt, model_cls, system, client, feature):
     return model_cls.model_validate(json.loads(_extract_json(text)))
 
 
-def chat_stream(messages: list[dict], *, system: str | None = None, client=None):
+def chat_stream(messages: list[dict], *, system: str | None = None, client=None, feature: str = ""):
     """多輪對話串流，yield 文字增量。依 provider 走 OpenAI 相容或 Foundry(Anthropic)。"""
     system = _with_today(system)
     provider = llm_provider()
     if provider == "openai":
-        yield from _openai_chat_stream(messages, system, client)
+        yield from _openai_chat_stream(messages, system, client, feature)
     elif provider == "foundry":
-        yield from _foundry_chat_stream(messages, system, client)
+        yield from _foundry_chat_stream(messages, system, client, feature)
     else:
         raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
 
 
-def _openai_chat_stream(messages, system, client):
+def _openai_chat_stream(messages, system, client, feature):
     cfg = llm_settings()
     msgs: list[dict] = []
     if system:
@@ -105,12 +105,14 @@ def _openai_chat_stream(messages, system, client):
     msgs.extend(messages)
     http = client or httpx.Client(timeout=300)
     owns_client = client is None
+    last_usage = None
     try:
         with http.stream(
             "POST",
             f"{cfg.base_url}/chat/completions",
             headers={"Authorization": f"Bearer {cfg.api_key}"},
-            json={"model": cfg.model, "messages": msgs, "stream": True},
+            json={"model": cfg.model, "messages": msgs, "stream": True,
+                  "stream_options": {"include_usage": True}},
         ) as resp:
             resp.raise_for_status()
             for line in resp.iter_lines():
@@ -119,18 +121,22 @@ def _openai_chat_stream(messages, system, client):
                 payload = line[len("data:"):].strip()
                 if payload == "[DONE]":
                     break
-                choices = json.loads(payload).get("choices") or []
+                data = json.loads(payload)
+                if data.get("usage"):
+                    last_usage = data["usage"]
+                choices = data.get("choices") or []
                 if not choices:
                     continue
                 text = choices[0].get("delta", {}).get("content")
                 if text:
                     yield text
+        usage.record(feature, cfg.model, last_usage)
     finally:
         if owns_client:
             http.close()
 
 
-def _foundry_chat_stream(messages, system, client):
+def _foundry_chat_stream(messages, system, client, feature):
     fs = foundry_settings()
     if client is None:
         from anthropic import AnthropicFoundry
@@ -141,3 +147,5 @@ def _foundry_chat_stream(messages, system, client):
         kwargs["system"] = system
     with client.messages.stream(**kwargs) as stream:
         yield from stream.text_stream
+        final = stream.get_final_message()
+    usage.record(feature, fs.model, getattr(final, "usage", None))

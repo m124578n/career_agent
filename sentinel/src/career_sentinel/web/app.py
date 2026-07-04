@@ -45,7 +45,7 @@ def _chat_events(messages, system):
     if config.llm_provider() == "foundry":
         yield from chatmod.stream_with_tools(messages, system=system)
     else:
-        for chunk in llm.chat_stream(messages, system=system):
+        for chunk in llm.chat_stream(messages, system=system, feature="整理助手"):
             yield {"type": "text", "text": chunk}
 
 

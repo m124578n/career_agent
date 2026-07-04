@@ -59,6 +59,10 @@ class _FakeAnthropicStream:
     def __exit__(self, *a):
         return False
 
+    def get_final_message(self):
+        from types import SimpleNamespace
+        return SimpleNamespace(usage=None)
+
 
 class _FakeAnthropicMessages:
     def __init__(self, chunks):
