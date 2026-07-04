@@ -2,7 +2,7 @@
 
 > 這是 career-sentinel（地端求職 agent）所有**未完成**需求與想法的單一收集處。
 > 新點子、deferred 項目、技術債都記在這。每個子專案各自走 spec → plan → 實作。
-> 最後更新：2026-07-04（SP13 token 用量/花費追蹤 完成；原始 backlog 空、SP13 為使用者新需求）
+> 最後更新：2026-07-04（SP14 等待處進度流程 完成 + 切分頁清空修正；SP13/SP14 為使用者新需求）
 
 ## ✅ 已完成
 - **Phase 1**：管線骨架（config/models/store/diff/digest/browser/cli + 假爬蟲），30 測試。
@@ -31,6 +31,8 @@
 
 - **SP12**：讀 104 履歷 + 健檢（spike 先行）。**spike 發現 104 履歷是結構化、登入態 XHR 讀得到**（`profile/ajax/resumeByBlock?vno=`）→ 原「結構不對稱、需寫回」的顧慮翻轉。`scraper/resume104`（登入態讀、`parse_resume104` 純函式解析各區塊、`_d` 防禦非預期形狀）→`GET /api/resume104`（on-demand、瀏覽器序列化、結果只回前端顯示不外送）→`POST /api/resume104/diagnose`（**`flatten_for_diagnosis` 剝除 info(PII) 區塊才送 LLM**、重用 SP3 diagnosis）→第八分頁「104 履歷」（讀取/健檢/開編輯頁；開編輯頁重用 SP11b `openApplyPage`）。**agent 不寫入 104**（改履歷由使用者在編輯頁親手做）。PII 邊界端到端雙層測試鎖。最終 review Ready to merge、零 Critical/Important。240 測試。**原始願景全數落地。**
 - **SP13**：Token 用量與花費追蹤（使用者新需求）。側欄左下角常駐 badge 顯示累計 token+預估 USD、點開 Modal 逐功能明細+歸零。新 `usage.py`（`_PRICING` 定價表可調、預設 Sonnet 4.5 官方價；`cost_of`；`normalize` 兩家 provider——**Anthropic input 直取/OpenAI 扣 cached**；`record` **best-effort 吞所有例外**、自開 `store.connect(config.db_path())`；`summary`/`reset`）+`store` `usage_log` 表。**8 個 LLM 出口全插樁**（parse_json/chat_stream/stream_with_tools/research/digest × provider），記帳嚴格在回應後、**絕不影響 LLM 回傳/yield**（測試斷言鎖）。`GET/DELETE /api/usage`（純本地 DB）+前端 UsageBadge（TanStack Query 30s 輪詢）。順手加 autouse conftest（`SENTINEL_DATA_DIR`→tmp）隔離測試避免污染真 DB。最終 review Ready to merge、零 Critical/Important。252 測試。**注意：USD 用 Anthropic 官方價估算，Foundry 實際計費可能不同、改 `_PRICING` 即可。**
+- **切分頁清空修正**（使用者回報）：App 非聊天頁原本條件掛載（`page==="x" && <Page/>`），切走即卸載、local state（結果）丟失（只有聊天頁 SP8 用 `display:none` 保住）。**非 SP13 造成**（SP13 沒動 App.tsx）。改成全分頁 `display:none` 切換、保持掛載——各頁 mount 只 seed 表單、不自動觸發爬蟲/LLM 故安全。
+- **SP14**：等待處可見進度流程（使用者新需求）。**爬蟲真階段 stepper**（全域、切分頁可見）：`runner` 加 `phase`+`set_phase`(上鎖)+`status.phase`；`real.scrape(page, on_phase=)` 每 reader 前回報（失敗不跳過）、`scrape_session` 傳下去、`default_scrape` establish/digest、`_run` finally 清空——**best-effort、絕不影響抓取**。前端 `ScrapeStepper`（六段建立連線→誰看過我→應徵→訊息→面試→整理、`active<0` self-hide 故閒置/同步爬蟲不觸發）掛 App 頂部。**LLM/同步爬蟲單次等待 inline 計時**：`useElapsed`+`BusyHint`（hook 順序正確、interval cleanup）套 10 處（健檢/比對/客製化/開投遞/推薦/搜尋/104讀取+健檢+開編輯/逐列比對），不假造步驟。最終 review Ready to merge、零 Critical/Important。258 測試。
 
 ## 🔭 子專案（待做，建議順序）
 
