@@ -152,3 +152,45 @@ def flatten_for_diagnosis(r: Resume104) -> str:
     return "\n\n".join(
         f"【{b.label}】\n{b.text}" for b in r.blocks if not b.is_pii and b.text.strip()
     )
+
+
+_PROFILE_PAGE = "https://pda.104.com.tw/my/resume/list"
+
+
+def fetch_resume104(page) -> Resume104:
+    """需已登入且已取得 pda host clearance。需真瀏覽器、不單測。"""
+    lst = page.request.get(RESUME_LIST_URL)
+    if not lst.ok:
+        raise RuntimeError(f"resume list HTTP {lst.status}")
+    data = lst.json().get("data") or []
+    vno = ""
+    for r in data if isinstance(data, list) else []:
+        if isinstance(r, dict) and r.get("vno"):
+            vno = str(r.get("vno"))
+            if r.get("isMaster") or r.get("master"):
+                break
+    if not vno:
+        raise RuntimeError("找不到履歷 vno")
+    blk = page.request.get(RESUME_BLOCK_URL.format(vno=vno))
+    if not blk.ok:
+        raise RuntimeError(f"resumeByBlock HTTP {blk.status}")
+    return parse_resume104(blk.json())
+
+
+def resume104_session() -> Resume104 | None:
+    """開 headful context → 導覽 pda 履歷頁取 clearance + 確認登入 → 讀履歷。未登入回 None。"""
+    from rebrowser_playwright.sync_api import sync_playwright
+
+    from .. import browser
+
+    with sync_playwright() as p:
+        ctx = browser.open_context(p)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        try:
+            page.goto(_PROFILE_PAGE, wait_until="domcontentloaded")
+            browser.wait_until_ready(page)
+            if browser.is_login_url(page.url):
+                return None
+            return fetch_resume104(page)
+        finally:
+            ctx.close()
