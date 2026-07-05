@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { ackSchedule, getSchedule, getStatus, startScrape } from "./api";
 import ChatPage from "./ChatPage";
 import Dashboard from "./Dashboard";
-import MatchPage from "./MatchPage";
+import FindJobsPage from "./FindJobsPage";
 import { ensurePermission, notify } from "./notify";
-import RecommendPage from "./RecommendPage";
 import Resume104Page from "./Resume104Page";
 import ResumePage from "./ResumePage";
 import ScrapeStepper from "./ScrapeStepper";
-import SearchPage from "./SearchPage";
 import SettingsModal from "./SettingsModal";
 import Sidebar, { type PageKey } from "./Sidebar";
 import TailorPage from "./TailorPage";
@@ -95,7 +93,7 @@ export default function App() {
           <Alert color="amber" m="md" mb={0} withCloseButton onClose={onBannerDismiss} title="該檢視求職動態了">
             <Group>
               <Button size="xs" onClick={onBannerPull} loading={running} disabled={running}>立即拉取</Button>
-              <Button size="xs" variant="light" onClick={() => setPage("recommend")}>也拉推薦</Button>
+              <Button size="xs" variant="light" onClick={() => setPage("jobs")}>也拉推薦</Button>
             </Group>
           </Alert>
         )}
@@ -105,9 +103,7 @@ export default function App() {
         <div style={{ display: page === "dashboard" ? undefined : "none" }}><Dashboard /></div>
         <div style={{ display: page === "resume" ? undefined : "none" }}><ResumePage /></div>
         <div style={{ display: page === "resume104" ? undefined : "none" }}><Resume104Page /></div>
-        <div style={{ display: page === "match" ? undefined : "none" }}><MatchPage /></div>
-        <div style={{ display: page === "recommend" ? undefined : "none" }}><RecommendPage /></div>
-        <div style={{ display: page === "search" ? undefined : "none" }}><SearchPage /></div>
+        <div style={{ display: page === "jobs" ? undefined : "none" }}><FindJobsPage /></div>
         <div style={{ display: page === "tailor" ? undefined : "none" }}><TailorPage /></div>
         <div style={{ display: page === "chat" ? undefined : "none" }}><ChatPage /></div>
       </AppShell.Main>
