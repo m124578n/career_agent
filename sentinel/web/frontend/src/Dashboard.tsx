@@ -43,7 +43,7 @@ const Star = () => (
 function CompanyLink({ name, href }: { name: string; href?: string }) {
   const url = href || `https://www.104.com.tw/company/search/?keyword=${encodeURIComponent(name)}`;
   return (
-    <Anchor href={url} target="_blank" size="sm" fw={600} c="dark.0" underline="hover">
+    <Anchor href={url} target="_blank" size="sm" fw={600} c="dark.0" underline="hover" onClick={(e) => e.stopPropagation()}>
       {name}
     </Anchor>
   );
