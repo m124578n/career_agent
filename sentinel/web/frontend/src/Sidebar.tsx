@@ -1,18 +1,17 @@
 import { Button, Group, Modal, NavLink, Stack, Table, Text, UnstyledButton } from "@mantine/core";
 import {
-  IconCoin, IconFileText, IconId, IconLayoutDashboard, IconMessageCircle,
+  IconCoin, IconFileText, IconLayoutDashboard, IconMessageCircle,
   IconRefresh, IconSearch, IconSettings,
 } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getUsage, resetUsage, type UsageSummary } from "./api";
 
-export type PageKey = "dashboard" | "resume" | "resume104" | "jobs" | "chat";
+export type PageKey = "dashboard" | "resume" | "jobs" | "chat";
 
 const NAV: { key: PageKey; label: string; icon: typeof IconSearch }[] = [
   { key: "dashboard", label: "儀表板", icon: IconLayoutDashboard },
-  { key: "resume", label: "履歷健檢", icon: IconFileText },
-  { key: "resume104", label: "104 履歷", icon: IconId },
+  { key: "resume", label: "我的履歷", icon: IconFileText },
   { key: "jobs", label: "找職缺", icon: IconSearch },
   { key: "chat", label: "整理助手", icon: IconMessageCircle },
 ];

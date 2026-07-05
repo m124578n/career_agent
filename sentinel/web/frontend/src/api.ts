@@ -305,10 +305,6 @@ export async function openApplyPage(job_url: string): Promise<Response> {
 export interface Resume104Block { id: string; label: string; text: string; is_pii: boolean; completed: boolean }
 export interface Resume104 { vno: string; progress: number; blocks: Resume104Block[] }
 
-export async function getResume104(): Promise<Response> {
-  return fetch("/api/resume104");
-}
-
 export interface Resume104Import {
   chars: number;
   resume104: Resume104;
@@ -316,14 +312,6 @@ export interface Resume104Import {
 
 export async function importResume104(): Promise<Response> {
   return fetch("/api/resume/import104", { method: "POST" });
-}
-
-export async function diagnoseResume104(target_title: string, resume104: Resume104): Promise<Response> {
-  return fetch("/api/resume104/diagnose", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ target_title, resume104 }),
-  });
 }
 
 export interface UsageFeature { feature: string; calls: number; tokens: number; usd: number }
