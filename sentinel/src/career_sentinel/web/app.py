@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, research, resume, store, tailor, usage as usagemod, watch
+from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, pipeline, research, resume, store, tailor, usage as usagemod, watch
 from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, interview_key
 from . import apply, runner, scheduler
 
@@ -51,11 +51,16 @@ def _chat_events(messages, system):
 
 def _snapshot_payload(conn) -> dict:
     failed = runner.status()["last_failed_readers"]
+    try:
+        pipeline_jobs = [pj.model_dump() for pj in pipeline.build_pipeline(conn)]
+    except Exception:
+        pipeline_jobs = []
     ids = store.latest_two_ids(conn)
     if not ids:
         return {
             "run_at": None,
             "viewers": [], "applications": [], "messages": [], "interviews": [],
+            "pipeline": pipeline_jobs,
             "digest": "尚無資料，請先重新抓取",
             "failed_readers": failed,
         }
@@ -81,6 +86,7 @@ def _snapshot_payload(conn) -> dict:
             }
             for iv in sorted(snap.interviews, key=lambda iv: (iv.when == "", iv.when))
         ],
+        "pipeline": pipeline_jobs,
         "digest": digest.render_human(d, snap),
         "failed_readers": failed,
     }
