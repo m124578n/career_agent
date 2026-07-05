@@ -72,6 +72,7 @@ export interface ResumeState {
   target_title: string;
   expected_salary: number | null;
   diagnosis: ResumeDiagnosis | null;
+  source: string;
 }
 
 export async function getResume(): Promise<ResumeState> {
@@ -306,6 +307,15 @@ export interface Resume104 { vno: string; progress: number; blocks: Resume104Blo
 
 export async function getResume104(): Promise<Response> {
   return fetch("/api/resume104");
+}
+
+export interface Resume104Import {
+  chars: number;
+  resume104: Resume104;
+}
+
+export async function importResume104(): Promise<Response> {
+  return fetch("/api/resume/import104", { method: "POST" });
 }
 
 export async function diagnoseResume104(target_title: string, resume104: Resume104): Promise<Response> {
