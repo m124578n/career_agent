@@ -10,8 +10,6 @@ import BusyHint from "./BusyHint";
 import JobRow from "./JobRow";
 import { PageContainer, PageHeader } from "./ui";
 
-const TRACKED_STATES = new Set(["interested", "matched", "tailored", "offer", "rejected"]);
-
 export default function FindJobsPage() {
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
   const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings });
@@ -45,10 +43,8 @@ export default function FindJobsPage() {
     }
   }, [seeded, settings.data]);
 
-  // 已追蹤的 code 集合（pipeline 內屬於追蹤狀態者）
-  const trackedCodes = new Set(
-    (snap.data?.pipeline ?? []).filter((j) => TRACKED_STATES.has(j.state)).map((j) => j.code).filter(Boolean),
-  );
+  // 已追蹤的 code 集合（後端 tracked_codes）
+  const trackedCodes = new Set(snap.data?.tracked_codes ?? []);
 
   async function runSearch() {
     if (!kw.trim()) return;

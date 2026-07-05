@@ -33,8 +33,6 @@ const FIELD_LABEL: Record<string, string> = {
   watched_keywords: "關注關鍵字", resume_text: "履歷",
 };
 
-const TRACKED_STATES = new Set(["interested", "matched", "tailored", "offer", "rejected"]);
-
 function fmtValue(v: string | number | string[] | null): string {
   if (Array.isArray(v)) return v.join("、");
   return String(v ?? "");
@@ -93,9 +91,7 @@ export default function ChatPage() {
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
   const snap = useQuery({ queryKey: ["snapshot"], queryFn: getSnapshot });
   const canMatch = !!resume.data?.has_resume;
-  const trackedCodes = new Set(
-    (snap.data?.pipeline ?? []).filter((j) => TRACKED_STATES.has(j.state)).map((j) => j.code).filter(Boolean),
-  );
+  const trackedCodes = new Set(snap.data?.tracked_codes ?? []);
   const [msgs, setMsgs] = useState<UiMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);

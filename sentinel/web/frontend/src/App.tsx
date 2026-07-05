@@ -11,7 +11,6 @@ import ResumePage from "./ResumePage";
 import ScrapeStepper from "./ScrapeStepper";
 import SettingsModal from "./SettingsModal";
 import Sidebar, { type PageKey } from "./Sidebar";
-import TailorPage from "./TailorPage";
 
 export default function App() {
   const qc = useQueryClient();
@@ -104,7 +103,6 @@ export default function App() {
         <div style={{ display: page === "resume" ? undefined : "none" }}><ResumePage /></div>
         <div style={{ display: page === "resume104" ? undefined : "none" }}><Resume104Page /></div>
         <div style={{ display: page === "jobs" ? undefined : "none" }}><FindJobsPage /></div>
-        <div style={{ display: page === "tailor" ? undefined : "none" }}><TailorPage /></div>
         <div style={{ display: page === "chat" ? undefined : "none" }}><ChatPage /></div>
       </AppShell.Main>
       <SettingsModal opened={settingsOpen} onClose={() => setSettingsOpen(false)} />
