@@ -2,7 +2,7 @@ import { ActionIcon, Anchor, Badge, Button, Grid, Group, Paper, Text, Title } fr
 import { IconAlertTriangle, IconArrowBackUp, IconCalendarPlus, IconCheck, IconMessageCircle, IconStarFilled } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { type Interview, dismissInterview, getSnapshot, getStatus, restoreInterview } from "./api";
+import { type PipelineJob, dismissInterview, getSnapshot, getStatus, restoreInterview } from "./api";
 import ResearchButton from "./ResearchButton";
 import { Kpi, PageContainer } from "./ui";
 
@@ -57,12 +57,14 @@ export default function Dashboard() {
 
   const qc = useQueryClient();
   const [allViewers, setAllViewers] = useState(false);
-  const [allApps, setAllApps] = useState(false);
   const [allMsgs, setAllMsgs] = useState(false);
   const [showDone, setShowDone] = useState(false);
 
-  const upcoming = s?.interviews.filter((iv) => !iv.dismissed) ?? [];
-  const doneIvs = s?.interviews.filter((iv) => iv.dismissed) ?? [];
+  const pipe = s?.pipeline ?? [];
+  const interviewing = pipe.filter((j) => j.state === "interviewing");
+  const upcomingJobs = interviewing.filter((j) => !j.dismissed);
+  const doneJobs = interviewing.filter((j) => j.dismissed);
+  const appliedJobs = pipe.filter((j) => j.state === "applied");
 
   const ackInterview = (key: string) => async () => {
     try {
@@ -78,7 +80,6 @@ export default function Dashboard() {
   };
 
   const viewers = s ? (allViewers ? s.viewers : s.viewers.slice(0, SHOW_LIMIT)) : [];
-  const apps = s ? (allApps ? s.applications : s.applications.slice(0, SHOW_LIMIT)) : [];
   const msgs = s ? (allMsgs ? s.messages : s.messages.slice(0, SHOW_LIMIT)) : [];
 
   const jump = (id: string) => () =>
@@ -94,8 +95,8 @@ export default function Dashboard() {
             suffix={newViewers > 0 ? <Text span c="teal.5" ff="monospace" size="md">+{newViewers}</Text> : undefined}
           />
         </div>
-        <div onClick={jump("sec-interviews")} style={{ cursor: "pointer" }}>
-          <Kpi value={s ? upcoming.length : "—"} label="即將面試" />
+        <div onClick={jump("sec-pipeline")} style={{ cursor: "pointer" }}>
+          <Kpi value={s?.interviews.length ?? "—"} label="即將面試" />
         </div>
         <div onClick={jump("sec-messages")} style={{ cursor: "pointer" }}>
           <Kpi
@@ -104,7 +105,7 @@ export default function Dashboard() {
             suffix={invites > 0 ? <Text span c="amber.5" ff="monospace" size="md">{invites} 邀約</Text> : undefined}
           />
         </div>
-        <div onClick={jump("sec-applications")} style={{ cursor: "pointer" }}>
+        <div onClick={jump("sec-pipeline")} style={{ cursor: "pointer" }}>
           <Kpi value={s?.applications.length ?? "—"} label="投遞中" />
         </div>
       </Group>
@@ -129,54 +130,82 @@ export default function Dashboard() {
         </Text>
       </Paper>
 
-      {s && s.interviews.length > 0 && (
+      {s && (upcomingJobs.length > 0 || appliedJobs.length > 0 || doneJobs.length > 0) && (
         <div style={{ marginTop: 32 }}>
-          <SectionTitle id="sec-interviews">即將到來的面試</SectionTitle>
-          {upcoming.map((iv: Interview) => (
-            <Row key={iv.key}>
-              <Text size="sm" truncate style={{ minWidth: 0, flex: 1 }}>
-                <CompanyLink name={iv.company} href={iv.job_url || iv.company_url || undefined} />
-                <Text span c="dimmed"> · {iv.job_title}{iv.location ? ` · ${iv.location}` : ""}</Text>
-              </Text>
-              <ResearchButton company={iv.company} />
-              <Group gap="md" wrap="nowrap" style={{ flexShrink: 0 }}>
-                <Text c="teal.5" ff="monospace" size="xs">{iv.when || "日期未擷取"}</Text>
-                {iv.job_url && <Anchor href={iv.job_url} target="_blank" size="xs" c="dimmed">看職缺</Anchor>}
-                {iv.thread_url && (
-                  <ActionIcon component="a" href={iv.thread_url} target="_blank"
-                    variant="default" size="md" title="開啟 104 對話">
-                    <IconMessageCircle size={15} />
-                  </ActionIcon>
-                )}
-                <ActionIcon component="a" href={iv.gcal_link} target="_blank"
-                  variant="default" size="md" title="加入 Google 日曆">
-                  <IconCalendarPlus size={15} />
-                </ActionIcon>
-                <ActionIcon variant="default" size="md" title="知道了（隱藏，可還原）"
-                  onClick={ackInterview(iv.key)}>
-                  <IconCheck size={15} />
-                </ActionIcon>
-              </Group>
-            </Row>
-          ))}
-          {upcoming.length === 0 && (
-            <Text size="sm" c="dimmed">（全部處理完畢）</Text>
+          <SectionTitle id="sec-pipeline">職缺管道</SectionTitle>
+
+          {upcomingJobs.length > 0 && (
+            <>
+              <Text size="xs" c="teal.5" mb={6} mt="xs" fw={600} style={{ letterSpacing: 1 }}>面試中</Text>
+              {upcomingJobs.map((j: PipelineJob) => (
+                <Row key={j.key}>
+                  <Text size="sm" truncate style={{ minWidth: 0, flex: 1 }}>
+                    <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
+                    <Text span c="dimmed"> · {j.title}{j.location ? ` · ${j.location}` : ""}</Text>
+                  </Text>
+                  <ResearchButton company={j.company} />
+                  <Group gap="md" wrap="nowrap" style={{ flexShrink: 0 }}>
+                    <Text c="teal.5" ff="monospace" size="xs">{j.when || "日期未擷取"}</Text>
+                    {j.job_url && <Anchor href={j.job_url} target="_blank" size="xs" c="dimmed">看職缺</Anchor>}
+                    {j.thread_url && (
+                      <ActionIcon component="a" href={j.thread_url} target="_blank"
+                        variant="default" size="md" title="開啟 104 對話">
+                        <IconMessageCircle size={15} />
+                      </ActionIcon>
+                    )}
+                    <ActionIcon component="a" href={j.gcal_link} target="_blank"
+                      variant="default" size="md" title="加入 Google 日曆">
+                      <IconCalendarPlus size={15} />
+                    </ActionIcon>
+                    <ActionIcon variant="default" size="md" title="知道了（隱藏，可還原）"
+                      onClick={ackInterview(j.interview_key)}>
+                      <IconCheck size={15} />
+                    </ActionIcon>
+                  </Group>
+                </Row>
+              ))}
+            </>
           )}
-          {doneIvs.length > 0 && (
+
+          {doneJobs.length > 0 && (
             <>
               <Button variant="subtle" color="gray" size="compact-xs" onClick={() => setShowDone((v) => !v)}>
-                {showDone ? "收合已處理" : `已處理 ${doneIvs.length} 場`}
+                {showDone ? "收合已處理" : `已處理 ${doneJobs.length} 場`}
               </Button>
-              {showDone && doneIvs.map((iv: Interview) => (
-                <Row key={iv.key}>
+              {showDone && doneJobs.map((j: PipelineJob) => (
+                <Row key={j.key}>
                   <Text size="sm" truncate style={{ opacity: 0.55, minWidth: 0, flex: 1 }}>
-                    <Text span fw={600}>{iv.company}</Text>
-                    <Text span c="dimmed"> · {iv.job_title} · {iv.when || "日期未擷取"}</Text>
+                    <Text span fw={600}>{j.company}</Text>
+                    <Text span c="dimmed"> · {j.title} · {j.when || "日期未擷取"}</Text>
                   </Text>
                   <ActionIcon variant="subtle" color="gray" size="md" title="還原到清單" style={{ flexShrink: 0 }}
-                    onClick={unackInterview(iv.key)}>
+                    onClick={unackInterview(j.interview_key)}>
                     <IconArrowBackUp size={15} />
                   </ActionIcon>
+                </Row>
+              ))}
+            </>
+          )}
+
+          {appliedJobs.length > 0 && (
+            <>
+              <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>已投遞</Text>
+              {appliedJobs.map((j: PipelineJob) => (
+                <Row key={j.key}>
+                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                    {j.watched && <Star />}
+                    <Text size="sm" truncate>
+                      <CompanyLink name={j.company} href={j.company_url || undefined} />
+                      <Text span c="dimmed"> · </Text>
+                      {j.job_url ? (
+                        <Anchor href={j.job_url} target="_blank" size="sm" c="dimmed" underline="hover">{j.title}</Anchor>
+                      ) : (
+                        <Text span c="dimmed">{j.title}</Text>
+                      )}
+                    </Text>
+                    <ResearchButton company={j.company} />
+                  </Group>
+                  {j.status && <Badge size="sm" variant="light" color="teal">{j.status}</Badge>}
                 </Row>
               ))}
             </>
@@ -204,50 +233,27 @@ export default function Dashboard() {
         </Grid.Col>
 
         <Grid.Col span={6}>
-          <SectionTitle id="sec-applications">我的應徵</SectionTitle>
-          {apps.map((a) => (
-            <Row key={a.job_id}>
-              <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                {a.watched && <Star />}
+          <SectionTitle id="sec-messages">訊息 · 面試</SectionTitle>
+          {msgs.map((m) => (
+            <Row key={m.thread_id}>
+              <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                {m.has_interview_invite && <Badge size="xs" variant="light" color="amber">面試</Badge>}
+                {m.watched && <Star />}
                 <Text size="sm" truncate>
-                  <CompanyLink name={a.company} href={a.company_url || undefined} />
-                  <Text span c="dimmed"> · </Text>
-                  {a.job_url ? (
-                    <Anchor href={a.job_url} target="_blank" size="sm" c="dimmed" underline="hover">{a.title}</Anchor>
-                  ) : (
-                    <Text span c="dimmed">{a.title}</Text>
-                  )}
+                  <CompanyLink name={m.company} href={m.company_url || undefined} />
+                  <Text span c="dimmed">：{m.last_message}</Text>
                 </Text>
-                <ResearchButton company={a.company} />
+                <ResearchButton company={m.company} />
               </Group>
-              <Badge size="sm" variant="light" color="teal">{a.status}</Badge>
+              {m.thread_url && (
+                <ActionIcon component="a" href={m.thread_url} target="_blank"
+                  variant="subtle" color="gray" size="sm" title="開啟 104 對話" style={{ flexShrink: 0 }}>
+                  <IconMessageCircle size={14} />
+                </ActionIcon>
+              )}
             </Row>
           ))}
-          <ShowAll total={s?.applications.length ?? 0} showAll={allApps} onToggle={() => setAllApps((v) => !v)} />
-
-          <div style={{ marginTop: 28 }}>
-            <SectionTitle id="sec-messages">訊息 · 面試</SectionTitle>
-            {msgs.map((m) => (
-              <Row key={m.thread_id}>
-                <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-                  {m.has_interview_invite && <Badge size="xs" variant="light" color="amber">面試</Badge>}
-                  {m.watched && <Star />}
-                  <Text size="sm" truncate>
-                    <CompanyLink name={m.company} href={m.company_url || undefined} />
-                    <Text span c="dimmed">：{m.last_message}</Text>
-                  </Text>
-                  <ResearchButton company={m.company} />
-                </Group>
-                {m.thread_url && (
-                  <ActionIcon component="a" href={m.thread_url} target="_blank"
-                    variant="subtle" color="gray" size="sm" title="開啟 104 對話" style={{ flexShrink: 0 }}>
-                    <IconMessageCircle size={14} />
-                  </ActionIcon>
-                )}
-              </Row>
-            ))}
-            <ShowAll total={s?.messages.length ?? 0} showAll={allMsgs} onToggle={() => setAllMsgs((v) => !v)} />
-          </div>
+          <ShowAll total={s?.messages.length ?? 0} showAll={allMsgs} onToggle={() => setAllMsgs((v) => !v)} />
         </Grid.Col>
       </Grid>
     </PageContainer>
