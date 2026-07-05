@@ -1,8 +1,8 @@
 import { ActionIcon, Anchor, Badge, Button, Grid, Group, Paper, Text, Title } from "@mantine/core";
-import { IconAlertTriangle, IconArrowBackUp, IconCalendarPlus, IconCheck, IconMessageCircle, IconStarFilled } from "@tabler/icons-react";
+import { IconAlertTriangle, IconArrowBackUp, IconCalendarPlus, IconCheck, IconMessageCircle, IconStarFilled, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { type PipelineJob, dismissInterview, getSnapshot, getStatus, restoreInterview } from "./api";
+import { type PipelineJob, dismissInterview, getSnapshot, getStatus, restoreInterview, untrackJob } from "./api";
 import ResearchButton from "./ResearchButton";
 import { Kpi, PageContainer } from "./ui";
 
@@ -65,6 +65,25 @@ export default function Dashboard() {
   const upcomingJobs = interviewing.filter((j) => !j.dismissed);
   const doneJobs = interviewing.filter((j) => j.dismissed);
   const appliedJobs = pipe.filter((j) => j.state === "applied");
+  const interestedJobs = pipe.filter((j) => j.state === "interested");
+  const matchedJobs = pipe.filter((j) => j.state === "matched");
+  const tailoredJobs = pipe.filter((j) => j.state === "tailored");
+
+  // 排序：面試中依 when、已投遞依 applied_at 升冪；三手動群組依 match_score 降冪（無分數殿後）
+  const byWhen = (a: PipelineJob, b: PipelineJob) => (a.when || "").localeCompare(b.when || "");
+  const byApplied = (a: PipelineJob, b: PipelineJob) => (a.applied_at || "").localeCompare(b.applied_at || "");
+  const byScore = (a: PipelineJob, b: PipelineJob) => (b.match_score ?? -1) - (a.match_score ?? -1);
+  const upcomingSorted = [...upcomingJobs].sort(byWhen);
+  const appliedSorted = [...appliedJobs].sort(byApplied);
+  const matchedSorted = [...matchedJobs].sort(byScore);
+  const tailoredSorted = [...tailoredJobs].sort(byScore);
+
+  const untrack = (code: string) => async () => {
+    try {
+      await untrackJob(code);
+      qc.invalidateQueries({ queryKey: ["snapshot"] });
+    } catch { window.alert("網路錯誤，請重試"); }
+  };
 
   const ackInterview = (key: string) => async () => {
     try {
@@ -130,14 +149,14 @@ export default function Dashboard() {
         </Text>
       </Paper>
 
-      {s && (upcomingJobs.length > 0 || appliedJobs.length > 0 || doneJobs.length > 0) && (
+      {s && (upcomingJobs.length > 0 || appliedJobs.length > 0 || doneJobs.length > 0 || tailoredSorted.length > 0 || matchedSorted.length > 0 || interestedJobs.length > 0) && (
         <div style={{ marginTop: 32 }}>
           <SectionTitle id="sec-pipeline">職缺管道</SectionTitle>
 
           {upcomingJobs.length > 0 && (
             <>
               <Text size="xs" c="teal.5" mb={6} mt="xs" fw={600} style={{ letterSpacing: 1 }}>面試中</Text>
-              {upcomingJobs.map((j: PipelineJob) => (
+              {upcomingSorted.map((j: PipelineJob) => (
                 <Row key={j.key}>
                   <Text size="sm" truncate style={{ minWidth: 0, flex: 1 }}>
                     <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
@@ -190,7 +209,7 @@ export default function Dashboard() {
           {appliedJobs.length > 0 && (
             <>
               <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>已投遞</Text>
-              {appliedJobs.map((j: PipelineJob) => (
+              {appliedSorted.map((j: PipelineJob) => (
                 <Row key={j.key}>
                   <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
                     {j.watched && <Star />}
@@ -206,6 +225,73 @@ export default function Dashboard() {
                     <ResearchButton company={j.company} />
                   </Group>
                   {j.status && <Badge size="sm" variant="light" color="teal">{j.status}</Badge>}
+                </Row>
+              ))}
+            </>
+          )}
+
+          {tailoredSorted.length > 0 && (
+            <>
+              <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>已客製化</Text>
+              {tailoredSorted.map((j: PipelineJob) => (
+                <Row key={j.key}>
+                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                    {j.watched && <Star />}
+                    <Text size="sm" truncate>
+                      <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
+                      <Text span c="dimmed"> · {j.title}</Text>
+                    </Text>
+                    <ResearchButton company={j.company} />
+                  </Group>
+                  <ActionIcon variant="subtle" color="gray" size="sm" title="取消追蹤" style={{ flexShrink: 0 }}
+                    onClick={untrack(j.code)}>
+                    <IconX size={14} />
+                  </ActionIcon>
+                </Row>
+              ))}
+            </>
+          )}
+
+          {matchedSorted.length > 0 && (
+            <>
+              <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>已比對</Text>
+              {matchedSorted.map((j: PipelineJob) => (
+                <Row key={j.key}>
+                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                    {j.watched && <Star />}
+                    <Text size="sm" truncate>
+                      <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
+                      <Text span c="dimmed"> · {j.title}</Text>
+                    </Text>
+                    {j.match_score != null && <Badge size="sm" variant="light" color="teal">{j.match_score}</Badge>}
+                    <ResearchButton company={j.company} />
+                  </Group>
+                  <ActionIcon variant="subtle" color="gray" size="sm" title="取消追蹤" style={{ flexShrink: 0 }}
+                    onClick={untrack(j.code)}>
+                    <IconX size={14} />
+                  </ActionIcon>
+                </Row>
+              ))}
+            </>
+          )}
+
+          {interestedJobs.length > 0 && (
+            <>
+              <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>有興趣</Text>
+              {interestedJobs.map((j: PipelineJob) => (
+                <Row key={j.key}>
+                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                    {j.watched && <Star />}
+                    <Text size="sm" truncate>
+                      <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
+                      <Text span c="dimmed"> · {j.title}</Text>
+                    </Text>
+                    <ResearchButton company={j.company} />
+                  </Group>
+                  <ActionIcon variant="subtle" color="gray" size="sm" title="取消追蹤" style={{ flexShrink: 0 }}
+                    onClick={untrack(j.code)}>
+                    <IconX size={14} />
+                  </ActionIcon>
                 </Row>
               ))}
             </>

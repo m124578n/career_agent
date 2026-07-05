@@ -118,6 +118,31 @@ export interface RecommendedJob {
   is_watched: boolean;
 }
 
+export interface TrackReq {
+  code: string;
+  company?: string;
+  title?: string;
+  url?: string;
+  salary?: string;
+  match_score?: number | null;
+}
+
+export async function trackJob(body: TrackReq): Promise<Response> {
+  return fetch("/api/tracked", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function untrackJob(code: string): Promise<Response> {
+  return fetch(`/api/tracked/${encodeURIComponent(code)}`, { method: "DELETE" });
+}
+
+export async function getJobByUrl(url: string): Promise<Response> {
+  return fetch(`/api/job?url=${encodeURIComponent(url)}`);
+}
+
 export async function getRecommend(): Promise<Response> {
   return fetch("/api/recommend");
 }
