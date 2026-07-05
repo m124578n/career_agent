@@ -34,6 +34,8 @@ class _TrackReq(BaseModel):
     url: str = ""
     salary: str = ""
     match_score: int | None = None
+    match_json: dict | None = None
+    tailor_json: dict | None = None
 
 
 class _ChatReq(BaseModel):
@@ -64,6 +66,10 @@ def _snapshot_payload(conn) -> dict:
         pipeline_jobs = [pj.model_dump() for pj in pipeline.build_pipeline(conn)]
     except Exception:
         pipeline_jobs = []
+    try:
+        tracked_codes = [tj.code for tj in store.load_tracked_jobs(conn)]
+    except Exception:
+        tracked_codes = []
     ids = store.latest_two_ids(conn)
     if not ids:
         return {
@@ -72,6 +78,7 @@ def _snapshot_payload(conn) -> dict:
             "pipeline": pipeline_jobs,
             "digest": "尚無資料，請先重新抓取",
             "failed_readers": failed,
+            "tracked_codes": tracked_codes,
         }
     sid = ids[0]
     snap = store.load_snapshot(conn, sid)
@@ -98,6 +105,7 @@ def _snapshot_payload(conn) -> dict:
         "pipeline": pipeline_jobs,
         "digest": digest.render_human(d, snap),
         "failed_readers": failed,
+        "tracked_codes": tracked_codes,
     }
 
 
@@ -496,33 +504,30 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def track_job(req: _TrackReq) -> dict:
         if not req.code.strip():
             raise HTTPException(status_code=400, detail="缺少職缺代碼")
-        conn = _conn()
-        now = datetime.now().isoformat(timespec="seconds")
-        new_state = "matched" if req.match_score is not None else "interested"
-        existing = store.get_tracked_job(conn, req.code)
-        if existing is not None:
-            created_at = existing.created_at or now
-            if existing.state in pipeline.TERMINAL:
-                final_state = existing.state
-            elif pipeline.STATE_RANK.get(new_state, 0) >= pipeline.STATE_RANK.get(existing.state, 0):
-                final_state = new_state
-            else:
-                final_state = existing.state
-            match_score = req.match_score if req.match_score is not None else existing.match_score
-            company = req.company or existing.company
-            title = req.title or existing.title
-            url = req.url or existing.url
-            salary = req.salary or existing.salary
+        if req.tailor_json is not None:
+            state_hint = "tailored"
+        elif req.match_json is not None or req.match_score is not None:
+            state_hint = "matched"
         else:
-            created_at = now
-            final_state = new_state
-            match_score = req.match_score
-            company, title, url, salary = req.company, req.title, req.url, req.salary
-        store.upsert_tracked_job(conn, TrackedJob(
-            code=req.code, company=company, title=title, url=url, salary=salary,
-            state=final_state, match_score=match_score, created_at=created_at, updated_at=now,
-        ))
-        return {"status": "tracked", "state": final_state}
+            state_hint = "interested"
+        final = store.merge_tracked_job(
+            _conn(), req.code, state=state_hint,
+            match_score=req.match_score, match_json=req.match_json, tailor_json=req.tailor_json,
+            company=req.company, title=req.title, url=req.url, salary=req.salary,
+        )
+        return {"status": "tracked", "state": final}
+
+    @app.get("/api/tracked/{code}")
+    def tracked_get(code: str) -> dict:
+        tj = store.get_tracked_job(_conn(), code)
+        if tj is None:
+            return {"code": code, "found": False, "state": "", "match_score": None,
+                    "match": None, "tailor": None}
+        return {
+            "code": tj.code, "found": True, "state": tj.state, "match_score": tj.match_score,
+            "match": json.loads(tj.match_json) if tj.match_json else None,
+            "tailor": json.loads(tj.tailor_json) if tj.tailor_json else None,
+        }
 
     @app.delete("/api/tracked/{code}")
     def untrack_job(code: str) -> dict:
