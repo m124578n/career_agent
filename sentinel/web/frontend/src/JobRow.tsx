@@ -27,16 +27,20 @@ export default function JobRow({ job, canMatch, tracked }: { job: RecommendedJob
   }
 
   async function toggleTrack() {
+    setErr(null);
     setTrackBusy(true);
     try {
-      if (tracked) {
-        await untrackJob(job.code);
-      } else {
-        await trackJob({
-          code: job.code, company: job.company, title: job.title,
-          url: job.url, salary: job.salary,
-          match_score: result ? result.score : null,
-        });
+      const r = tracked
+        ? await untrackJob(job.code)
+        : await trackJob({
+            code: job.code, company: job.company, title: job.title,
+            url: job.url, salary: job.salary,
+            match_score: result ? result.score : null,
+          });
+      if (!r.ok) {
+        const b = await r.json().catch(() => ({}));
+        setErr(b.detail ?? (tracked ? "取消追蹤失敗" : "追蹤失敗"));
+        return;
       }
       qc.invalidateQueries({ queryKey: ["snapshot"] });
     } catch {
