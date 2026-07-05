@@ -96,7 +96,7 @@ export default function Dashboard() {
           />
         </div>
         <div onClick={jump("sec-pipeline")} style={{ cursor: "pointer" }}>
-          <Kpi value={s?.interviews.length ?? "—"} label="即將面試" />
+          <Kpi value={s ? upcomingJobs.length : "—"} label="即將面試" />
         </div>
         <div onClick={jump("sec-messages")} style={{ cursor: "pointer" }}>
           <Kpi
