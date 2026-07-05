@@ -215,7 +215,7 @@ export default function ChatPage() {
                       <Text size="xs" c="dimmed">搜尋：{b.keyword}</Text>
                     </Group>
                     {b.items.length === 0 && <Text size="xs" c="dimmed">找不到符合的職缺</Text>}
-                    {b.items.map((job) => <JobRow key={job.code} job={job} canMatch={canMatch} />)}
+                    {b.items.map((job) => <JobRow key={job.code} job={job} canMatch={canMatch} tracked={false} />)}
                   </Stack>
                 ))}
                 {m.suggestions?.map((s, j) => <SuggestionCard key={j} s={s} />)}

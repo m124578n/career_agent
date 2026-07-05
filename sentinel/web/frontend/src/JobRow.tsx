@@ -1,14 +1,17 @@
 import { Anchor, Button, Group, List, Paper, Progress, Stack, Text } from "@mantine/core";
 import { IconStarFilled } from "@tabler/icons-react";
 import { useState } from "react";
-import { matchJob, type MatchResult, type RecommendedJob } from "./api";
+import { useQueryClient } from "@tanstack/react-query";
+import { matchJob, trackJob, untrackJob, type MatchResult, type RecommendedJob } from "./api";
 import BusyHint from "./BusyHint";
 import ResearchButton from "./ResearchButton";
 
-export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatch: boolean }) {
+export default function JobRow({ job, canMatch, tracked }: { job: RecommendedJob; canMatch: boolean; tracked: boolean }) {
+  const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
+  const [trackBusy, setTrackBusy] = useState(false);
 
   async function run() {
     setErr(null);
@@ -21,6 +24,26 @@ export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatc
       return;
     }
     setResult(await r.json());
+  }
+
+  async function toggleTrack() {
+    setTrackBusy(true);
+    try {
+      if (tracked) {
+        await untrackJob(job.code);
+      } else {
+        await trackJob({
+          code: job.code, company: job.company, title: job.title,
+          url: job.url, salary: job.salary,
+          match_score: result ? result.score : null,
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["snapshot"] });
+    } catch {
+      setErr("網路錯誤，請重試");
+    } finally {
+      setTrackBusy(false);
+    }
   }
 
   return (
@@ -39,6 +62,10 @@ export default function JobRow({ job, canMatch }: { job: RecommendedJob; canMatc
         <Group gap="sm" wrap="nowrap">
           <Anchor href={job.url} target="_blank" size="xs" c="dimmed">去 104 看</Anchor>
           <Button size="compact-sm" variant="light" onClick={run} loading={busy} disabled={!canMatch}>比對</Button>
+          <Button size="compact-sm" variant={tracked ? "filled" : "outline"} color="teal"
+            onClick={toggleTrack} loading={trackBusy}>
+            {tracked ? "已追蹤" : "追蹤"}
+          </Button>
           <BusyHint active={busy} label="比對中" />
         </Group>
       </Group>

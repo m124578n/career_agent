@@ -44,7 +44,7 @@ export default function RecommendPage() {
       {err && <Text c="danger.6" size="sm">{err}</Text>}
       {jobs && jobs.length === 0 && <Text c="dimmed" size="sm">目前沒有推薦職缺。</Text>}
       <Stack gap={6}>
-        {jobs?.map((j) => <JobRow key={j.code} job={j} canMatch={canMatch} />)}
+        {jobs?.map((j) => <JobRow key={j.code} job={j} canMatch={canMatch} tracked={false} />)}
       </Stack>
       </Stack>
     </PageContainer>
