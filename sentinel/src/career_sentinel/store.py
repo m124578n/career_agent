@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from .models import (
@@ -70,15 +71,26 @@ CREATE TABLE IF NOT EXISTS tracked_jobs (
     state TEXT NOT NULL DEFAULT 'interested',
     match_score INTEGER,
     created_at TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL DEFAULT ''
+    updated_at TEXT NOT NULL DEFAULT '',
+    match_json TEXT NOT NULL DEFAULT '',
+    tailor_json TEXT NOT NULL DEFAULT ''
 );
 """
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(tracked_jobs)")}
+    for col in ("match_json", "tailor_json"):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE tracked_jobs ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
+    conn.commit()
 
 
 def connect(path: Path | str) -> sqlite3.Connection:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path))
     conn.executescript(_SCHEMA)
+    _migrate(conn)
     return conn
 
 
@@ -220,39 +232,39 @@ def save_research(conn: sqlite3.Connection, r: CompanyResearch) -> None:
 
 def load_tracked_jobs(conn: sqlite3.Connection) -> list[TrackedJob]:
     rows = conn.execute(
-        "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at "
-        "FROM tracked_jobs ORDER BY updated_at DESC"
+        "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at, "
+        "match_json, tailor_json FROM tracked_jobs ORDER BY updated_at DESC"
     )
     return [
         TrackedJob(
-            code=c, company=co, title=t, url=u, salary=sa, state=st,
-            match_score=ms, created_at=ca, updated_at=ua,
+            code=c, company=co or "", title=t or "", url=u or "", salary=sa or "", state=st,
+            match_score=ms, created_at=ca or "", updated_at=ua or "", match_json=mj or "", tailor_json=tj or "",
         )
-        for c, co, t, u, sa, st, ms, ca, ua in rows
+        for c, co, t, u, sa, st, ms, ca, ua, mj, tj in rows
     ]
 
 
 def get_tracked_job(conn: sqlite3.Connection, code: str) -> TrackedJob | None:
     row = conn.execute(
-        "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at "
-        "FROM tracked_jobs WHERE code = ?", (code,)
+        "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at, "
+        "match_json, tailor_json FROM tracked_jobs WHERE code = ?", (code,)
     ).fetchone()
     if row is None:
         return None
-    c, co, t, u, sa, st, ms, ca, ua = row
+    c, co, t, u, sa, st, ms, ca, ua, mj, tj = row
     return TrackedJob(
-        code=c, company=co, title=t, url=u, salary=sa, state=st,
-        match_score=ms, created_at=ca, updated_at=ua,
+        code=c, company=co or "", title=t or "", url=u or "", salary=sa or "", state=st,
+        match_score=ms, created_at=ca or "", updated_at=ua or "", match_json=mj or "", tailor_json=tj or "",
     )
 
 
 def upsert_tracked_job(conn: sqlite3.Connection, job: TrackedJob) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO tracked_jobs "
-        "(code, company, title, url, salary, state, match_score, created_at, updated_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?)",
+        "(code, company, title, url, salary, state, match_score, created_at, updated_at, match_json, tailor_json) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (job.code, job.company, job.title, job.url, job.salary, job.state,
-         job.match_score, job.created_at, job.updated_at),
+         job.match_score, job.created_at, job.updated_at, job.match_json, job.tailor_json),
     )
     conn.commit()
 
@@ -260,3 +272,42 @@ def upsert_tracked_job(conn: sqlite3.Connection, job: TrackedJob) -> None:
 def delete_tracked_job(conn: sqlite3.Connection, code: str) -> None:
     conn.execute("DELETE FROM tracked_jobs WHERE code = ?", (code,))
     conn.commit()
+
+
+def merge_tracked_job(
+    conn: sqlite3.Connection, code: str, *,
+    state: str | None = None, match_score: int | None = None,
+    match_json: dict | None = None, tailor_json: dict | None = None,
+    company: str = "", title: str = "", url: str = "", salary: str = "",
+) -> str:
+    """合併 upsert 一筆追蹤職缺：保留 created_at、取較前面狀態、不降級終端、未帶欄位保留舊值。
+    match_json/tailor_json 傳 dict 會序列化存入；回最終 state。"""
+    from . import pipeline  # 延遲 import 避免與 pipeline 循環
+    now = datetime.now().isoformat(timespec="seconds")
+    existing = get_tracked_job(conn, code)
+    if existing is not None:
+        created_at = existing.created_at or now
+        if existing.state in pipeline.TERMINAL:
+            final_state = existing.state
+        elif state is not None and pipeline.STATE_RANK.get(state, 0) >= pipeline.STATE_RANK.get(existing.state, 0):
+            final_state = state
+        else:
+            final_state = existing.state
+        new_score = match_score if match_score is not None else existing.match_score
+        new_mj = json.dumps(match_json, ensure_ascii=False) if match_json is not None else existing.match_json
+        new_tj = json.dumps(tailor_json, ensure_ascii=False) if tailor_json is not None else existing.tailor_json
+        new_co, new_t, new_u, new_sa = (company or existing.company, title or existing.title,
+                                        url or existing.url, salary or existing.salary)
+    else:
+        created_at = now
+        final_state = state or "interested"
+        new_score = match_score
+        new_mj = json.dumps(match_json, ensure_ascii=False) if match_json is not None else ""
+        new_tj = json.dumps(tailor_json, ensure_ascii=False) if tailor_json is not None else ""
+        new_co, new_t, new_u, new_sa = company, title, url, salary
+    upsert_tracked_job(conn, TrackedJob(
+        code=code, company=new_co, title=new_t, url=new_u, salary=new_sa,
+        state=final_state, match_score=new_score, created_at=created_at, updated_at=now,
+        match_json=new_mj, tailor_json=new_tj,
+    ))
+    return final_state

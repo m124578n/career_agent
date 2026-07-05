@@ -187,6 +187,8 @@ class TrackedJob(BaseModel):
     salary: str = ""
     state: str = "interested"   # interested|matched|tailored|offer|rejected
     match_score: int | None = None
+    match_json: str = ""
+    tailor_json: str = ""
     created_at: str = ""
     updated_at: str = ""
 
