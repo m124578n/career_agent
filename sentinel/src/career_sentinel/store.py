@@ -255,3 +255,8 @@ def upsert_tracked_job(conn: sqlite3.Connection, job: TrackedJob) -> None:
          job.match_score, job.created_at, job.updated_at),
     )
     conn.commit()
+
+
+def delete_tracked_job(conn: sqlite3.Connection, code: str) -> None:
+    conn.execute("DELETE FROM tracked_jobs WHERE code = ?", (code,))
+    conn.commit()

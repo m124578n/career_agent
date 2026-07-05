@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path
 
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, pipeline, research, resume, store, tailor, usage as usagemod, watch
-from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, interview_key
+from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, TrackedJob, interview_key
 from . import apply, runner, scheduler
 
 logger = logging.getLogger("career_sentinel.web")
@@ -25,6 +25,15 @@ class _DiagnoseReq(BaseModel):
 
 class _MatchReq(BaseModel):
     job_url: str
+
+
+class _TrackReq(BaseModel):
+    code: str
+    company: str = ""
+    title: str = ""
+    url: str = ""
+    salary: str = ""
+    match_score: int | None = None
 
 
 class _ChatReq(BaseModel):
@@ -482,6 +491,61 @@ def create_app(db_path: str | None = None) -> FastAPI:
         mem.facts.pop(index)
         store.save_memory(conn2, mem)
         return {"ok": True}
+
+    @app.post("/api/tracked")
+    def track_job(req: _TrackReq) -> dict:
+        if not req.code.strip():
+            raise HTTPException(status_code=400, detail="缺少職缺代碼")
+        conn = _conn()
+        now = datetime.now().isoformat(timespec="seconds")
+        new_state = "matched" if req.match_score is not None else "interested"
+        existing = store.get_tracked_job(conn, req.code)
+        if existing is not None:
+            created_at = existing.created_at or now
+            if existing.state in pipeline.TERMINAL:
+                final_state = existing.state
+            elif pipeline.STATE_RANK.get(new_state, 0) >= pipeline.STATE_RANK.get(existing.state, 0):
+                final_state = new_state
+            else:
+                final_state = existing.state
+            match_score = req.match_score if req.match_score is not None else existing.match_score
+            company = req.company or existing.company
+            title = req.title or existing.title
+            url = req.url or existing.url
+            salary = req.salary or existing.salary
+        else:
+            created_at = now
+            final_state = new_state
+            match_score = req.match_score
+            company, title, url, salary = req.company, req.title, req.url, req.salary
+        store.upsert_tracked_job(conn, TrackedJob(
+            code=req.code, company=company, title=title, url=url, salary=salary,
+            state=final_state, match_score=match_score, created_at=created_at, updated_at=now,
+        ))
+        return {"status": "tracked", "state": final_state}
+
+    @app.delete("/api/tracked/{code}")
+    def untrack_job(code: str) -> dict:
+        store.delete_tracked_job(_conn(), code)
+        return {"status": "untracked"}
+
+    @app.get("/api/job")
+    def job_by_url(url: str = "") -> dict:
+        if not url.strip():
+            raise HTTPException(status_code=400, detail="請提供職缺網址")
+        try:
+            code = jobfetch.extract_job_code(url)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        try:
+            jd = jobfetch.fetch_job_detail(code)
+        except Exception:
+            raise HTTPException(status_code=502, detail="抓取職缺失敗，請確認網址")
+        settings = store.load_settings(_conn())
+        return {
+            "code": code, "url": url, "title": jd.title, "company": jd.company,
+            "salary": jd.salary, "is_watched": watch.is_watched(jd.company, jd.title, settings),
+        }
 
     dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
     if dist.is_dir():
