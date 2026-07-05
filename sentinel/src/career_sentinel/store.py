@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .models import (
     Application, ChatState, CompanyResearch, DismissedInterviews, Interview, JobPreferences,
-    MemoryState, Message, ResumeState, Settings, Snapshot, Viewer,
+    MemoryState, Message, ResumeState, Settings, Snapshot, TrackedJob, Viewer,
 )
 
 _SCHEMA = """
@@ -60,6 +60,17 @@ CREATE TABLE IF NOT EXISTS usage_log (
     cache_write INTEGER NOT NULL DEFAULT 0,
     cost_usd REAL NOT NULL DEFAULT 0,
     at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tracked_jobs (
+    code TEXT PRIMARY KEY,
+    company TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    url TEXT NOT NULL DEFAULT '',
+    salary TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL DEFAULT 'interested',
+    match_score INTEGER,
+    created_at TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT ''
 );
 """
 
@@ -203,5 +214,44 @@ def save_research(conn: sqlite3.Connection, r: CompanyResearch) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO company_research (company, data) VALUES (?, ?)",
         (r.company, r.model_dump_json()),
+    )
+    conn.commit()
+
+
+def load_tracked_jobs(conn: sqlite3.Connection) -> list[TrackedJob]:
+    rows = conn.execute(
+        "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at "
+        "FROM tracked_jobs ORDER BY updated_at DESC"
+    )
+    return [
+        TrackedJob(
+            code=c, company=co, title=t, url=u, salary=sa, state=st,
+            match_score=ms, created_at=ca, updated_at=ua,
+        )
+        for c, co, t, u, sa, st, ms, ca, ua in rows
+    ]
+
+
+def get_tracked_job(conn: sqlite3.Connection, code: str) -> TrackedJob | None:
+    row = conn.execute(
+        "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at "
+        "FROM tracked_jobs WHERE code = ?", (code,)
+    ).fetchone()
+    if row is None:
+        return None
+    c, co, t, u, sa, st, ms, ca, ua = row
+    return TrackedJob(
+        code=c, company=co, title=t, url=u, salary=sa, state=st,
+        match_score=ms, created_at=ca, updated_at=ua,
+    )
+
+
+def upsert_tracked_job(conn: sqlite3.Connection, job: TrackedJob) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO tracked_jobs "
+        "(code, company, title, url, salary, state, match_score, created_at, updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        (job.code, job.company, job.title, job.url, job.salary, job.state,
+         job.match_score, job.created_at, job.updated_at),
     )
     conn.commit()

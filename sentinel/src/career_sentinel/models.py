@@ -179,6 +179,44 @@ class JobPreferences(BaseModel):
     avoid: list[str] = Field(default_factory=list)       # 避雷條件
 
 
+class TrackedJob(BaseModel):
+    code: str
+    company: str = ""
+    title: str = ""
+    url: str = ""
+    salary: str = ""
+    state: str = "interested"   # interested|matched|tailored|offer|rejected
+    match_score: int | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class PipelineJob(BaseModel):
+    """合併引擎輸出的統一 DTO（前端據 state 分組渲染）。"""
+    key: str                    # code；interview 無 code 時退回 company|job_title|when
+    code: str = ""
+    company: str = ""
+    title: str = ""
+    state: str = "interested"   # 有效狀態
+    url: str = ""
+    salary: str = ""
+    match_score: int | None = None
+    # 已投遞側（來自 applications）
+    status: str = ""
+    applied_at: str = ""
+    # 面試側（來自 interviews）
+    when: str = ""
+    location: str = ""
+    gcal_link: str = ""
+    interview_key: str = ""
+    dismissed: bool = False
+    # 連結與旗標
+    company_url: str = ""
+    job_url: str = ""
+    thread_url: str = ""
+    watched: bool = False
+
+
 class MemoryFact(BaseModel):
     text: str
     created_at: str = ""
