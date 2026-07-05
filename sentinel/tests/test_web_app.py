@@ -263,55 +263,6 @@ def test_apply_open_bad_scheme(tmp_path):
     assert r.status_code == 400
 
 
-def test_resume104_get(tmp_path, monkeypatch):
-    from career_sentinel.web import runner
-    from career_sentinel.scraper import resume104
-    from career_sentinel.models import Resume104, Resume104Block
-    monkeypatch.setattr(runner, "try_begin_browser", lambda: True)
-    monkeypatch.setattr(runner, "end_browser", lambda: None)
-    monkeypatch.setattr(resume104, "resume104_session",
-                        lambda: Resume104(vno="v1", progress=90, blocks=[
-                            Resume104Block(id="info", label="基本資料", text="姓名：王", is_pii=True),
-                            Resume104Block(id="experience", label="工作經歷", text="甲公司"),
-                        ]))
-    body = _client(tmp_path).get("/api/resume104").json()
-    assert body["vno"] == "v1" and body["progress"] == 90
-    assert [b["id"] for b in body["blocks"]] == ["info", "experience"]
-
-
-def test_resume104_get_busy_and_not_logged_in(tmp_path, monkeypatch):
-    from career_sentinel.web import runner
-    from career_sentinel.scraper import resume104
-    monkeypatch.setattr(runner, "try_begin_browser", lambda: False)
-    assert _client(tmp_path).get("/api/resume104").status_code == 409
-    monkeypatch.setattr(runner, "try_begin_browser", lambda: True)
-    monkeypatch.setattr(runner, "end_browser", lambda: None)
-    monkeypatch.setattr(resume104, "resume104_session", lambda: None)
-    assert _client(tmp_path).get("/api/resume104").status_code == 409
-
-
-def test_resume104_diagnose_strips_pii(tmp_path, monkeypatch):
-    from career_sentinel import diagnosis
-    from career_sentinel.models import ResumeDiagnosis
-    monkeypatch.setenv("LLM_API_KEY", "k")
-    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
-    captured = {}
-    def fake_diag(text, title, salary, **kw):
-        captured["text"] = text
-        return ResumeDiagnosis(strengths=["強"], gaps=["補"])
-    monkeypatch.setattr(diagnosis, "diagnose", fake_diag)
-    payload = {
-        "target_title": "後端",
-        "resume104": {"vno": "v1", "progress": 90, "blocks": [
-            {"id": "info", "label": "基本資料", "text": "姓名：王小明\nEmail：a@b.c", "is_pii": True, "completed": True},
-            {"id": "experience", "label": "工作經歷", "text": "甲公司 後端", "is_pii": False, "completed": True},
-        ]},
-    }
-    body = _client(tmp_path).post("/api/resume104/diagnose", json=payload).json()
-    assert body["strengths"] == ["強"]
-    assert "王小明" not in captured["text"] and "a@b.c" not in captured["text"]  # PII 未送 LLM
-    assert "甲公司" in captured["text"]
-
 
 def test_get_usage_returns_summary(tmp_path):
     from fastapi.testclient import TestClient

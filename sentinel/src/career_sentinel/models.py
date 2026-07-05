@@ -86,6 +86,7 @@ class ResumeState(BaseModel):
     target_title: str = ""
     expected_salary: int | None = None
     diagnosis: ResumeDiagnosis | None = None
+    source: str = ""   # "" | "upload" | "104"
 
 
 class JobDetail(BaseModel):

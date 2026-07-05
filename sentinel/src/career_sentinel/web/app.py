@@ -46,11 +46,6 @@ class _InterviewKeyReq(BaseModel):
     key: str
 
 
-class _Resume104DiagnoseReq(BaseModel):
-    target_title: str = ""
-    resume104: dict
-
-
 def _chat_events(messages, system):
     """依 provider 產聊天事件流：foundry 走工具迴圈、openai 走既有純聊天。"""
     if config.llm_provider() == "foundry":
@@ -169,6 +164,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         conn = _conn()
         state = store.load_resume(conn)
         state.resume_text = text
+        state.source = "upload"
         store.save_resume(conn, state)
         return {"chars": len(text)}
 
@@ -190,6 +186,29 @@ def create_app(db_path: str | None = None) -> FastAPI:
         store.save_resume(conn, state)
         return result.model_dump()
 
+    @app.post("/api/resume/import104")
+    def resume_import104() -> dict:
+        from ..scraper import resume104 as r104
+        if not runner.try_begin_browser():
+            raise HTTPException(status_code=409, detail="瀏覽器忙碌中（可能正在抓取），請稍候再試")
+        try:
+            r = r104.resume104_session()
+        except Exception:
+            raise HTTPException(status_code=502, detail="讀取 104 履歷失敗，請重試")
+        finally:
+            runner.end_browser()
+        if r is None:
+            raise HTTPException(status_code=409, detail="尚未登入，請先在終端機執行：career-sentinel login")
+        text = r104.flatten_for_diagnosis(r)
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="104 履歷內容為空（可能未填寫），無法匯入")
+        conn = _conn()
+        state = store.load_resume(conn)
+        state.resume_text = text
+        state.source = "104"
+        store.save_resume(conn, state)
+        return {"chars": len(text), "resume104": r.model_dump()}
+
     @app.get("/api/resume")
     def resume_get() -> dict:
         state = store.load_resume(_conn())
@@ -199,6 +218,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "target_title": state.target_title,
             "expected_salary": state.expected_salary,
             "diagnosis": state.diagnosis.model_dump() if state.diagnosis else None,
+            "source": state.source,
         }
 
     @app.post("/api/match")
@@ -314,37 +334,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 for j in jobs
             ]
         }
-
-    @app.get("/api/resume104")
-    def resume104_get() -> dict:
-        from ..scraper import resume104
-        if not runner.try_begin_browser():
-            raise HTTPException(status_code=409, detail="瀏覽器忙碌中（可能正在抓取），請稍候再試")
-        try:
-            r = resume104.resume104_session()
-        except Exception:
-            raise HTTPException(status_code=502, detail="讀取 104 履歷失敗，請重試")
-        finally:
-            runner.end_browser()
-        if r is None:
-            raise HTTPException(status_code=409, detail="尚未登入，請先在終端機執行：career-sentinel login")
-        return r.model_dump()
-
-    @app.post("/api/resume104/diagnose")
-    def resume104_diagnose(req: _Resume104DiagnoseReq) -> dict:
-        from ..scraper import resume104
-        from ..models import Resume104
-        r = Resume104.model_validate(req.resume104)
-        flat = resume104.flatten_for_diagnosis(r)
-        if not flat.strip():
-            raise HTTPException(status_code=400, detail="履歷內容為空，無法健檢")
-        try:
-            result = diagnosis.diagnose(flat, req.target_title or "（未指定）", None)
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-        except Exception:
-            raise HTTPException(status_code=500, detail="健檢失敗，請重試")
-        return result.model_dump()
 
     @app.post("/api/chat")
     def chat_send(req: _ChatReq):
