@@ -32,6 +32,7 @@ export interface SnapshotResp {
   pipeline: PipelineJob[];
   digest: string;
   failed_readers: string[];
+  tracked_codes: string[];
 }
 export interface ChangeCounts { new_viewers: number; status_changes: number; new_messages: number; new_invites: number }
 export interface StatusResp { running: boolean; last_run: string | null; last_error: string | null; last_failed_readers: string[]; last_change_counts: ChangeCounts; phase: string }
@@ -125,6 +126,8 @@ export interface TrackReq {
   url?: string;
   salary?: string;
   match_score?: number | null;
+  match_json?: unknown;
+  tailor_json?: unknown;
 }
 
 export async function trackJob(body: TrackReq): Promise<Response> {
@@ -133,6 +136,19 @@ export async function trackJob(body: TrackReq): Promise<Response> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+export interface TrackedCard {
+  code: string;
+  found: boolean;
+  state: string;
+  match_score: number | null;
+  match: MatchResult | null;
+  tailor: TailoredApplication | null;
+}
+
+export async function getTrackedJob(code: string): Promise<Response> {
+  return fetch(`/api/tracked/${encodeURIComponent(code)}`);
 }
 
 export async function untrackJob(code: string): Promise<Response> {
