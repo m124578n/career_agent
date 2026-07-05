@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconArrowBackUp, IconCalendarPlus, IconCheck, IconMe
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { type PipelineJob, dismissInterview, getSnapshot, getStatus, restoreInterview, untrackJob } from "./api";
+import JobCardDrawer, { type CardJob } from "./JobCardDrawer";
 import ResearchButton from "./ResearchButton";
 import { Kpi, PageContainer } from "./ui";
 
@@ -59,6 +60,9 @@ export default function Dashboard() {
   const [allViewers, setAllViewers] = useState(false);
   const [allMsgs, setAllMsgs] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  const [cardJob, setCardJob] = useState<CardJob | null>(null);
+  const openCard = (j: PipelineJob) => () =>
+    setCardJob({ code: j.code, company: j.company, title: j.title, url: j.job_url || j.url, salary: j.salary });
 
   const pipe = s?.pipeline ?? [];
   const interviewing = pipe.filter((j) => j.state === "interviewing");
@@ -158,26 +162,35 @@ export default function Dashboard() {
               <Text size="xs" c="teal.5" mb={6} mt="xs" fw={600} style={{ letterSpacing: 1 }}>面試中</Text>
               {upcomingSorted.map((j: PipelineJob) => (
                 <Row key={j.key}>
-                  <Text size="sm" truncate style={{ minWidth: 0, flex: 1 }}>
-                    <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
-                    <Text span c="dimmed"> · {j.title}{j.location ? ` · ${j.location}` : ""}</Text>
-                  </Text>
-                  <ResearchButton company={j.company} />
+                  <div onClick={openCard(j)} style={{ cursor: "pointer", minWidth: 0, flex: 1 }}>
+                    <Text size="sm" truncate>
+                      <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
+                      <Text span c="dimmed"> · {j.title}{j.location ? ` · ${j.location}` : ""}</Text>
+                    </Text>
+                  </div>
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <ResearchButton company={j.company} />
+                  </span>
                   <Group gap="md" wrap="nowrap" style={{ flexShrink: 0 }}>
                     <Text c="teal.5" ff="monospace" size="xs">{j.when || "日期未擷取"}</Text>
-                    {j.job_url && <Anchor href={j.job_url} target="_blank" size="xs" c="dimmed">看職缺</Anchor>}
+                    {j.job_url && (
+                      <Anchor href={j.job_url} target="_blank" size="xs" c="dimmed"
+                        onClick={(e) => e.stopPropagation()}>看職缺</Anchor>
+                    )}
                     {j.thread_url && (
                       <ActionIcon component="a" href={j.thread_url} target="_blank"
-                        variant="default" size="md" title="開啟 104 對話">
+                        variant="default" size="md" title="開啟 104 對話"
+                        onClick={(e) => e.stopPropagation()}>
                         <IconMessageCircle size={15} />
                       </ActionIcon>
                     )}
                     <ActionIcon component="a" href={j.gcal_link} target="_blank"
-                      variant="default" size="md" title="加入 Google 日曆">
+                      variant="default" size="md" title="加入 Google 日曆"
+                      onClick={(e) => e.stopPropagation()}>
                       <IconCalendarPlus size={15} />
                     </ActionIcon>
                     <ActionIcon variant="default" size="md" title="知道了（隱藏，可還原）"
-                      onClick={ackInterview(j.interview_key)}>
+                      onClick={(e) => { e.stopPropagation(); ackInterview(j.interview_key)(); }}>
                       <IconCheck size={15} />
                     </ActionIcon>
                   </Group>
@@ -211,18 +224,21 @@ export default function Dashboard() {
               <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>已投遞</Text>
               {appliedSorted.map((j: PipelineJob) => (
                 <Row key={j.key}>
-                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1, cursor: "pointer" }} onClick={openCard(j)}>
                     {j.watched && <Star />}
                     <Text size="sm" truncate>
                       <CompanyLink name={j.company} href={j.company_url || undefined} />
                       <Text span c="dimmed"> · </Text>
                       {j.job_url ? (
-                        <Anchor href={j.job_url} target="_blank" size="sm" c="dimmed" underline="hover">{j.title}</Anchor>
+                        <Anchor href={j.job_url} target="_blank" size="sm" c="dimmed" underline="hover"
+                          onClick={(e) => e.stopPropagation()}>{j.title}</Anchor>
                       ) : (
                         <Text span c="dimmed">{j.title}</Text>
                       )}
                     </Text>
-                    <ResearchButton company={j.company} />
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <ResearchButton company={j.company} />
+                    </span>
                   </Group>
                   {j.status && <Badge size="sm" variant="light" color="teal">{j.status}</Badge>}
                 </Row>
@@ -235,16 +251,18 @@ export default function Dashboard() {
               <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>已客製化</Text>
               {tailoredSorted.map((j: PipelineJob) => (
                 <Row key={j.key}>
-                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1, cursor: "pointer" }} onClick={openCard(j)}>
                     {j.watched && <Star />}
                     <Text size="sm" truncate>
                       <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
                       <Text span c="dimmed"> · {j.title}</Text>
                     </Text>
-                    <ResearchButton company={j.company} />
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <ResearchButton company={j.company} />
+                    </span>
                   </Group>
                   <ActionIcon variant="subtle" color="gray" size="sm" title="取消追蹤" style={{ flexShrink: 0 }}
-                    onClick={untrack(j.code)}>
+                    onClick={(e) => { e.stopPropagation(); untrack(j.code)(); }}>
                     <IconX size={14} />
                   </ActionIcon>
                 </Row>
@@ -257,17 +275,19 @@ export default function Dashboard() {
               <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>已比對</Text>
               {matchedSorted.map((j: PipelineJob) => (
                 <Row key={j.key}>
-                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1, cursor: "pointer" }} onClick={openCard(j)}>
                     {j.watched && <Star />}
                     <Text size="sm" truncate>
                       <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
                       <Text span c="dimmed"> · {j.title}</Text>
                     </Text>
                     {j.match_score != null && <Badge size="sm" variant="light" color="teal">{j.match_score}</Badge>}
-                    <ResearchButton company={j.company} />
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <ResearchButton company={j.company} />
+                    </span>
                   </Group>
                   <ActionIcon variant="subtle" color="gray" size="sm" title="取消追蹤" style={{ flexShrink: 0 }}
-                    onClick={untrack(j.code)}>
+                    onClick={(e) => { e.stopPropagation(); untrack(j.code)(); }}>
                     <IconX size={14} />
                   </ActionIcon>
                 </Row>
@@ -280,16 +300,18 @@ export default function Dashboard() {
               <Text size="xs" c="dimmed" mb={6} mt="md" fw={600} style={{ letterSpacing: 1 }}>有興趣</Text>
               {interestedJobs.map((j: PipelineJob) => (
                 <Row key={j.key}>
-                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                  <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1, cursor: "pointer" }} onClick={openCard(j)}>
                     {j.watched && <Star />}
                     <Text size="sm" truncate>
                       <CompanyLink name={j.company} href={j.job_url || j.company_url || undefined} />
                       <Text span c="dimmed"> · {j.title}</Text>
                     </Text>
-                    <ResearchButton company={j.company} />
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <ResearchButton company={j.company} />
+                    </span>
                   </Group>
                   <ActionIcon variant="subtle" color="gray" size="sm" title="取消追蹤" style={{ flexShrink: 0 }}
-                    onClick={untrack(j.code)}>
+                    onClick={(e) => { e.stopPropagation(); untrack(j.code)(); }}>
                     <IconX size={14} />
                   </ActionIcon>
                 </Row>
@@ -342,6 +364,8 @@ export default function Dashboard() {
           <ShowAll total={s?.messages.length ?? 0} showAll={allMsgs} onToggle={() => setAllMsgs((v) => !v)} />
         </Grid.Col>
       </Grid>
+
+      <JobCardDrawer job={cardJob} opened={cardJob !== null} onClose={() => setCardJob(null)} />
     </PageContainer>
   );
 }
