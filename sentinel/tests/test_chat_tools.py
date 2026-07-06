@@ -403,3 +403,9 @@ def test_system_prompt_includes_today():
     from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
     assert "今天日期" in p and datetime.now().strftime("%Y-%m-%d") in p
+
+
+def test_system_prompt_mentions_interview_note():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    assert "interview_note" in p

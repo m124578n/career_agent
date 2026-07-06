@@ -70,7 +70,8 @@ _CONTRACT = """
   {"field": "job_reset", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
   {"field": "untrack", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
   {"field": "tailor", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}},
-  {"field": "negotiate", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}}
+  {"field": "negotiate", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}},
+  {"field": "interview_note", "op": "set", "payload": {"code": "abc12", "when": "2026-07-10 14:00 一面", "content": "問了系統設計與過往專案"}}
 ]}</suggestions>
 規則：
 - 允許的 field/op：target_title/set、expected_salary/set（value 為整數**月薪**；
@@ -95,6 +96,9 @@ _CONTRACT = """
   {"field": "negotiate", "op": "run", "payload": {"code": "...", "company": "...", "title": "..."}}.
   僅對已標記錄取（offer）的職缺；payload.code 必來自 get_pipeline 的實際 offer 職缺、不得杜撰。
   這是**提議**，等使用者按下才實際生成（花 LLM 錢＋web search）——**你不要自行寫議價策略或聲稱已完成**，只丟提議卡。
+- 面試紀錄（interview_note/set）：使用者描述某職缺的面試（時間、問了什麼、心得）時，提議
+  {"field": "interview_note", "op": "set", "payload": {"code": "...", "when": "...", "content": "..."}}.
+  payload.code 必來自 get_pipeline/search_jobs 的實際結果、不得杜撰；只提議，按下確認才記。
 - 沒有要更新時不要輸出 <suggestions> 區塊。
 - <suggestions> 之後不要再有任何文字。
 """
@@ -214,6 +218,7 @@ ALLOWED: dict[str, set[str]] = {
     "job_reject": {"set"},
     "job_reset": {"set"},
     "untrack": {"set"},
+    "interview_note": {"set"},
 }
 
 
@@ -298,6 +303,15 @@ def apply_update(conn, upd: SuggestedUpdate) -> ApplyResult:
             store.set_tracked_state(conn, code, "interested")
             return ApplyResult(ok=True)
         store.delete_tracked_job(conn, code)  # untrack
+        return ApplyResult(ok=True)
+    if upd.field == "interview_note":
+        payload = upd.payload or {}
+        code = str(payload.get("code", "")).strip()
+        if not code:
+            return ApplyResult(ok=False, message="缺少職缺代碼")
+        from .models import InterviewNote
+        store.add_interview_note(conn, code, InterviewNote(
+            when=str(payload.get("when", "")), content=str(payload.get("content", ""))))
         return ApplyResult(ok=True)
     if upd.field == "memory":
         # memory / remember / forget（LLM 自動維護：重複不再記、過時的可刪）

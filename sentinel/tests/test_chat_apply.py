@@ -245,3 +245,19 @@ def test_apply_update_rejects_negotiate(tmp_path):
     conn = _conn(tmp_path)
     r = chat.apply_update(conn, SuggestedUpdate(field="negotiate", op="run", payload={"code": "x"}))
     assert not r.ok
+
+
+def test_apply_interview_note_appends(tmp_path):
+    conn = _conn(tmp_path)
+    r = chat.apply_update(conn, SuggestedUpdate(field="interview_note", op="set", payload={
+        "code": "abc12", "when": "2026-07-10 一面", "content": "問系統設計"}))
+    assert r.ok
+    import json
+    notes = json.loads(store.get_tracked_job(conn, "abc12").interviews_json)
+    assert len(notes) == 1 and notes[0]["when"] == "2026-07-10 一面" and notes[0]["content"] == "問系統設計"
+
+
+def test_apply_interview_note_missing_code(tmp_path):
+    conn = _conn(tmp_path)
+    r = chat.apply_update(conn, SuggestedUpdate(field="interview_note", op="set", payload={"content": "x"}))
+    assert not r.ok and "代碼" in r.message
