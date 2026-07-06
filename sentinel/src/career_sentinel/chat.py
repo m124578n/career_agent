@@ -69,7 +69,8 @@ _CONTRACT = """
   {"field": "job_reject", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
   {"field": "job_reset", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
   {"field": "untrack", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
-  {"field": "tailor", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}}
+  {"field": "tailor", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}},
+  {"field": "negotiate", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}}
 ]}</suggestions>
 規則：
 - 允許的 field/op：target_title/set、expected_salary/set（value 為整數**月薪**；
@@ -90,6 +91,10 @@ _CONTRACT = """
   {"field": "tailor", "op": "run", "payload": {"code": "...", "company": "...", "title": "..."}}.
   需使用者已上傳履歷；payload.code 必來自 get_pipeline/search_jobs/get_job_detail 的實際結果、不得杜撰。
   這是**提議**，會等使用者按下「客製化」才實際生成（花 LLM 錢）——**你不要自行寫出客製化內容或聲稱已完成**，只丟提議卡。
+- 談判建議（negotiate/run）：使用者想要某 **offer** 的議價策略與話術時，提議
+  {"field": "negotiate", "op": "run", "payload": {"code": "...", "company": "...", "title": "..."}}.
+  僅對已標記錄取（offer）的職缺；payload.code 必來自 get_pipeline 的實際 offer 職缺、不得杜撰。
+  這是**提議**，等使用者按下才實際生成（花 LLM 錢＋web search）——**你不要自行寫議價策略或聲稱已完成**，只丟提議卡。
 - 沒有要更新時不要輸出 <suggestions> 區塊。
 - <suggestions> 之後不要再有任何文字。
 """

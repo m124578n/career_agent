@@ -239,3 +239,9 @@ def test_apply_update_rejects_tailor(tmp_path):
     conn = _conn(tmp_path)
     r = chat.apply_update(conn, SuggestedUpdate(field="tailor", op="run", payload={"code": "x"}))
     assert not r.ok
+
+
+def test_apply_update_rejects_negotiate(tmp_path):
+    conn = _conn(tmp_path)
+    r = chat.apply_update(conn, SuggestedUpdate(field="negotiate", op="run", payload={"code": "x"}))
+    assert not r.ok

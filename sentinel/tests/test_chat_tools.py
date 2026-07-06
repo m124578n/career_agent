@@ -390,3 +390,9 @@ def test_system_prompt_mentions_fetch_url():
     from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
     assert "fetch_url" in p
+
+
+def test_system_prompt_mentions_negotiate():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    assert "negotiate" in p
