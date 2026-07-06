@@ -206,6 +206,15 @@ def test_apply_pipeline_action_missing_code(tmp_path):
     assert not r.ok and "代碼" in r.message
 
 
+def test_apply_job_offer_bad_salary_is_clean_error(tmp_path):
+    # LLM 若把 salary_year 給成不可轉型字串，回乾淨 ApplyResult(ok=False)、不冒 500
+    conn = _conn(tmp_path)
+    r = chat.apply_update(conn, SuggestedUpdate(field="job_offer", op="set",
+                                                payload={"code": "b1", "salary_year": "一百二十萬"}))
+    assert not r.ok and "格式" in r.message
+    assert store.get_tracked_job(conn, "b1") is None  # 未誤寫
+
+
 def test_apply_track_preserves_offer_terminal(tmp_path):
     # 對已 offer 職缺送 track（走 merge）→ 防降級：state 仍 offer、offer_json 保留（SP20 修正）
     from career_sentinel.models import OfferDetail

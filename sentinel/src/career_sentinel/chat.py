@@ -266,11 +266,14 @@ def apply_update(conn, upd: SuggestedUpdate) -> ApplyResult:
             return ApplyResult(ok=True)
         if upd.field == "job_offer":
             from .models import OfferDetail
-            offer = OfferDetail(
-                salary_year=payload.get("salary_year"), salary_month=payload.get("salary_month"),
-                location=str(payload.get("location", "")), level=str(payload.get("level", "")),
-                start_date=str(payload.get("start_date", "")), notes=str(payload.get("notes", "")),
-            )
+            try:
+                offer = OfferDetail(
+                    salary_year=payload.get("salary_year"), salary_month=payload.get("salary_month"),
+                    location=str(payload.get("location", "")), level=str(payload.get("level", "")),
+                    start_date=str(payload.get("start_date", "")), notes=str(payload.get("notes", "")),
+                )
+            except Exception:
+                return ApplyResult(ok=False, message="offer 明細格式錯誤（薪資需為數字）")
             store.set_tracked_state(conn, code, "offer", offer=offer)
             return ApplyResult(ok=True)
         if upd.field == "job_reject":
