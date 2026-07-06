@@ -132,3 +132,29 @@ def test_tracked_get_non_offer_offer_none(tmp_path):
     c.post("/api/tracked", json={"code": "m1", "match_score": 70})
     got = c.get("/api/tracked/m1").json()
     assert got["offer"] is None
+
+
+def test_get_tracked_includes_interviews(tmp_path):
+    from career_sentinel.models import InterviewNote
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.set_interviews(conn, "iv1", [InterviewNote(when="一面", content="做題")])
+    got = _client(tmp_path).get("/api/tracked/iv1").json()
+    assert got["interviews"] == [{"when": "一面", "content": "做題"}]
+
+
+def test_get_tracked_missing_interviews_empty(tmp_path):
+    got = _client(tmp_path).get("/api/tracked/none").json()
+    assert got["interviews"] == []
+
+
+def test_put_interviews_replaces(tmp_path):
+    c = _client(tmp_path)
+    r = c.put("/api/tracked/iv2/interviews", json={"notes": [
+        {"when": "一面", "content": "A"}, {"when": "二面", "content": "B"}]})
+    assert r.status_code == 200 and r.json()["count"] == 2
+    got = c.get("/api/tracked/iv2").json()
+    assert [n["content"] for n in got["interviews"]] == ["A", "B"]
+    # 再 PUT 整列取代
+    c.put("/api/tracked/iv2/interviews", json={"notes": [{"when": "終面", "content": "C"}]})
+    got2 = c.get("/api/tracked/iv2").json()
+    assert [n["content"] for n in got2["interviews"]] == ["C"]

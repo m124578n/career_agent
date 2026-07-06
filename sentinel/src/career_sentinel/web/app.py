@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, negotiate, pipeline, research, resume, store, tailor, usage as usagemod, watch
-from ..models import ChatMessage, ChatState, JobPreferences, OfferDetail, Settings, SuggestedUpdate, interview_key
+from ..models import ChatMessage, ChatState, InterviewNote, JobPreferences, OfferDetail, Settings, SuggestedUpdate, interview_key
 from . import apply, runner, scheduler
 
 logger = logging.getLogger("career_sentinel.web")
@@ -43,6 +43,10 @@ class _InterviewKeyReq(BaseModel):
 
 class _NegotiateReq(BaseModel):
     code: str
+
+
+class _InterviewsReq(BaseModel):
+    notes: list[InterviewNote]
 
 
 def _chat_events(messages, system, db_path=None):
@@ -545,12 +549,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
         tj = store.get_tracked_job(_conn(), code)
         if tj is None:
             return {"code": code, "found": False, "state": "", "match_score": None,
-                    "match": None, "tailor": None, "offer": None}
+                    "match": None, "tailor": None, "offer": None, "interviews": []}
         return {
             "code": tj.code, "found": True, "state": tj.state, "match_score": tj.match_score,
             "match": json.loads(tj.match_json) if tj.match_json else None,
             "tailor": json.loads(tj.tailor_json) if tj.tailor_json else None,
             "offer": json.loads(tj.offer_json) if tj.offer_json else None,
+            "interviews": json.loads(tj.interviews_json) if tj.interviews_json else [],
         }
 
     @app.delete("/api/tracked/{code}")
@@ -578,6 +583,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="缺少職缺代碼")
         final = store.set_tracked_state(_conn(), code, "interested")
         return {"status": "ok", "state": final}
+
+    @app.put("/api/tracked/{code}/interviews")
+    def set_interviews_ep(code: str, req: _InterviewsReq) -> dict:
+        if not code.strip():
+            raise HTTPException(status_code=400, detail="缺少職缺代碼")
+        store.set_interviews(_conn(), code, req.notes)
+        return {"status": "ok", "count": len(req.notes)}
 
     @app.get("/api/job")
     def job_by_url(url: str = "") -> dict:
