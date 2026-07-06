@@ -57,6 +57,8 @@ export default function JobCardDrawer({ job, opened, onClose }: {
       if (c.offer) {
         setOfferState(c.offer);
         setForm(c.offer);
+      } else {
+        setForm({ salary_year: null, salary_month: null, location: "", level: "", start_date: "", notes: "" });
       }
     }).catch(() => {});
   }, [opened, job?.code]);
