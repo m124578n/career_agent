@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .models import (
-    Application, ChatState, CompanyResearch, DismissedInterviews, Interview, JobPreferences,
+    Application, ChatState, CompanyResearch, DismissedInterviews, Interview, InterviewNote, JobPreferences,
     MemoryState, Message, OfferDetail, ResumeState, Settings, Snapshot, TrackedJob, Viewer,
 )
 
@@ -74,14 +74,15 @@ CREATE TABLE IF NOT EXISTS tracked_jobs (
     updated_at TEXT NOT NULL DEFAULT '',
     match_json TEXT NOT NULL DEFAULT '',
     tailor_json TEXT NOT NULL DEFAULT '',
-    offer_json TEXT NOT NULL DEFAULT ''
+    offer_json TEXT NOT NULL DEFAULT '',
+    interviews_json TEXT NOT NULL DEFAULT ''
 );
 """
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(tracked_jobs)")}
-    for col in ("match_json", "tailor_json", "offer_json"):
+    for col in ("match_json", "tailor_json", "offer_json", "interviews_json"):
         if col not in cols:
             conn.execute(f"ALTER TABLE tracked_jobs ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
     conn.commit()
@@ -260,40 +261,41 @@ def save_research(conn: sqlite3.Connection, r: CompanyResearch) -> None:
 def load_tracked_jobs(conn: sqlite3.Connection) -> list[TrackedJob]:
     rows = conn.execute(
         "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at, "
-        "match_json, tailor_json, offer_json FROM tracked_jobs ORDER BY updated_at DESC"
+        "match_json, tailor_json, offer_json, interviews_json FROM tracked_jobs ORDER BY updated_at DESC"
     )
     return [
         TrackedJob(
             code=c, company=co or "", title=t or "", url=u or "", salary=sa or "", state=st,
             match_score=ms, created_at=ca or "", updated_at=ua or "", match_json=mj or "",
-            tailor_json=tj or "", offer_json=oj or "",
+            tailor_json=tj or "", offer_json=oj or "", interviews_json=iv or "",
         )
-        for c, co, t, u, sa, st, ms, ca, ua, mj, tj, oj in rows
+        for c, co, t, u, sa, st, ms, ca, ua, mj, tj, oj, iv in rows
     ]
 
 
 def get_tracked_job(conn: sqlite3.Connection, code: str) -> TrackedJob | None:
     row = conn.execute(
         "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at, "
-        "match_json, tailor_json, offer_json FROM tracked_jobs WHERE code = ?", (code,)
+        "match_json, tailor_json, offer_json, interviews_json FROM tracked_jobs WHERE code = ?", (code,)
     ).fetchone()
     if row is None:
         return None
-    c, co, t, u, sa, st, ms, ca, ua, mj, tj, oj = row
+    c, co, t, u, sa, st, ms, ca, ua, mj, tj, oj, iv = row
     return TrackedJob(
         code=c, company=co or "", title=t or "", url=u or "", salary=sa or "", state=st,
         match_score=ms, created_at=ca or "", updated_at=ua or "", match_json=mj or "",
-        tailor_json=tj or "", offer_json=oj or "",
+        tailor_json=tj or "", offer_json=oj or "", interviews_json=iv or "",
     )
 
 
 def upsert_tracked_job(conn: sqlite3.Connection, job: TrackedJob) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO tracked_jobs "
-        "(code, company, title, url, salary, state, match_score, created_at, updated_at, match_json, tailor_json, offer_json) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "(code, company, title, url, salary, state, match_score, created_at, updated_at, match_json, tailor_json, offer_json, interviews_json) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (job.code, job.company, job.title, job.url, job.salary, job.state,
-         job.match_score, job.created_at, job.updated_at, job.match_json, job.tailor_json, job.offer_json),
+         job.match_score, job.created_at, job.updated_at, job.match_json, job.tailor_json,
+         job.offer_json, job.interviews_json),
     )
     conn.commit()
 
@@ -368,3 +370,30 @@ def set_tracked_state(
             code=code, state=state, created_at=now, updated_at=now, offer_json=offer_json,
         ))
     return state
+
+
+def set_interviews(conn: sqlite3.Connection, code: str, notes: list[InterviewNote]) -> None:
+    """整列取代某職缺的面試紀錄；不存在則建列；保留其他欄位。"""
+    now = datetime.now().isoformat(timespec="seconds")
+    interviews_json = json.dumps([n.model_dump() for n in notes], ensure_ascii=False)
+    existing = get_tracked_job(conn, code)
+    if existing is not None:
+        existing.interviews_json = interviews_json
+        existing.updated_at = now
+        upsert_tracked_job(conn, existing)
+    else:
+        upsert_tracked_job(conn, TrackedJob(
+            code=code, created_at=now, updated_at=now, interviews_json=interviews_json))
+
+
+def add_interview_note(conn: sqlite3.Connection, code: str, note: InterviewNote) -> None:
+    """附加一筆面試紀錄（agent 用）。壞 JSON 視為空列。"""
+    existing = get_tracked_job(conn, code)
+    notes: list[InterviewNote] = []
+    if existing is not None and existing.interviews_json:
+        try:
+            notes = [InterviewNote.model_validate(x) for x in json.loads(existing.interviews_json)]
+        except Exception:
+            notes = []
+    notes.append(note)
+    set_interviews(conn, code, notes)

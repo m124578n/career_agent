@@ -189,6 +189,11 @@ class OfferDetail(BaseModel):
     notes: str = ""
 
 
+class InterviewNote(BaseModel):
+    when: str = ""      # 面試時間（自由字串，如 "2026-07-10 14:00 一面"）
+    content: str = ""   # 面試內容/心得
+
+
 class TrackedJob(BaseModel):
     code: str
     company: str = ""
@@ -200,6 +205,7 @@ class TrackedJob(BaseModel):
     match_json: str = ""
     tailor_json: str = ""
     offer_json: str = ""
+    interviews_json: str = ""
     created_at: str = ""
     updated_at: str = ""
 
