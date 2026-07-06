@@ -18,6 +18,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const prevDue = useRef(false);
   const notifyOnDone = useRef(false);
+  const sawRunning = useRef(false);
+  const baseline = useRef<{ run: string | null; err: string | null }>({ run: null, err: null });
 
   const status = useQuery({
     queryKey: ["status"], queryFn: getStatus,
@@ -36,25 +38,32 @@ export default function App() {
     prevDue.current = due;
   }, [schedule.data?.due]);
 
-  // scrape 完成：running true→false 邊緣 → 讀新增計數發通知
+  // scrape 完成偵測：只有「觀察到 running=true 過」或「last_run/last_error 真的相對抓取前變了」才算完成，
+  // 避免用抓取前的 stale idle 狀態（running=false）在剛 setPolling(true) 時就誤判完成、提早停輪詢。
   useEffect(() => {
-    if (polling && status.data && !status.data.running) {
-      setPolling(false);
-      qc.invalidateQueries({ queryKey: ["snapshot"] });
-      const c = status.data.last_change_counts;
-      const total = c ? c.new_viewers + c.status_changes + c.new_messages + c.new_invites : 0;
-      if (notifyOnDone.current && !status.data.last_error && total > 0) {
-        notify("🔔 career-sentinel", `發現 ${total} 筆新動態（看過我／訊息／狀態變化）。`);
-      }
-      notifyOnDone.current = false;
+    if (!polling || !status.data) return;
+    const s = status.data;
+    if (s.running) { sawRunning.current = true; return; }
+    const changed = s.last_run !== baseline.current.run || s.last_error !== baseline.current.err;
+    if (!sawRunning.current && !changed) return;  // 仍是抓取前的 stale idle，別誤判完成
+    setPolling(false);
+    qc.invalidateQueries({ queryKey: ["snapshot"] });
+    const c = s.last_change_counts;
+    const total = c ? c.new_viewers + c.status_changes + c.new_messages + c.new_invites : 0;
+    if (notifyOnDone.current && !s.last_error && total > 0) {
+      notify("🔔 career-sentinel", `發現 ${total} 筆新動態（看過我／訊息／狀態變化）。`);
     }
-    // dep 陣列刻意不含 status.data?.running：status.data 每次 fetch 都是新參照，已涵蓋 running 翻轉
+    notifyOnDone.current = false;
+    sawRunning.current = false;
   }, [polling, status.data, qc]);
 
   async function refresh() {
     const r = await startScrape();
     notifyOnDone.current = r.status !== "already_running";
+    sawRunning.current = false;
+    baseline.current = { run: status.data?.last_run ?? null, err: status.data?.last_error ?? null };
     setPolling(true);
+    qc.invalidateQueries({ queryKey: ["status"] });  // 強刷 status，盡快觀察到 running=true
   }
 
   async function onBannerPull() {

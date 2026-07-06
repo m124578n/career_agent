@@ -203,6 +203,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         try:
             r = r104.resume104_session()
         except Exception:
+            logger.exception("resume104 import failed")
             raise HTTPException(status_code=502, detail="讀取 104 履歷失敗，請重試")
         finally:
             runner.end_browser()
@@ -346,6 +347,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         try:
             jobs = recommend_session()
         except Exception:
+            logger.exception("recommend fetch failed")
             raise HTTPException(status_code=502, detail="拉取推薦失敗，請重試")
         finally:
             runner.end_browser()
