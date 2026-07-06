@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { type PipelineJob, dismissInterview, getSnapshot, getStatus, resetTracked, restoreInterview, untrackJob } from "./api";
 import JobCardDrawer, { type CardJob } from "./JobCardDrawer";
+import NegotiateButton from "./NegotiateButton";
 import ResearchButton from "./ResearchButton";
 import { Kpi, PageContainer } from "./ui";
 
@@ -194,8 +195,15 @@ export default function Dashboard() {
                     return (
                       <Table.Tr key={j.key} style={{ cursor: "pointer" }} onClick={openCard(j)}>
                         <Table.Td>
-                          <Text size="sm" fw={600}>{j.company}</Text>
-                          <Text size="xs" c="dimmed">{j.title}</Text>
+                          <Group gap={6} wrap="nowrap">
+                            <div style={{ minWidth: 0 }}>
+                              <Text size="sm" fw={600}>{j.company}</Text>
+                              <Text size="xs" c="dimmed">{j.title}</Text>
+                            </div>
+                            <span onClick={(e) => e.stopPropagation()}>
+                              <NegotiateButton code={j.code} company={j.company} title={j.title} />
+                            </span>
+                          </Group>
                         </Table.Td>
                         <Table.Td>
                           <Text size="sm" c={best ? "teal.5" : undefined} fw={best ? 700 : undefined}>

@@ -320,6 +320,25 @@ export async function getResearch(company: string, force = false): Promise<Respo
   return fetch(`/api/research?company=${encodeURIComponent(company)}${force ? "&force=1" : ""}`);
 }
 
+export interface NegotiationAdvice {
+  summary: string;
+  market_assessment: string;
+  leverage_points: string[];
+  suggested_ask: string;
+  scripts: string[];
+  risks: string[];
+  sources: ResearchSource[];
+  advised_at: string;
+}
+
+export async function negotiateOffer(code: string): Promise<Response> {
+  return fetch("/api/negotiate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+}
+
 export interface TailoredApplication {
   job_title: string;
   company: string;
