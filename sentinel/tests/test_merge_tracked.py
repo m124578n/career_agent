@@ -1,6 +1,6 @@
 import json
 from career_sentinel import store
-from career_sentinel.models import TrackedJob
+from career_sentinel.models import OfferDetail, TrackedJob
 
 
 def test_columns_roundtrip(tmp_path):
@@ -74,3 +74,15 @@ def test_merge_keeps_old_json_when_not_provided(tmp_path):
     j = store.get_tracked_job(conn, "a1")
     assert json.loads(j.match_json)["score"] == 80  # match_json 未帶時保留
     assert json.loads(j.tailor_json)["cover_letter"] == "y"
+
+
+def test_merge_preserves_offer_json(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.set_tracked_state(conn, "of1", "offer", offer=OfferDetail(salary_year=1200000, location="台北"))
+    # 對已錄取職缺再比對（走 merge_tracked_job，state_hint=matched）
+    store.merge_tracked_job(conn, "of1", state="matched", match_score=80)
+    got = store.get_tracked_job(conn, "of1")
+    assert got.state == "offer"          # 防降級：仍是 offer
+    assert got.offer_json != ""          # 手填明細不被清空
+    parsed = OfferDetail.model_validate_json(got.offer_json)
+    assert parsed.salary_year == 1200000 and parsed.location == "台北"
