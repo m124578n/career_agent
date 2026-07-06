@@ -12,7 +12,7 @@ import remarkGfm from "remark-gfm";
 import "./chat-md.css";
 import {
   applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, openApplyPage, readSse,
-  sendChat, SuggestedUpdate, tailorApplication, type RecommendedJob, type TailoredApplication,
+  sendChat, SuggestedUpdate, tailorApplication, uploadResume, type RecommendedJob, type TailoredApplication,
 } from "./api";
 import JobRow from "./JobRow";
 import { PageContainer, PageHeader } from "./ui";
@@ -194,6 +194,8 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -287,12 +289,36 @@ export default function ChatPage() {
     }
   };
 
+  const handleDropFile = async (file: File) => {
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".pdf") && !name.endsWith(".txt")) {
+      setUploadNote("只支援 PDF / TXT 履歷檔");
+      return;
+    }
+    setUploadNote("上傳中…");
+    try {
+      const r = await uploadResume(file);
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) { setUploadNote(body.detail ?? "上傳失敗"); return; }
+      setUploadNote(`已設為作用中履歷：${file.name}（${body.chars} 字）`);
+      qc.invalidateQueries({ queryKey: ["resume"] });
+    } catch { setUploadNote("網路錯誤，請重試"); }
+  };
+
   return (
     <PageContainer size="lg">
       <Group align="flex-start" gap="xl" wrap="nowrap">
       <Stack style={{ flex: 1, minWidth: 0 }} gap="sm">
         <PageHeader title="求職總指揮" subtitle="邊聊邊整理履歷與偏好、找職缺、追蹤管道；動作需按套用才生效" />
-        <Paper withBorder radius="md" bg="dark.7" p="xs" style={{ overflow: "hidden" }}>
+        <Paper withBorder radius="md" bg="dark.7" p="xs"
+          style={{ overflow: "hidden", borderColor: dragActive ? "var(--mantine-color-teal-5)" : undefined }}
+          onDragOver={(e) => { e.preventDefault(); if (!dragActive) setDragActive(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
+          onDrop={(e) => {
+            e.preventDefault(); setDragActive(false);
+            const f = e.dataTransfer.files?.[0];
+            if (f) handleDropFile(f);
+          }}>
         <ScrollArea h="calc(100vh - 360px)" mih={320} viewportRef={viewport} type="auto">
           <Stack gap="md" pr="sm">
             {msgs.map((m, i) => (
@@ -335,6 +361,12 @@ export default function ChatPage() {
           </Stack>
         </ScrollArea>
         </Paper>
+        {dragActive && <Text size="xs" c="teal.5">放開以上傳履歷（PDF / TXT）</Text>}
+        {uploadNote && (
+          <Alert color="gray" variant="light" withCloseButton onClose={() => setUploadNote(null)} py={6}>
+            {uploadNote}
+          </Alert>
+        )}
         <Group wrap="nowrap">
           <TextInput
             style={{ flex: 1 }}
