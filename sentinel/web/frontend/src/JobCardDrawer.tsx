@@ -2,12 +2,12 @@ import {
   ActionIcon, Anchor, Button, Drawer, Group, List, NumberInput, Paper, Progress, Stack,
   Text, Textarea, TextInput, ThemeIcon,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconExternalLink } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconExternalLink, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
-  getResume, getTrackedJob, matchJob, openApplyPage, rejectJob, resetTracked, setOffer,
-  tailorApplication, trackJob, type MatchResult, type OfferDetail, type TailoredApplication,
+  getResume, getTrackedJob, matchJob, openApplyPage, rejectJob, resetTracked, setInterviews, setOffer,
+  tailorApplication, trackJob, type InterviewNote, type MatchResult, type OfferDetail, type TailoredApplication,
 } from "./api";
 import BusyHint from "./BusyHint";
 import ResearchButton from "./ResearchButton";
@@ -44,12 +44,17 @@ export default function JobCardDrawer({ job, opened, onClose }: {
     salary_year: null, salary_month: null, location: "", level: "", start_date: "", notes: "",
   });
   const [stateBusy, setStateBusy] = useState(false);
+  const [notes, setNotes] = useState<InterviewNote[]>([]);
+  const [ivWhen, setIvWhen] = useState("");
+  const [ivContent, setIvContent] = useState("");
+  const [ivBusy, setIvBusy] = useState(false);
 
   // 開啟時載入快取
   useEffect(() => {
     if (!opened || !job) return;
     setErr(null); setMatch(null); setTailor(null);
     setState(""); setOfferState(null); setEditingOffer(false);
+    setNotes([]);
     getTrackedJob(job.code).then((r) => r.json()).then((c) => {
       if (c.match) setMatch(c.match);
       if (c.tailor) setTailor(c.tailor);
@@ -60,6 +65,7 @@ export default function JobCardDrawer({ job, opened, onClose }: {
       } else {
         setForm({ salary_year: null, salary_month: null, location: "", level: "", start_date: "", notes: "" });
       }
+      setNotes(Array.isArray(c.interviews) ? c.interviews : []);
     }).catch(() => {});
   }, [opened, job?.code]);
 
@@ -132,6 +138,26 @@ export default function JobCardDrawer({ job, opened, onClose }: {
     } catch { setErr("網路錯誤，請重試"); }
     finally { setStateBusy(false); }
   }
+
+  const saveNotes = async (next: InterviewNote[]) => {
+    if (!job) return;
+    setIvBusy(true); setErr(null);
+    try {
+      const r = await setInterviews(job.code, next);
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.detail ?? "儲存失敗"); return; }
+      setNotes(next);
+      qc.invalidateQueries({ queryKey: ["snapshot"] });
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setIvBusy(false); }
+  };
+  const addNote = async () => {
+    if (!ivWhen.trim() && !ivContent.trim()) return;
+    await saveNotes([...notes, { when: ivWhen.trim(), content: ivContent.trim() }]);
+    setIvWhen(""); setIvContent("");
+  };
+  const removeNote = async (i: number) => {
+    await saveNotes(notes.filter((_, idx) => idx !== i));
+  };
 
   async function copyCover() {
     if (!tailor) return;
@@ -212,6 +238,35 @@ export default function JobCardDrawer({ job, opened, onClose }: {
                 <Button size="compact-sm" variant="light" color="teal" onClick={() => setEditingOffer(true)}>標記錄取</Button>
                 <Button size="compact-sm" variant="light" color="gray" onClick={markReject} loading={stateBusy}>標記未錄取</Button>
               </Group>
+            )}
+          </Paper>
+
+          {/* 面試紀錄 */}
+          <Paper bg="dark.6" radius="md" p="lg">
+            <Text fw={600} mb="sm">面試紀錄</Text>
+            {!job.code && <Text c="amber.5" size="xs">此職缺無代碼，無法記錄面試。</Text>}
+            {job.code && (
+              <Stack gap="sm">
+                {[...notes].sort((a, b) => (a.when || "").localeCompare(b.when || "")).map((n, i) => (
+                  <Group key={i} justify="space-between" wrap="nowrap" align="flex-start"
+                    bg="dark.7" px="sm" py={6} style={{ borderRadius: 6 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <Text size="xs" c="teal.5" ff="monospace">{n.when || "（未填時間）"}</Text>
+                      <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{n.content}</Text>
+                    </div>
+                    <ActionIcon variant="subtle" color="gray" size="sm" title="刪除這筆"
+                      onClick={() => removeNote(notes.indexOf(n))} disabled={ivBusy}>
+                      <IconX size={14} />
+                    </ActionIcon>
+                  </Group>
+                ))}
+                {notes.length === 0 && <Text size="xs" c="dimmed">尚無面試紀錄。</Text>}
+                <TextInput label="時間" placeholder="2026-07-10 14:00 一面" value={ivWhen}
+                  onChange={(e) => setIvWhen(e.currentTarget.value)} />
+                <Textarea label="內容" autosize minRows={2} value={ivContent}
+                  onChange={(e) => setIvContent(e.currentTarget.value)} />
+                <Button size="compact-sm" onClick={addNote} loading={ivBusy} w="fit-content">新增紀錄</Button>
+              </Stack>
             )}
           </Paper>
 

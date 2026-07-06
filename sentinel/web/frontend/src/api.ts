@@ -164,6 +164,11 @@ export async function trackJob(body: TrackReq): Promise<Response> {
   });
 }
 
+export interface InterviewNote {
+  when: string;
+  content: string;
+}
+
 export interface TrackedCard {
   code: string;
   found: boolean;
@@ -172,6 +177,7 @@ export interface TrackedCard {
   match: MatchResult | null;
   tailor: TailoredApplication | null;
   offer: OfferDetail | null;
+  interviews: InterviewNote[];
 }
 
 export async function getTrackedJob(code: string): Promise<Response> {
@@ -187,6 +193,14 @@ export async function setOffer(code: string, offer: OfferDetail): Promise<Respon
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(offer),
+  });
+}
+
+export async function setInterviews(code: string, notes: InterviewNote[]): Promise<Response> {
+  return fetch(`/api/tracked/${encodeURIComponent(code)}/interviews`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ notes }),
   });
 }
 
