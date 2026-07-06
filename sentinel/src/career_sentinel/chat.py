@@ -105,7 +105,8 @@ def build_system_prompt(
         f"長期記憶（半永久）：\n{mem_lines}\n\n"
         f"目前求職管道：\n{pipeline_summary or '（管道目前無職缺）'}\n\n"
         "工具：search_jobs 用關鍵字搜尋 104 職缺（使用者明確要找才用，關鍵字精簡 2–4 個詞）；"
-        "get_pipeline 讀你目前的求職管道（要引用或操作既有職缺前，先用它確認 code 與現況）。工具呼叫請節制。\n\n"
+        "get_pipeline 讀你目前的求職管道（要引用或操作既有職缺前，先用它確認 code 與現況）；"
+        "get_job_detail 讀指定職缺的完整 JD（傳 code 或網址；回答職缺細節、比較、給建議前先讀）。工具呼叫請節制。\n\n"
         f"履歷全文（前 {_RESUME_MAX_CHARS} 字）：\n{resume_text}\n"
     )
     return head + _CONTRACT
@@ -410,6 +411,15 @@ TOOLS = [
         "description": "讀取使用者目前的求職管道（各狀態職缺、offer 明細、面試時間、job code）。要引用或操作既有職缺前先用它確認 code 與現況。",
         "input_schema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "get_job_detail",
+        "description": "抓取指定 104 職缺的完整 JD（職務內容、需求條件、薪資、地點）。可傳 job code 或 104 職缺網址。回答職缺問題、比較職缺、給客製化建議前用它讀 JD。",
+        "input_schema": {
+            "type": "object",
+            "properties": {"code_or_url": {"type": "string", "description": "104 job code 或職缺網址"}},
+            "required": ["code_or_url"],
+        },
+    },
 ]
 
 
@@ -428,6 +438,36 @@ def _execute_search(keyword: str):
         for j in jobs[:JOBS_RESULT_LIMIT]
     ]
     return jobs, json.dumps(brief, ensure_ascii=False), False
+
+
+_JD_DESC_MAX = 1500  # JD description 截斷（控 token）
+
+
+def _execute_job_detail(code_or_url: str):
+    """get_job_detail 執行體。回 (None, result_text, is_error)。唯讀、需真網路。"""
+    from . import jobfetch
+
+    raw = (code_or_url or "").strip()
+    if not raw:
+        return None, "缺少職缺代碼或網址", True
+    if "/job/" in raw or "104.com.tw" in raw:
+        try:
+            code = jobfetch.extract_job_code(raw)
+        except ValueError:
+            return None, "無法從網址取得 104 職缺代碼（請確認是 104 職缺網址）", True
+    else:
+        code = raw
+    try:
+        jd = jobfetch.fetch_job_detail(code)
+    except Exception:
+        return None, "抓取職缺詳情失敗，請確認代碼或稍後再試", True
+    brief = {
+        "code": code, "title": jd.title, "company": jd.company, "salary": jd.salary,
+        "location": jd.location, "work_exp": jd.work_exp, "education": jd.education,
+        "majors": jd.majors, "specialties": jd.specialties,
+        "description": (jd.description or "")[:_JD_DESC_MAX],
+    }
+    return None, json.dumps(brief, ensure_ascii=False), False
 
 
 def _pipeline_tool_json(db_path: str | None) -> str:
@@ -457,6 +497,8 @@ def _execute_tool(name: str, tool_input: dict, db_path: str | None):
         return event, result_text, is_error
     if name == "get_pipeline":
         return None, _pipeline_tool_json(db_path), False
+    if name == "get_job_detail":
+        return _execute_job_detail(str((tool_input or {}).get("code_or_url", "")))
     return None, f"未知工具：{name}", True
 
 

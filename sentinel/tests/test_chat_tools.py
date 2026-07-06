@@ -234,3 +234,69 @@ def test_stream_with_tools_get_pipeline(tmp_path, monkeypatch):
     assert [e["type"] for e in evs] == ["text"]  # get_pipeline 不 yield jobs 事件
     tr = client.messages.captured[1]["messages"][-1]["content"][0]
     assert tr["tool_use_id"] == "p1" and tr["content"] == "[]"
+
+
+def test_execute_job_detail_by_code(monkeypatch):
+    from career_sentinel import jobfetch
+    from career_sentinel.models import JobDetail
+    monkeypatch.setattr(jobfetch, "fetch_job_detail",
+                        lambda code, **kw: JobDetail(title="後端工程師", company="甲", salary="月薪6萬",
+                                                     location="台北", description="做後端"))
+    event, text, is_error = chat._execute_job_detail("abc12")
+    assert event is None and is_error is False
+    data = json.loads(text)
+    assert data["code"] == "abc12" and data["title"] == "後端工程師"
+    assert data["company"] == "甲" and data["description"] == "做後端"
+
+
+def test_execute_job_detail_truncates_description(monkeypatch):
+    from career_sentinel import jobfetch
+    from career_sentinel.models import JobDetail
+    monkeypatch.setattr(jobfetch, "fetch_job_detail",
+                        lambda code, **kw: JobDetail(title="t", description="x" * 5000))
+    _, text, _ = chat._execute_job_detail("c1")
+    assert len(json.loads(text)["description"]) == chat._JD_DESC_MAX
+
+
+def test_execute_job_detail_by_url(monkeypatch):
+    from career_sentinel import jobfetch
+    from career_sentinel.models import JobDetail
+    captured = {}
+    def fake_fetch(code, **kw):
+        captured["code"] = code
+        return JobDetail(title="t")
+    monkeypatch.setattr(jobfetch, "fetch_job_detail", fake_fetch)
+    event, text, is_error = chat._execute_job_detail("https://www.104.com.tw/job/9zzz9")
+    assert is_error is False and captured["code"] == "9zzz9"
+
+
+def test_execute_job_detail_non_104_url_is_error():
+    # 含 /job/ 進 url 分支，但非 104 → extract_job_code raise ValueError → is_error
+    event, text, is_error = chat._execute_job_detail("https://www.linkedin.com/job/12345")
+    assert event is None and is_error is True and "104" in text
+
+
+def test_execute_job_detail_empty_is_error():
+    event, text, is_error = chat._execute_job_detail("  ")
+    assert is_error is True and "缺少" in text
+
+
+def test_execute_job_detail_fetch_failure(monkeypatch):
+    from career_sentinel import jobfetch
+    def boom(code, **kw):
+        raise RuntimeError("網路掛了")
+    monkeypatch.setattr(jobfetch, "fetch_job_detail", boom)
+    event, text, is_error = chat._execute_job_detail("c1")
+    assert is_error is True and "失敗" in text
+
+
+def test_execute_tool_get_job_detail_dispatch(monkeypatch):
+    monkeypatch.setattr(chat, "_execute_job_detail", lambda x: (None, '{"ok":1}', False))
+    event, text, is_error = chat._execute_tool("get_job_detail", {"code_or_url": "abc12"}, None)
+    assert event is None and text == '{"ok":1}' and is_error is False
+
+
+def test_system_prompt_mentions_get_job_detail():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    assert "get_job_detail" in p
