@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, pipeline, research, resume, store, tailor, usage as usagemod, watch
-from ..models import ChatMessage, ChatState, ResumeState, Settings, SuggestedUpdate, TrackedJob, interview_key
+from ..models import ChatMessage, ChatState, JobPreferences, ResumeState, Settings, SuggestedUpdate, TrackedJob, interview_key
 from . import apply, runner, scheduler
 
 logger = logging.getLogger("career_sentinel.web")
@@ -153,6 +153,15 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def put_settings(settings: Settings) -> dict:
         store.save_settings(_conn(), settings)
         return settings.model_dump()
+
+    @app.get("/api/preferences")
+    def get_preferences() -> dict:
+        return store.load_preferences(_conn()).model_dump()
+
+    @app.put("/api/preferences")
+    def put_preferences(prefs: JobPreferences) -> dict:
+        store.save_preferences(_conn(), prefs)
+        return prefs.model_dump()
 
     @app.post("/api/resume/upload")
     async def resume_upload(file: UploadFile = File(...)) -> dict:

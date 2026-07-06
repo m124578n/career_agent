@@ -175,6 +175,8 @@ class ChatState(BaseModel):
 
 
 class JobPreferences(BaseModel):
+    target_title: str = ""
+    expected_salary: int | None = None
     locations: list[str] = Field(default_factory=list)   # 想要的工作地點
     conditions: list[str] = Field(default_factory=list)  # 軟條件
     avoid: list[str] = Field(default_factory=list)       # 避雷條件

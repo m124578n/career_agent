@@ -86,11 +86,37 @@ def _migrate(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _migrate_preferences(conn: sqlite3.Connection) -> None:
+    """把舊 ResumeState 的 target_title/expected_salary 搬進 JobPreferences（冪等、raw-JSON 層）。"""
+    res_row = conn.execute("SELECT data FROM resume WHERE id = 1").fetchone()
+    if res_row is None:
+        return
+    resume = json.loads(res_row[0])
+    old_title = resume.get("target_title") or ""
+    old_salary = resume.get("expected_salary")
+    if not old_title and old_salary is None:
+        return
+    pref_row = conn.execute("SELECT data FROM preferences WHERE id = 1").fetchone()
+    prefs = json.loads(pref_row[0]) if pref_row else {}
+    changed = False
+    if not prefs.get("target_title") and old_title:
+        prefs["target_title"] = old_title
+        changed = True
+    if prefs.get("expected_salary") is None and old_salary is not None:
+        prefs["expected_salary"] = old_salary
+        changed = True
+    if changed:
+        conn.execute("INSERT OR REPLACE INTO preferences (id, data) VALUES (1, ?)",
+                     (json.dumps(prefs, ensure_ascii=False),))
+        conn.commit()
+
+
 def connect(path: Path | str) -> sqlite3.Connection:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path))
     conn.executescript(_SCHEMA)
     _migrate(conn)
+    _migrate_preferences(conn)
     return conn
 
 
