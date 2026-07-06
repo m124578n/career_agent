@@ -163,14 +163,23 @@ def fetch_resume104(page) -> Resume104:
     if not lst.ok:
         raise RuntimeError(f"resume list HTTP {lst.status}")
     data = lst.json().get("data") or []
+    items = data if isinstance(data, list) else []
     vno = ""
-    for r in data if isinstance(data, list) else []:
+    for r in items:
         if isinstance(r, dict) and r.get("vno"):
             vno = str(r.get("vno"))
             if r.get("isMaster") or r.get("master"):
                 break
     if not vno:
-        raise RuntimeError("找不到履歷 vno")
+        import logging
+        logging.getLogger("career_sentinel").warning(
+            "resume104 無 vno：list_status=%s items=%d first_keys=%s",
+            lst.status, len(items),
+            sorted(items[0].keys()) if items and isinstance(items[0], dict) else [],
+        )
+        if not items:
+            raise RuntimeError("你的 104 沒有線上履歷（履歷列表為空），請改用「上傳檔案」")
+        raise RuntimeError("找不到履歷 vno（104 履歷 API 結構可能已變更）")
     blk = page.request.get(RESUME_BLOCK_URL.format(vno=vno))
     if not blk.ok:
         raise RuntimeError(f"resumeByBlock HTTP {blk.status}")
