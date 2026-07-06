@@ -32,7 +32,7 @@ const FIELD_LABEL: Record<string, string> = {
   conditions: "軟條件", avoid: "避雷", watched_companies: "關注公司",
   watched_keywords: "關注關鍵字", resume_text: "履歷",
   track: "追蹤", job_offer: "標記錄取", job_reject: "標記未錄取",
-  job_reset: "重設狀態", untrack: "取消追蹤",
+  job_reset: "重設狀態", untrack: "取消追蹤", interview_note: "面試紀錄",
 };
 
 function fmtValue(v: string | number | string[] | null): string {
@@ -44,12 +44,14 @@ function SuggestionCard({ s }: { s: SuggestedUpdate }) {
   const qc = useQueryClient();
   const [state, setState] = useState<"idle" | "busy" | "ok" | "fail">("idle");
   const [msg, setMsg] = useState("");
-  const PIPE_FIELDS = ["track", "job_offer", "job_reject", "job_reset", "untrack"];
+  const PIPE_FIELDS = ["track", "job_offer", "job_reject", "job_reset", "untrack", "interview_note"];
   const p = (s.payload ?? {}) as Record<string, any>;
   const pipeLabel =
     s.field === "track" ? `${p.company ?? ""} · ${p.title ?? ""}`
     : s.field === "job_offer"
       ? `${p.company ?? p.code ?? ""}${p.salary_year ? ` · 年薪 ${p.salary_year}` : p.salary_month ? ` · 月薪 ${p.salary_month}` : ""}`
+    : s.field === "interview_note"
+      ? `${p.when ?? ""}${p.content ? `：${p.content}` : ""}`
     : `${p.company ?? p.code ?? ""}`;
   const label =
     PIPE_FIELDS.includes(s.field) ? pipeLabel
