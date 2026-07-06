@@ -24,7 +24,7 @@ def test_resume_upload_txt(tmp_path):
 
 
 def test_resume_diagnose_no_resume_400(tmp_path):
-    r = _client(tmp_path).post("/api/resume/diagnose", json={"target_title": "後端", "expected_salary": None})
+    r = _client(tmp_path).post("/api/resume/diagnose")
     assert r.status_code == 400
 
 
@@ -33,9 +33,10 @@ def test_resume_diagnose_success(tmp_path, monkeypatch):
     monkeypatch.setattr(diagnosis, "diagnose", lambda text, title, sal, **kw: ResumeDiagnosis(strengths=["A"], gaps=["B"]))
     c = _client(tmp_path)
     c.post("/api/resume/upload", files={"file": ("r.txt", "履歷".encode("utf-8"), "text/plain")})
-    r = c.post("/api/resume/diagnose", json={"target_title": "後端工程師", "expected_salary": 60000})
+    c.put("/api/preferences", json={"target_title": "後端工程師", "expected_salary": 60000,
+                                    "locations": [], "conditions": [], "avoid": []})
+    r = c.post("/api/resume/diagnose")
     assert r.status_code == 200
     assert r.json()["strengths"] == ["A"]
-    g = c.get("/api/resume").json()
-    assert g["target_title"] == "後端工程師"
-    assert g["diagnosis"]["gaps"] == ["B"]
+    assert c.get("/api/resume").json()["diagnosis"]["gaps"] == ["B"]
+    assert c.get("/api/preferences").json()["target_title"] == "後端工程師"

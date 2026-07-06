@@ -6,9 +6,10 @@ from career_sentinel.models import (
 
 def test_system_prompt_embeds_state():
     p = chat.build_system_prompt(
-        ResumeState(resume_text="Python 五年", target_title="後端工程師", expected_salary=900000),
+        ResumeState(resume_text="Python 五年"),
         Settings(watched_companies=["台積電"], watched_keywords=["Python"]),
-        JobPreferences(locations=["台北"], conditions=["可遠端"], avoid=["博弈"]),
+        JobPreferences(target_title="後端工程師", expected_salary=900000,
+                       locations=["台北"], conditions=["可遠端"], avoid=["博弈"]),
         MemoryState(facts=[MemoryFact(text="通勤以雙北為主")]),
     )
     for needle in ("後端工程師", "900000", "台積電", "台北", "可遠端", "博弈",

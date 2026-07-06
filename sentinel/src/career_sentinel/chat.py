@@ -53,8 +53,8 @@ def build_system_prompt(
     head = (
         "你是「career-sentinel 整理助手」：用繁體中文陪使用者整理履歷與求職偏好。回覆口語、精簡。\n\n"
         "目前狀態：\n"
-        f"- 目標職稱：{resume.target_title or '（未設定）'}\n"
-        f"- 期望月薪：{resume.expected_salary or '（未設定）'}\n"
+        f"- 目標職稱：{prefs.target_title or '（未設定）'}\n"
+        f"- 期望月薪：{prefs.expected_salary or '（未設定）'}\n"
         f"- 求職偏好：地點={prefs.locations}；軟條件={prefs.conditions}；避雷={prefs.avoid}\n"
         f"- 關注公司：{settings.watched_companies}；關注關鍵字：{settings.watched_keywords}\n\n"
         f"長期記憶（半永久）：\n{mem_lines}\n\n"
@@ -169,17 +169,17 @@ def apply_update(conn, upd: SuggestedUpdate) -> ApplyResult:
     if ops is None or upd.op not in ops:
         return ApplyResult(ok=False, message=f"不允許的欄位或操作：{upd.field}/{upd.op}")
     if upd.field == "target_title":
-        state = store.load_resume(conn)
-        state.target_title = str(upd.value or "")
-        store.save_resume(conn, state)
+        prefs = store.load_preferences(conn)
+        prefs.target_title = str(upd.value or "")
+        store.save_preferences(conn, prefs)
         return ApplyResult(ok=True)
     if upd.field == "expected_salary":
-        state = store.load_resume(conn)
+        prefs = store.load_preferences(conn)
         try:
-            state.expected_salary = int(upd.value) if upd.value not in (None, "") else None
+            prefs.expected_salary = int(upd.value) if upd.value not in (None, "") else None
         except (TypeError, ValueError):
             return ApplyResult(ok=False, message="期望薪資需為數字")
-        store.save_resume(conn, state)
+        store.save_preferences(conn, prefs)
         return ApplyResult(ok=True)
     if upd.field in ("locations", "conditions", "avoid"):
         prefs = store.load_preferences(conn)
@@ -289,8 +289,8 @@ def build_export_md(
         "以下是我的求職背景資料，請以此為基礎與我討論求職規劃。",
         "",
         "## 基本目標",
-        f"- 目標職稱：{resume.target_title or '（未設定）'}",
-        f"- 期望月薪：{resume.expected_salary or '（未設定）'}",
+        f"- 目標職稱：{prefs.target_title or '（未設定）'}",
+        f"- 期望月薪：{prefs.expected_salary or '（未設定）'}",
         "",
         "## 求職偏好",
         f"- 地點：{'、'.join(prefs.locations) or '（未設定）'}",

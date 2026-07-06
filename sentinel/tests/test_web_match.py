@@ -24,7 +24,7 @@ def test_match_success(tmp_path, monkeypatch):
     monkeypatch.setattr(jobfetch, "fetch_job_detail", lambda code, **kw: JobDetail(title="全端工程師", company="範例", salary="月薪 6 萬", description="Python"))
     monkeypatch.setattr(match, "match", lambda rt, tt, jd, **kw: MatchResult(score=80, reasons=["熟 Python"], gaps=["缺雲端"]))
     conn = store.connect(tmp_path / "db.sqlite")
-    store.save_resume(conn, ResumeState(resume_text="我會 Python", target_title="後端工程師"))
+    store.save_resume(conn, ResumeState(resume_text="我會 Python"))
     c = _client(tmp_path)
     r = c.post("/api/match", json={"job_url": "https://www.104.com.tw/job/8pu2t"})
     assert r.status_code == 200

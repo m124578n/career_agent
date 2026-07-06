@@ -173,10 +173,10 @@ def test_chat_openai_path_unchanged(tmp_path, monkeypatch):
 
 
 def test_export_md(tmp_path):
-    from career_sentinel.models import ResumeState
+    from career_sentinel.models import JobPreferences, ResumeState
     conn = store.connect(tmp_path / "db.sqlite")
-    store.save_resume(conn, ResumeState(
-        resume_text="Python 五年", target_title="後端工程師", expected_salary=90000))
+    store.save_resume(conn, ResumeState(resume_text="Python 五年"))
+    store.save_preferences(conn, JobPreferences(target_title="後端工程師", expected_salary=90000))
     store.save_memory(conn, MemoryState(facts=[MemoryFact(text="不想進博弈業", created_at="t")]))
     r = _client(tmp_path).get("/api/export")
     assert r.status_code == 200

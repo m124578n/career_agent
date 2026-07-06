@@ -18,11 +18,6 @@ from . import apply, runner, scheduler
 logger = logging.getLogger("career_sentinel.web")
 
 
-class _DiagnoseReq(BaseModel):
-    target_title: str
-    expected_salary: int | None = None
-
-
 class _MatchReq(BaseModel):
     job_url: str
 
@@ -178,19 +173,20 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return {"chars": len(text)}
 
     @app.post("/api/resume/diagnose")
-    def resume_diagnose(req: _DiagnoseReq) -> dict:
+    def resume_diagnose() -> dict:
         conn = _conn()
         state = store.load_resume(conn)
         if not state.resume_text.strip():
             raise HTTPException(status_code=400, detail="請先上傳履歷")
+        prefs = store.load_preferences(conn)
+        if not prefs.target_title.strip():
+            raise HTTPException(status_code=400, detail="請先在偏好設定目標職稱")
         try:
-            result = diagnosis.diagnose(state.resume_text, req.target_title, req.expected_salary)
+            result = diagnosis.diagnose(state.resume_text, prefs.target_title, prefs.expected_salary)
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         except Exception:
             raise HTTPException(status_code=500, detail="健檢失敗，請重試")
-        state.target_title = req.target_title
-        state.expected_salary = req.expected_salary
         state.diagnosis = result
         store.save_resume(conn, state)
         return result.model_dump()
@@ -224,8 +220,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return {
             "has_resume": bool(state.resume_text.strip()),
             "chars": len(state.resume_text),
-            "target_title": state.target_title,
-            "expected_salary": state.expected_salary,
             "diagnosis": state.diagnosis.model_dump() if state.diagnosis else None,
             "source": state.source,
         }
@@ -245,7 +239,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except Exception:
             raise HTTPException(status_code=502, detail="抓取職缺失敗，請確認網址")
         try:
-            result = match.match(state.resume_text, state.target_title or "（未指定）", jd)
+            result = match.match(state.resume_text, store.load_preferences(conn).target_title or "（未指定）", jd)
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         except Exception:
@@ -272,7 +266,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except Exception:
             raise HTTPException(status_code=502, detail="抓取職缺失敗，請確認網址")
         try:
-            result = tailor.tailor_application(state.resume_text, state.target_title or "（未指定）", jd)
+            result = tailor.tailor_application(state.resume_text, store.load_preferences(conn).target_title or "（未指定）", jd)
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         except Exception:

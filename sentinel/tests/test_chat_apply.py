@@ -12,8 +12,8 @@ def test_apply_set_scalar_and_lists(tmp_path):
     assert chat.apply_update(conn, SuggestedUpdate(field="expected_salary", op="set", value=900000)).ok
     assert chat.apply_update(conn, SuggestedUpdate(field="locations", op="set", value=["台北"])).ok
     assert chat.apply_update(conn, SuggestedUpdate(field="watched_companies", op="set", value=["台積電"])).ok
-    assert store.load_resume(conn).target_title == "後端工程師"
-    assert store.load_resume(conn).expected_salary == 900000
+    assert store.load_preferences(conn).target_title == "後端工程師"
+    assert store.load_preferences(conn).expected_salary == 900000
     assert store.load_preferences(conn).locations == ["台北"]
     assert store.load_settings(conn).watched_companies == ["台積電"]
 

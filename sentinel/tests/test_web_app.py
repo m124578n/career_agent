@@ -173,7 +173,7 @@ def test_tailor_endpoint(tmp_path, monkeypatch):
     # 無 job_url → 422/400（pydantic 缺欄位 422；空字串→400）
     assert c.post("/api/tailor", json={"job_url": ""}).status_code == 400
 
-    store.save_resume(conn, ResumeState(resume_text="Python 五年", target_title="後端"))
+    store.save_resume(conn, ResumeState(resume_text="Python 五年"))
     monkeypatch.setattr(jobfetch, "extract_job_code", lambda u: "abc")
     monkeypatch.setattr(jobfetch, "fetch_job_detail",
                         lambda code: JobDetail(title="後端工程師", company="甲公司"))
