@@ -496,7 +496,7 @@ def _execute_fetch_url(url: str):
     except Exception:
         return None, "抓取網頁失敗，請確認網址或直接貼上內容文字", True
     text = _html_to_text(html_text)
-    if len(text) < 10:
+    if len(text) < 50:
         return None, "這頁可能需要 JavaScript 才顯示內容，抓不到；請直接貼上職缺內容文字", True
     return None, json.dumps({"url": raw, "text": text[:_FETCH_URL_MAX]}, ensure_ascii=False), False
 

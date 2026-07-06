@@ -319,7 +319,8 @@ def test_html_to_text_strips():
 def test_execute_fetch_url_generic(monkeypatch):
     import curl_cffi.requests as creq_mod
     class FakeResp:
-        text = "<html><body><h1>資深後端工程師</h1><p>負責 API 開發</p></body></html>"
+        text = ("<html><body><h1>資深後端工程師</h1><p>負責 API 開發、系統設計與維運，需熟悉 "
+                "Python、FastAPI、SQL 與雲端部署，具三年以上後端經驗，能獨立解決問題並與團隊協作。</p></body></html>")
         def raise_for_status(self): pass
     monkeypatch.setattr(creq_mod, "get", lambda *a, **k: FakeResp())
     event, text, is_error = chat._execute_fetch_url("https://example.com/jobs/1")
