@@ -1,5 +1,5 @@
 import {
-  ActionIcon, Alert, Badge, Box, Button, Divider, Group, List, Loader, Paper, ScrollArea,
+  ActionIcon, Alert, Badge, Box, Button, Group, List, Loader, Paper, ScrollArea,
   Stack, Text, TextInput, Title, TypographyStylesProvider,
 } from "@mantine/core";
 import {
@@ -17,7 +17,6 @@ import {
 } from "./api";
 import { NegotiationView } from "./NegotiateButton";
 import JobRow from "./JobRow";
-import { PageContainer } from "./ui";
 
 interface UiMsg {
   role: string;
@@ -220,7 +219,17 @@ export default function ChatPage() {
   const canMatch = !!resume.data?.has_resume;
   const trackedCodes = new Set(snap.data?.tracked_codes ?? []);
   const [msgs, setMsgs] = useState<UiMsg[]>([]);
-  const [search, setSearch] = useState<{ keyword: string; items: RecommendedJob[] } | null>(null);
+  const [search, setSearch] = useState<{ keyword: string; items: RecommendedJob[] } | null>(() => {
+    try { const raw = localStorage.getItem("cs_chat_search"); return raw ? JSON.parse(raw) : null; }
+    catch { return null; }
+  });
+  // 最新一次搜尋結果持久化到 localStorage，重整後還原；清空時移除
+  useEffect(() => {
+    try {
+      if (search) localStorage.setItem("cs_chat_search", JSON.stringify(search));
+      else localStorage.removeItem("cs_chat_search");
+    } catch { /* localStorage 不可用時略過 */ }
+  }, [search]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -242,6 +251,7 @@ export default function ChatPage() {
   const send = async () => {
     const text = input.trim();
     if (!text || busy) return;
+    if (text === "/clear") { await clearNow(); return; }  // 固定指令：清空對話（記憶不清）
     setInput("");
     setBusy(true);
     setMsgs((m) => [...m, { role: "user", content: text }, { role: "assistant", content: "" }]);
@@ -298,16 +308,20 @@ export default function ChatPage() {
     }
   };
 
-  const clear = async () => {
-    if (!window.confirm("確定清空對話？（半永久記憶不會清除）")) return;
+  const clearNow = async () => {
     try {
       await clearChat();
       setMsgs([]);
       setSearch(null);
+      setInput("");
       qc.invalidateQueries({ queryKey: ["chat"] });
     } catch {
       window.alert("網路錯誤，請重試");
     }
+  };
+  const clear = async () => {
+    if (!window.confirm("確定清空對話？（半永久記憶不會清除）")) return;
+    await clearNow();
   };
 
   const removeFact = async (i: number) => {
@@ -336,10 +350,41 @@ export default function ChatPage() {
   };
 
   return (
-    <PageContainer size="lg">
-      <Group align="flex-start" gap="xl" wrap="nowrap">
+    <Box mx="auto" px={24} py={32} style={{ maxWidth: 1440 }}>
+      <Group align="flex-start" gap="lg" wrap="nowrap">
+      <Paper bg="dark.6" radius="md" p="md" w={240} style={{ flexShrink: 0 }}>
+        <Group justify="space-between" mb="sm">
+          <Group gap={6}>
+            <IconBrain size={15} style={{ color: "var(--mantine-color-grape-4)" }} />
+            <Text size="sm" fw={600}>半永久記憶</Text>
+          </Group>
+          <ActionIcon variant="subtle" color="gray" size="sm" component="a" href="/api/export" title="匯出求職檔案 MD">
+            <IconDownload size={14} />
+          </ActionIcon>
+        </Group>
+        <ScrollArea style={{ maxHeight: "calc(100vh - 180px)" }} type="auto">
+          <Stack gap={6} pr="sm">
+            {(history.data?.memory ?? []).map((f, i) => (
+              <Group key={i} justify="space-between" wrap="nowrap" gap={4}>
+                <Text size="xs" style={{ flex: 1 }}>{f.text}</Text>
+                <ActionIcon size="xs" variant="subtle" color="red" onClick={() => removeFact(i)} title="移除這條記憶">
+                  <IconX size={11} />
+                </ActionIcon>
+              </Group>
+            ))}
+            {(history.data?.memory ?? []).length === 0 && (
+              <Text size="xs" c="dimmed">（尚無記憶——聊天中提到的長期偏好會自動記在這）</Text>
+            )}
+          </Stack>
+        </ScrollArea>
+      </Paper>
       <Stack style={{ flex: 1, minWidth: 0, height: "calc(100vh - 64px)" }} gap="xs">
-        <Title order={4} style={{ letterSpacing: "-0.3px" }}>求職總指揮</Title>
+        <Group justify="space-between" align="center">
+          <Title order={4} style={{ letterSpacing: "-0.3px" }}>求職總指揮</Title>
+          <ActionIcon variant="subtle" color="red" size="sm" onClick={clear} title="清空對話（記憶不清；或輸入 /clear）">
+            <IconTrash size={15} />
+          </ActionIcon>
+        </Group>
         <Box
           style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
           onDragOver={(e) => { e.preventDefault(); if (!dragActive) setDragActive(true); }}
@@ -350,7 +395,7 @@ export default function ChatPage() {
             if (f) handleDropFile(f);
           }}>
         <ScrollArea style={{ flex: 1, minHeight: 0 }} viewportRef={viewport} type="auto">
-          <Stack gap="md" pr="sm">
+          <Stack gap="md" pr="sm" pb={96}>
             {msgs.map((m, i) => (
               <Stack key={i} gap={6} align={m.role === "user" ? "flex-end" : "flex-start"}>
                 {m.role === "user" ? (
@@ -386,9 +431,20 @@ export default function ChatPage() {
               </Stack>
             ))}
             {msgs.length === 0 && (
-              <Alert color="gray" variant="light">
-                跟我聊聊你的履歷或求職想法，例如「期望薪資改 9 萬」「我只想找雙北的工作」。
-              </Alert>
+              <div style={{ maxWidth: "92%" }}>
+                <TypographyStylesProvider fz="sm" className="chat-md">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{
+`嗨，我是你的**求職總指揮** 👋
+
+我可以幫你：
+- 整理履歷與求職偏好（目標職稱、薪資、地點）
+- 找職缺、讀 JD、比對適合度
+- 客製化履歷與求職信、追蹤面試與 offer、給 offer 談判建議
+
+直接跟我說你的狀況或想找什麼吧！（輸入 \`/clear\` 可清空對話，長期記憶不會清）`
+                  }</ReactMarkdown>
+                </TypographyStylesProvider>
+              </div>
             )}
           </Stack>
         </ScrollArea>
@@ -411,50 +467,24 @@ export default function ChatPage() {
           <Button onClick={send} loading={busy}>送出</Button>
         </Group>
       </Stack>
-      <Paper bg="dark.6" radius="md" p="md" w={360} style={{ flexShrink: 0 }}>
+      <Paper bg="dark.6" radius="md" p="md" w={440} style={{ flexShrink: 0 }}>
         <Group gap={6} mb="sm">
           <IconSearch size={15} style={{ color: "var(--mantine-color-dark-2)" }} />
           <Text size="sm" fw={600}>搜尋結果{search ? `：${search.keyword}` : ""}</Text>
         </Group>
-        {!search && <Text size="xs" c="dimmed" mb="md">（agent 搜尋後，結果會出現在這）</Text>}
-        {search && search.items.length === 0 && <Text size="xs" c="dimmed" mb="md">找不到符合的職缺</Text>}
+        {!search && <Text size="xs" c="dimmed">（agent 搜尋後，結果會出現在這）</Text>}
+        {search && search.items.length === 0 && <Text size="xs" c="dimmed">找不到符合的職缺</Text>}
         {search && search.items.length > 0 && (
-          <Stack gap={6} mb="md">
-            {search.items.map((job) => (
-              <JobRow key={job.code} job={job} canMatch={canMatch} tracked={trackedCodes.has(job.code)} />
-            ))}
-          </Stack>
+          <ScrollArea style={{ maxHeight: "calc(100vh - 180px)" }} type="auto">
+            <Stack gap={6} pr="sm">
+              {search.items.map((job) => (
+                <JobRow key={job.code} job={job} canMatch={canMatch} tracked={trackedCodes.has(job.code)} />
+              ))}
+            </Stack>
+          </ScrollArea>
         )}
-        <Divider mb="sm" />
-        <Group justify="space-between" mb="sm">
-          <Group gap={6}>
-            <IconBrain size={15} style={{ color: "var(--mantine-color-grape-4)" }} />
-            <Text size="sm" fw={600}>半永久記憶</Text>
-          </Group>
-          <Group gap={2}>
-            <ActionIcon variant="subtle" color="gray" size="sm" component="a" href="/api/export" title="匯出求職檔案 MD">
-              <IconDownload size={14} />
-            </ActionIcon>
-            <ActionIcon variant="subtle" color="red" size="sm" onClick={clear} title="清空對話（記憶不清）">
-              <IconTrash size={14} />
-            </ActionIcon>
-          </Group>
-        </Group>
-        <Stack gap={6}>
-          {(history.data?.memory ?? []).map((f, i) => (
-            <Group key={i} justify="space-between" wrap="nowrap" gap={4}>
-              <Text size="xs" style={{ flex: 1 }}>{f.text}</Text>
-              <ActionIcon size="xs" variant="subtle" color="red" onClick={() => removeFact(i)} title="移除這條記憶">
-                <IconX size={11} />
-              </ActionIcon>
-            </Group>
-          ))}
-          {(history.data?.memory ?? []).length === 0 && (
-            <Text size="xs" c="dimmed">（尚無記憶——聊天中提到的長期偏好會自動記在這）</Text>
-          )}
-        </Stack>
       </Paper>
       </Group>
-    </PageContainer>
+    </Box>
   );
 }

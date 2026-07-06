@@ -1,19 +1,20 @@
 import { Button, Group, Modal, NavLink, Stack, Table, Text, UnstyledButton } from "@mantine/core";
 import {
-  IconCoin, IconFileText, IconLayoutDashboard, IconMessageCircle,
+  IconCoin, IconFileText, IconInfoCircle, IconLayoutDashboard, IconMessageCircle,
   IconRefresh, IconSearch, IconSettings,
 } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getUsage, resetUsage, type UsageSummary } from "./api";
 
-export type PageKey = "dashboard" | "resume" | "jobs" | "chat";
+export type PageKey = "dashboard" | "resume" | "jobs" | "chat" | "about";
 
 const NAV: { key: PageKey; label: string; icon: typeof IconSearch }[] = [
   { key: "dashboard", label: "儀表板", icon: IconLayoutDashboard },
+  { key: "chat", label: "求職總指揮", icon: IconMessageCircle },
   { key: "resume", label: "我的履歷", icon: IconFileText },
   { key: "jobs", label: "找職缺", icon: IconSearch },
-  { key: "chat", label: "整理助手", icon: IconMessageCircle },
+  { key: "about", label: "關於", icon: IconInfoCircle },
 ];
 
 function fmtTokens(n: number): string {
@@ -87,8 +88,9 @@ export default function Sidebar({ page, onNavigate, onRefresh, running, lastRun,
 }) {
   return (
     <Stack h="100%" gap={2} p="sm">
-      <Text px="sm" pb="lg" style={{
+      <Text px="sm" pb="lg" title="回主頁" onClick={() => onNavigate("dashboard")} style={{
         fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, letterSpacing: 2,
+        cursor: "pointer",
       }}>
         SENTINEL<Text span c="tangerine.5" inherit>_</Text>
       </Text>

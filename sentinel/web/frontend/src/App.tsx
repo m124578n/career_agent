@@ -2,6 +2,7 @@ import { Alert, AppShell, Button, Group } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { ackSchedule, getSchedule, getStatus, startScrape } from "./api";
+import AboutPage from "./AboutPage";
 import ChatPage from "./ChatPage";
 import Dashboard from "./Dashboard";
 import FindJobsPage from "./FindJobsPage";
@@ -111,6 +112,7 @@ export default function App() {
         <div style={{ display: page === "resume" ? undefined : "none" }}><ProfilePage /></div>
         <div style={{ display: page === "jobs" ? undefined : "none" }}><FindJobsPage /></div>
         <div style={{ display: page === "chat" ? undefined : "none" }}><ChatPage /></div>
+        <div style={{ display: page === "about" ? undefined : "none" }}><AboutPage /></div>
       </AppShell.Main>
       <SettingsModal opened={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </AppShell>
