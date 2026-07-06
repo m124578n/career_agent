@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, negotiate, pipeline, research, resume, store, tailor, usage as usagemod, watch
-from ..models import ChatMessage, ChatState, JobPreferences, OfferDetail, ResumeState, Settings, SuggestedUpdate, interview_key
+from ..models import ChatMessage, ChatState, JobPreferences, OfferDetail, Settings, SuggestedUpdate, interview_key
 from . import apply, runner, scheduler
 
 logger = logging.getLogger("career_sentinel.web")

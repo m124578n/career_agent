@@ -6,7 +6,6 @@ from typing import Callable
 
 from . import browser, config, diff, digest, store
 from .models import ChangeCounts, Snapshot
-from .scraper import fake
 
 
 def run_pipeline(scrape: Callable[[], tuple[Snapshot, set[str]]], conn, *, now: str) -> tuple[str, ChangeCounts]:

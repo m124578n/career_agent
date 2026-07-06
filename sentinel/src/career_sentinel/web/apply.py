@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
+from pathlib import Path  # noqa: F401  測試以 apply.Path monkeypatch profile_dir 回傳值
 
 from .. import browser, config
 
