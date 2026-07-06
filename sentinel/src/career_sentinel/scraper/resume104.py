@@ -1,6 +1,24 @@
 from __future__ import annotations
 
+import html as _html
+import re as _re
+
 from ..models import Resume104, Resume104Block
+
+_BLOCK_TAG_RE = _re.compile(r"<\s*/?\s*(br|p|div|li|ul|ol|h[1-6]|tr)\b[^>]*>", _re.IGNORECASE)
+_TAG_RE = _re.compile(r"<[^>]+>")
+
+
+def _rich(v) -> str:
+    """去 HTML 標籤＋還原 entity 的富文字（104 履歷描述/自傳/專案介紹現為 HTML）。"""
+    t = str(v).strip() if v is not None else ""
+    if "<" not in t:
+        return t
+    t = _BLOCK_TAG_RE.sub("\n", t)   # 區塊/換行標籤→換行，保留結構
+    t = _TAG_RE.sub("", t)           # 其餘標籤去掉
+    t = _html.unescape(t)
+    lines = [_re.sub(r"[ \t ]+", " ", ln).strip() for ln in t.splitlines()]
+    return "\n".join(ln for ln in lines if ln).strip()
 
 RESUME_LIST_URL = "https://pda.104.com.tw/profile/ajax/completeResumeList?top=isMaster"
 RESUME_BLOCK_URL = "https://pda.104.com.tw/profile/ajax/resumeByBlock?vno={vno}"
@@ -60,8 +78,8 @@ def _flatten_experience(fd: dict) -> str:
         cat = _des_join(e.get("jobCat"))
         if cat:
             lines.append(f"職類：{cat}")
-        if _s(e.get("description")):
-            lines.append(_s(e.get("description")))
+        if _rich(e.get("description")):
+            lines.append(_rich(e.get("description")))
         out.append("\n".join(lines))
     return "\n\n".join(out)
 
@@ -104,7 +122,7 @@ def _flatten_project(fd: dict) -> str:
         if not isinstance(p, dict):
             continue
         head = f"{_s(p.get('name'))}（{_dur(p.get('duration'))}）"
-        intro = _s(p.get("introduction"))
+        intro = _rich(p.get("introduction"))
         out.append(f"{head}\n{intro}" if intro else head)
     return "\n\n".join(out)
 
@@ -113,7 +131,7 @@ def _flatten_bio(fd: dict) -> str:
     bio = fd.get("bio")
     if not isinstance(bio, dict):
         return ""
-    return _s(bio.get("chi")) or _s(bio.get("eng"))
+    return _rich(bio.get("chi")) or _rich(bio.get("eng"))
 
 
 _FLATTEN = {

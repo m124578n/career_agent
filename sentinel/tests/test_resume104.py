@@ -75,3 +75,20 @@ def test_parse_resume104_non_dict_nested_no_crash():
     ]:
         r = resume104.parse_resume104(bad)  # 不得 crash
         assert r.vno == "" or isinstance(r.vno, str)
+
+
+def test_rich_strips_html_tags():
+    from career_sentinel.scraper import resume104 as r
+    assert r._rich("<p>負責 API 開發</p><br/><ul><li>Python</li><li>SQL</li></ul>") == "負責 API 開發\nPython\nSQL"
+    assert r._rich("純文字沒標籤") == "純文字沒標籤"
+    assert r._rich("<div>好用工具 &amp; 更多</div>") == "好用工具 & 更多"
+    assert r._rich(None) == ""
+
+
+def test_extract_resume_list_new_and_old():
+    from career_sentinel.scraper import resume104 as r
+    new = {"formData": {"completeResumeList": [{"versionNo": "abc"}, "x"]}}
+    assert r._extract_resume_list(new) == [{"versionNo": "abc"}]
+    old = [{"vno": "1"}, {"vno": "2"}]
+    assert r._extract_resume_list(old) == old
+    assert r._extract_resume_list(None) == []
