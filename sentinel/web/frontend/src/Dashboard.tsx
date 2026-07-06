@@ -1,8 +1,8 @@
-import { ActionIcon, Anchor, Badge, Button, Grid, Group, Paper, Text, Title } from "@mantine/core";
+import { ActionIcon, Anchor, Badge, Button, Grid, Group, Paper, Table, Text, Title } from "@mantine/core";
 import { IconAlertTriangle, IconArrowBackUp, IconCalendarPlus, IconCheck, IconMessageCircle, IconStarFilled, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { type PipelineJob, dismissInterview, getSnapshot, getStatus, restoreInterview, untrackJob } from "./api";
+import { type PipelineJob, dismissInterview, getSnapshot, getStatus, resetTracked, restoreInterview, untrackJob } from "./api";
 import JobCardDrawer, { type CardJob } from "./JobCardDrawer";
 import ResearchButton from "./ResearchButton";
 import { Kpi, PageContainer } from "./ui";
@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [allViewers, setAllViewers] = useState(false);
   const [allMsgs, setAllMsgs] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  const [showRejected, setShowRejected] = useState(false);
   const [cardJob, setCardJob] = useState<CardJob | null>(null);
   const openCard = (j: PipelineJob) => () =>
     setCardJob({ code: j.code, company: j.company, title: j.title, url: j.job_url || j.url, salary: j.salary });
@@ -72,6 +73,13 @@ export default function Dashboard() {
   const interestedJobs = pipe.filter((j) => j.state === "interested");
   const matchedJobs = pipe.filter((j) => j.state === "matched");
   const tailoredJobs = pipe.filter((j) => j.state === "tailored");
+  const offerJobs = pipe.filter((j) => j.state === "offer");
+  const rejectedJobs = pipe.filter((j) => j.state === "rejected");
+
+  // 折算年薪（月薪×12 只用於比大小；純顯示不改資料）
+  const annualized = (j: PipelineJob) =>
+    j.offer?.salary_year ?? (j.offer?.salary_month != null ? j.offer.salary_month * 12 : null);
+  const bestAnnual = Math.max(-1, ...offerJobs.map((j) => annualized(j) ?? -1));
 
   // 排序：面試中依 when、已投遞依 applied_at 升冪；三手動群組依 match_score 降冪（無分數殿後）
   const byWhen = (a: PipelineJob, b: PipelineJob) => (a.when || "").localeCompare(b.when || "");
@@ -85,6 +93,13 @@ export default function Dashboard() {
   const untrack = (code: string) => async () => {
     try {
       await untrackJob(code);
+      qc.invalidateQueries({ queryKey: ["snapshot"] });
+    } catch { window.alert("網路錯誤，請重試"); }
+  };
+
+  const resetJob = (code: string) => async () => {
+    try {
+      await resetTracked(code);
       qc.invalidateQueries({ queryKey: ["snapshot"] });
     } catch { window.alert("網路錯誤，請重試"); }
   };
@@ -153,9 +168,53 @@ export default function Dashboard() {
         </Text>
       </Paper>
 
-      {s && (upcomingJobs.length > 0 || appliedJobs.length > 0 || doneJobs.length > 0 || tailoredSorted.length > 0 || matchedSorted.length > 0 || interestedJobs.length > 0) && (
+      {s && (offerJobs.length > 0 || upcomingJobs.length > 0 || appliedJobs.length > 0 || doneJobs.length > 0 || tailoredSorted.length > 0 || matchedSorted.length > 0 || interestedJobs.length > 0 || rejectedJobs.length > 0) && (
         <div style={{ marginTop: 32 }}>
           <SectionTitle id="sec-pipeline">職缺管道</SectionTitle>
+
+          {offerJobs.length > 0 && (
+            <>
+              <Text size="xs" c="teal.5" mb={6} mt="xs" fw={600} style={{ letterSpacing: 1 }}>offer 比較</Text>
+              <Table striped highlightOnHover withTableBorder verticalSpacing="sm" mb="md">
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>公司 · 職稱</Table.Th>
+                    <Table.Th>年薪</Table.Th>
+                    <Table.Th>月薪</Table.Th>
+                    <Table.Th>地點</Table.Th>
+                    <Table.Th>職級</Table.Th>
+                    <Table.Th>到職日</Table.Th>
+                    <Table.Th>分數</Table.Th>
+                    <Table.Th>備註</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {offerJobs.map((j: PipelineJob) => {
+                    const best = bestAnnual > 0 && (annualized(j) ?? -1) === bestAnnual;
+                    return (
+                      <Table.Tr key={j.key} style={{ cursor: "pointer" }} onClick={openCard(j)}>
+                        <Table.Td>
+                          <Text size="sm" fw={600}>{j.company}</Text>
+                          <Text size="xs" c="dimmed">{j.title}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c={best ? "teal.5" : undefined} fw={best ? 700 : undefined}>
+                            {j.offer?.salary_year != null ? j.offer.salary_year.toLocaleString() : "—"}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td><Text size="sm">{j.offer?.salary_month != null ? j.offer.salary_month.toLocaleString() : "—"}</Text></Table.Td>
+                        <Table.Td><Text size="sm">{j.offer?.location || "—"}</Text></Table.Td>
+                        <Table.Td><Text size="sm">{j.offer?.level || "—"}</Text></Table.Td>
+                        <Table.Td><Text size="sm">{j.offer?.start_date || "—"}</Text></Table.Td>
+                        <Table.Td><Text size="sm">{j.match_score != null ? j.match_score : "—"}</Text></Table.Td>
+                        <Table.Td><Text size="xs" c="dimmed" style={{ maxWidth: 180, whiteSpace: "pre-wrap" }}>{j.offer?.notes || "—"}</Text></Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+                </Table.Tbody>
+              </Table>
+            </>
+          )}
 
           {upcomingJobs.length > 0 && (
             <>
@@ -313,6 +372,26 @@ export default function Dashboard() {
                   <ActionIcon variant="subtle" color="gray" size="sm" title="取消追蹤" style={{ flexShrink: 0 }}
                     onClick={(e) => { e.stopPropagation(); untrack(j.code)(); }}>
                     <IconX size={14} />
+                  </ActionIcon>
+                </Row>
+              ))}
+            </>
+          )}
+
+          {rejectedJobs.length > 0 && (
+            <>
+              <Button variant="subtle" color="gray" size="compact-xs" mt="md" onClick={() => setShowRejected((v) => !v)}>
+                {showRejected ? "收合未錄取" : `未錄取 ${rejectedJobs.length} 筆`}
+              </Button>
+              {showRejected && rejectedJobs.map((j: PipelineJob) => (
+                <Row key={j.key}>
+                  <Text size="sm" truncate style={{ opacity: 0.55, minWidth: 0, flex: 1 }}>
+                    <Text span fw={600}>{j.company}</Text>
+                    <Text span c="dimmed"> · {j.title}</Text>
+                  </Text>
+                  <ActionIcon variant="subtle" color="gray" size="md" title="重設（清除未錄取）" style={{ flexShrink: 0 }}
+                    onClick={resetJob(j.code)}>
+                    <IconArrowBackUp size={15} />
                   </ActionIcon>
                 </Row>
               ))}
