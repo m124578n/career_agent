@@ -246,6 +246,7 @@ class SuggestedUpdate(BaseModel):
     value: str | int | list[str] | None = None
     old: str | None = None  # replace_snippet 專用
     new: str | None = None  # replace_snippet 專用
+    payload: dict | None = None  # 管道動作的結構化資料（code + 動作參數）
 
 
 class ResearchSource(BaseModel):

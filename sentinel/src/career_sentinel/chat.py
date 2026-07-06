@@ -148,6 +148,11 @@ ALLOWED: dict[str, set[str]] = {
     "watched_keywords": {"set"},
     "resume_text": {"replace_snippet", "append_section"},
     "memory": {"remember", "forget"},
+    "track": {"set"},
+    "job_offer": {"set"},
+    "job_reject": {"set"},
+    "job_reset": {"set"},
+    "untrack": {"set"},
 }
 
 
@@ -201,26 +206,57 @@ def apply_update(conn, upd: SuggestedUpdate) -> ApplyResult:
             state.resume_text = state.resume_text.replace(upd.old, upd.new or "", 1)
         store.save_resume(conn, state)
         return ApplyResult(ok=True)
-    # memory / remember / forget（LLM 自動維護：重複不再記、過時的可刪）
-    mem = store.load_memory(conn)
-    text = str(upd.value or "").strip()
-    if not text:
-        return ApplyResult(ok=False, message="記憶內容為空")
-    if upd.op == "forget":
-        kept = [f for f in mem.facts if f.text.strip() != text]
-        if len(kept) == len(mem.facts):
-            return ApplyResult(ok=False, message="找不到要刪除的記憶")
-        mem.facts = kept
+    if upd.field in ("track", "job_offer", "job_reject", "job_reset", "untrack"):
+        payload = upd.payload or {}
+        code = str(payload.get("code", "")).strip()
+        if not code:
+            return ApplyResult(ok=False, message="缺少職缺代碼")
+        if upd.field == "track":
+            store.merge_tracked_job(
+                conn, code, state="interested",
+                company=str(payload.get("company", "")), title=str(payload.get("title", "")),
+                url=str(payload.get("url", "")), salary=str(payload.get("salary", "")),
+            )
+            return ApplyResult(ok=True)
+        if upd.field == "job_offer":
+            from .models import OfferDetail
+            offer = OfferDetail(
+                salary_year=payload.get("salary_year"), salary_month=payload.get("salary_month"),
+                location=str(payload.get("location", "")), level=str(payload.get("level", "")),
+                start_date=str(payload.get("start_date", "")), notes=str(payload.get("notes", "")),
+            )
+            store.set_tracked_state(conn, code, "offer", offer=offer)
+            return ApplyResult(ok=True)
+        if upd.field == "job_reject":
+            store.set_tracked_state(conn, code, "rejected")
+            return ApplyResult(ok=True)
+        if upd.field == "job_reset":
+            store.set_tracked_state(conn, code, "interested")
+            return ApplyResult(ok=True)
+        store.delete_tracked_job(conn, code)  # untrack
+        return ApplyResult(ok=True)
+    if upd.field == "memory":
+        # memory / remember / forget（LLM 自動維護：重複不再記、過時的可刪）
+        mem = store.load_memory(conn)
+        text = str(upd.value or "").strip()
+        if not text:
+            return ApplyResult(ok=False, message="記憶內容為空")
+        if upd.op == "forget":
+            kept = [f for f in mem.facts if f.text.strip() != text]
+            if len(kept) == len(mem.facts):
+                return ApplyResult(ok=False, message="找不到要刪除的記憶")
+            mem.facts = kept
+            store.save_memory(conn, mem)
+            return ApplyResult(ok=True)
+        if any(f.text.strip() == text for f in mem.facts):
+            return ApplyResult(ok=False, message="已有相同記憶，略過")
+        mem.facts.append(MemoryFact(
+            text=text,
+            created_at=datetime.now().isoformat(timespec="seconds"),
+        ))
         store.save_memory(conn, mem)
         return ApplyResult(ok=True)
-    if any(f.text.strip() == text for f in mem.facts):
-        return ApplyResult(ok=False, message="已有相同記憶，略過")
-    mem.facts.append(MemoryFact(
-        text=text,
-        created_at=datetime.now().isoformat(timespec="seconds"),
-    ))
-    store.save_memory(conn, mem)
-    return ApplyResult(ok=True)
+    return ApplyResult(ok=False, message=f"不允許的欄位或操作：{upd.field}/{upd.op}")
 
 
 def maybe_compact(conn, state: ChatState) -> ChatState:

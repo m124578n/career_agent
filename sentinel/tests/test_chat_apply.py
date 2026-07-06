@@ -152,3 +152,65 @@ def test_curate_failure_or_empty_keeps_original(tmp_path, monkeypatch):
     monkeypatch.setattr(chat.llm, "parse_json", lambda *a, **k: chat.CuratedFacts(facts=[]))
     chat.maybe_curate_memory(conn)
     assert len(store.load_memory(conn).facts) == 13
+
+
+def test_suggested_update_payload_roundtrip():
+    u = SuggestedUpdate(field="job_offer", op="set", payload={"code": "x", "salary_year": 100})
+    assert u.payload["code"] == "x"
+    u2 = SuggestedUpdate(field="target_title", op="set", value="後端")
+    assert u2.payload is None
+
+
+def test_apply_track_adds_job(tmp_path):
+    conn = _conn(tmp_path)
+    r = chat.apply_update(conn, SuggestedUpdate(field="track", op="set", payload={
+        "code": "abc12", "company": "甲", "title": "後端",
+        "url": "https://www.104.com.tw/job/abc12", "salary": "6萬"}))
+    assert r.ok
+    tj = store.get_tracked_job(conn, "abc12")
+    assert tj is not None and tj.state == "interested" and tj.company == "甲" and tj.salary == "6萬"
+
+
+def test_apply_job_offer_sets_state_and_detail(tmp_path):
+    from career_sentinel.models import OfferDetail
+    conn = _conn(tmp_path)
+    r = chat.apply_update(conn, SuggestedUpdate(field="job_offer", op="set", payload={
+        "code": "of1", "salary_year": 1200000, "location": "台北", "level": "資深"}))
+    assert r.ok
+    tj = store.get_tracked_job(conn, "of1")
+    assert tj.state == "offer"
+    parsed = OfferDetail.model_validate_json(tj.offer_json)
+    assert parsed.salary_year == 1200000 and parsed.location == "台北"
+
+
+def test_apply_job_reject_and_reset(tmp_path):
+    conn = _conn(tmp_path)
+    chat.apply_update(conn, SuggestedUpdate(field="job_offer", op="set", payload={"code": "j1", "salary_year": 100}))
+    assert chat.apply_update(conn, SuggestedUpdate(field="job_reject", op="set", payload={"code": "j1"})).ok
+    assert store.get_tracked_job(conn, "j1").state == "rejected"
+    assert store.get_tracked_job(conn, "j1").offer_json == ""
+    assert chat.apply_update(conn, SuggestedUpdate(field="job_reset", op="set", payload={"code": "j1"})).ok
+    assert store.get_tracked_job(conn, "j1").state == "interested"
+
+
+def test_apply_untrack_removes(tmp_path):
+    conn = _conn(tmp_path)
+    chat.apply_update(conn, SuggestedUpdate(field="track", op="set", payload={"code": "u1", "company": "甲"}))
+    assert chat.apply_update(conn, SuggestedUpdate(field="untrack", op="set", payload={"code": "u1"})).ok
+    assert store.get_tracked_job(conn, "u1") is None
+
+
+def test_apply_pipeline_action_missing_code(tmp_path):
+    conn = _conn(tmp_path)
+    r = chat.apply_update(conn, SuggestedUpdate(field="track", op="set", payload={"company": "甲"}))
+    assert not r.ok and "代碼" in r.message
+
+
+def test_apply_track_preserves_offer_terminal(tmp_path):
+    # 對已 offer 職缺送 track（走 merge）→ 防降級：state 仍 offer、offer_json 保留（SP20 修正）
+    from career_sentinel.models import OfferDetail
+    conn = _conn(tmp_path)
+    store.set_tracked_state(conn, "t1", "offer", offer=OfferDetail(salary_year=999))
+    chat.apply_update(conn, SuggestedUpdate(field="track", op="set", payload={"code": "t1", "company": "甲"}))
+    tj = store.get_tracked_job(conn, "t1")
+    assert tj.state == "offer" and tj.offer_json != ""
