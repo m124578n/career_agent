@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, pipeline, research, resume, store, tailor, usage as usagemod, watch
+from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, negotiate, pipeline, research, resume, store, tailor, usage as usagemod, watch
 from ..models import ChatMessage, ChatState, JobPreferences, OfferDetail, ResumeState, Settings, SuggestedUpdate, TrackedJob, interview_key
 from . import apply, runner, scheduler
 
@@ -39,6 +39,10 @@ class _ChatReq(BaseModel):
 
 class _InterviewKeyReq(BaseModel):
     key: str
+
+
+class _NegotiateReq(BaseModel):
+    code: str
 
 
 def _chat_events(messages, system, db_path=None):
@@ -291,6 +295,27 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if not ok:
             raise HTTPException(status_code=500, detail="找不到 Google Chrome，請確認已安裝")
         return {"status": "opened"}
+
+    @app.post("/api/negotiate")
+    def negotiate_offer_ep(req: _NegotiateReq) -> dict:
+        conn = _conn()
+        tj = store.get_tracked_job(conn, req.code)
+        if tj is None or tj.state != "offer" or not tj.offer_json:
+            raise HTTPException(status_code=400, detail="此職缺沒有 offer 明細可談判")
+        offer = OfferDetail.model_validate_json(tj.offer_json)
+        others = []
+        for pj in pipeline.build_pipeline(conn):
+            if pj.state == "offer" and pj.code != req.code and pj.offer is not None:
+                others.append({"company": pj.company, "title": pj.title,
+                               "salary_year": pj.offer.salary_year, "salary_month": pj.offer.salary_month})
+        expected = store.load_preferences(conn).expected_salary
+        try:
+            result = negotiate.negotiate_offer(offer, tj.company, tj.title, others, expected)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception:
+            raise HTTPException(status_code=500, detail="產生談判建議失敗，請重試")
+        return result.model_dump()
 
     @app.get("/api/search")
     def search(kw: str = "") -> dict:
