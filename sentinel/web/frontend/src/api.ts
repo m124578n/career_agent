@@ -69,8 +69,6 @@ export interface ResumeDiagnosis { strengths: string[]; gaps: string[] }
 export interface ResumeState {
   has_resume: boolean;
   chars: number;
-  target_title: string;
-  expected_salary: number | null;
   diagnosis: ResumeDiagnosis | null;
   source: string;
 }
@@ -86,12 +84,29 @@ export async function uploadResume(file: File): Promise<Response> {
   return fetch("/api/resume/upload", { method: "POST", body: fd });
 }
 
-export async function diagnoseResume(target_title: string, expected_salary: number | null): Promise<Response> {
-  return fetch("/api/resume/diagnose", {
-    method: "POST",
+export interface JobPreferences {
+  target_title: string;
+  expected_salary: number | null;
+  locations: string[];
+  conditions: string[];
+  avoid: string[];
+}
+
+export async function getPreferences(): Promise<JobPreferences> {
+  const r = await fetch("/api/preferences");
+  return r.json();
+}
+
+export async function putPreferences(p: JobPreferences): Promise<Response> {
+  return fetch("/api/preferences", {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ target_title, expected_salary }),
+    body: JSON.stringify(p),
   });
+}
+
+export async function diagnoseResume(): Promise<Response> {
+  return fetch("/api/resume/diagnose", { method: "POST" });
 }
 
 export interface MatchResult {

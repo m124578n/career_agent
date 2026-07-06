@@ -1,12 +1,13 @@
 import {
   Badge, Button, FileInput, Grid, Group, List, NumberInput, Paper, SegmentedControl,
-  Stack, Text, TextInput, ThemeIcon,
+  Stack, Text, TextInput, Textarea, ThemeIcon,
 } from "@mantine/core";
 import { IconAlertTriangle, IconCheck, IconLock, IconExternalLink } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
-  diagnoseResume, getResume, importResume104, openApplyPage, uploadResume, type Resume104,
+  diagnoseResume, getPreferences, getResume, importResume104, openApplyPage, putPreferences,
+  uploadResume, type JobPreferences, type Resume104,
 } from "./api";
 import BusyHint from "./BusyHint";
 import { PageContainer, PageHeader } from "./ui";
@@ -14,9 +15,15 @@ import { PageContainer, PageHeader } from "./ui";
 export default function ProfilePage() {
   const qc = useQueryClient();
   const resume = useQuery({ queryKey: ["resume"], queryFn: getResume });
+  const prefs = useQuery({ queryKey: ["preferences"], queryFn: getPreferences });
   const [source, setSource] = useState("upload");
   const [title, setTitle] = useState("");
   const [salary, setSalary] = useState<number | "">("");
+  const [locations, setLocations] = useState("");
+  const [conditions, setConditions] = useState("");
+  const [avoid, setAvoid] = useState("");
+  const [prefBusy, setPrefBusy] = useState(false);
+  const [prefErr, setPrefErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -26,11 +33,33 @@ export default function ProfilePage() {
   const [applyBusy, setApplyBusy] = useState(false);
 
   useEffect(() => {
-    if (resume.data) {
-      setTitle(resume.data.target_title);
-      setSalary(resume.data.expected_salary ?? "");
+    if (prefs.data) {
+      setTitle(prefs.data.target_title);
+      setSalary(prefs.data.expected_salary ?? "");
+      setLocations(prefs.data.locations.join("\n"));
+      setConditions(prefs.data.conditions.join("\n"));
+      setAvoid(prefs.data.avoid.join("\n"));
     }
-  }, [resume.data]);
+  }, [prefs.data]);
+
+  function prefPayload(): JobPreferences {
+    const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
+    return {
+      target_title: title.trim(),
+      expected_salary: salary === "" ? null : Number(salary),
+      locations: lines(locations), conditions: lines(conditions), avoid: lines(avoid),
+    };
+  }
+
+  async function savePrefs() {
+    setPrefErr(null); setPrefBusy(true);
+    try {
+      const r = await putPreferences(prefPayload());
+      if (!r.ok) { setPrefErr("儲存失敗"); return; }
+      qc.invalidateQueries({ queryKey: ["preferences"] });
+    } catch { setPrefErr("網路錯誤，請重試"); }
+    finally { setPrefBusy(false); }
+  }
 
   const sourceLabel = resume.data?.source === "104" ? "104 匯入"
     : resume.data?.source === "upload" ? "上傳檔案" : "";
@@ -67,14 +96,15 @@ export default function ProfilePage() {
 
   async function runDiagnose() {
     setErr(null); setBusy(true);
-    const r = await diagnoseResume(title, salary === "" ? null : Number(salary));
-    setBusy(false);
-    if (!r.ok) {
-      const b = await r.json().catch(() => ({}));
-      setErr(b.detail ?? "健檢失敗");
-      return;
-    }
-    qc.invalidateQueries({ queryKey: ["resume"] });
+    try {
+      const pr = await putPreferences(prefPayload());
+      if (!pr.ok) { setErr("儲存偏好失敗"); return; }
+      qc.invalidateQueries({ queryKey: ["preferences"] });
+      const r = await diagnoseResume();
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.detail ?? "健檢失敗"); return; }
+      qc.invalidateQueries({ queryKey: ["resume"] });
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setBusy(false); }
   }
 
   const d = resume.data?.diagnosis;
@@ -129,16 +159,25 @@ export default function ProfilePage() {
                 ? `已載入 ${resume.data.chars} 字${sourceLabel ? `（來源：${sourceLabel}）` : ""}`
                 : "尚未設定履歷"}
             </Text>
+          </Stack>
+        </Paper>
 
+        <Paper bg="dark.6" radius="md" p="lg">
+          <Stack>
+            <Text fw={600}>求職偏好</Text>
             <Group grow>
               <TextInput label="目標職稱" value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
               <NumberInput label="期望月薪（選填）" value={salary} onChange={(v) => setSalary(typeof v === "number" ? v : "")} />
             </Group>
+            <Textarea label="想要的工作地點（一行一個）" autosize minRows={2} value={locations} onChange={(e) => setLocations(e.currentTarget.value)} />
+            <Textarea label="軟條件（一行一個，如 可遠端）" autosize minRows={2} value={conditions} onChange={(e) => setConditions(e.currentTarget.value)} />
+            <Textarea label="避雷（一行一個，如 博弈）" autosize minRows={2} value={avoid} onChange={(e) => setAvoid(e.currentTarget.value)} />
+            {prefErr && <Text c="danger.6" size="sm">{prefErr}</Text>}
+            <Group>
+              <Button variant="light" onClick={savePrefs} loading={prefBusy}>儲存偏好</Button>
+              <Button onClick={runDiagnose} loading={busy} disabled={!resume.data?.has_resume || !title.trim()}>執行健檢</Button>
+            </Group>
             {err && <Text c="danger.6" size="sm">{err}</Text>}
-            <Button onClick={runDiagnose} loading={busy} w="fit-content"
-              disabled={!resume.data?.has_resume || !title.trim()}>
-              執行健檢
-            </Button>
             <BusyHint active={busy} label="分析中" />
           </Stack>
         </Paper>
