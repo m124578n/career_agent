@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .models import (
     Application, ChatState, CompanyResearch, DismissedInterviews, Interview, JobPreferences,
-    MemoryState, Message, ResumeState, Settings, Snapshot, TrackedJob, Viewer,
+    MemoryState, Message, OfferDetail, ResumeState, Settings, Snapshot, TrackedJob, Viewer,
 )
 
 _SCHEMA = """
@@ -340,3 +340,29 @@ def merge_tracked_job(
         match_json=new_mj, tailor_json=new_tj,
     ))
     return final_state
+
+
+def set_tracked_state(
+    conn: sqlite3.Connection, code: str, state: str, *, offer: OfferDetail | None = None,
+) -> str:
+    """強制設定追蹤職缺狀態（使用者手動；繞過 merge 的 rank 防降級）。
+    state=="offer" 且 offer 非 None 時序列化存 offer_json；其餘一律清空 offer_json。
+    保留既有 created_at 與其他欄位；不存在則新建。回最終 state。"""
+    now = datetime.now().isoformat(timespec="seconds")
+    existing = get_tracked_job(conn, code)
+    offer_json = (
+        json.dumps(offer.model_dump(), ensure_ascii=False)
+        if (state == "offer" and offer is not None) else ""
+    )
+    if existing is not None:
+        upsert_tracked_job(conn, TrackedJob(
+            code=code, company=existing.company, title=existing.title, url=existing.url,
+            salary=existing.salary, state=state, match_score=existing.match_score,
+            created_at=existing.created_at or now, updated_at=now,
+            match_json=existing.match_json, tailor_json=existing.tailor_json, offer_json=offer_json,
+        ))
+    else:
+        upsert_tracked_job(conn, TrackedJob(
+            code=code, state=state, created_at=now, updated_at=now, offer_json=offer_json,
+        ))
+    return state

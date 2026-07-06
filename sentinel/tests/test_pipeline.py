@@ -1,6 +1,6 @@
 from career_sentinel import pipeline, store
 from career_sentinel.models import (
-    Application, Interview, Snapshot, TrackedJob,
+    Application, Interview, OfferDetail, Snapshot, TrackedJob,
 )
 
 
@@ -121,3 +121,41 @@ def test_build_swallows_errors(tmp_path, monkeypatch):
     conn = store.connect(tmp_path / "db.sqlite")
     monkeypatch.setattr(store, "load_tracked_jobs", lambda c: (_ for _ in ()).throw(RuntimeError("boom")))
     assert pipeline.build_pipeline(conn) == []  # best-effort：吞例外回空清單
+
+
+def test_build_offer_carries_detail(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.set_tracked_state(conn, "of9", "offer",
+                            offer=OfferDetail(salary_year=1200000, location="台北", level="資深"))
+    jobs = pipeline.build_pipeline(conn)
+    assert len(jobs) == 1
+    assert jobs[0].state == "offer"
+    assert jobs[0].offer is not None
+    assert jobs[0].offer.salary_year == 1200000 and jobs[0].offer.location == "台北"
+
+
+def test_build_non_offer_has_no_offer(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.upsert_tracked_job(conn, TrackedJob(code="m1", state="matched", match_score=70))
+    jobs = pipeline.build_pipeline(conn)
+    assert jobs[0].offer is None
+
+
+def test_build_bad_offer_json_survives(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.upsert_tracked_job(conn, TrackedJob(code="b1", state="offer", offer_json="{not json"))
+    jobs = pipeline.build_pipeline(conn)
+    assert jobs[0].offer is None and jobs[0].state == "offer"
+
+
+def test_build_reset_returns_to_signal_state(tmp_path):
+    snap = Snapshot(interviews=[
+        Interview(company="戊", job_title="後端", when="2026-07-13 10:00:00",
+                  location="台北", job_url="https://www.104.com.tw/job/ff4gg"),
+    ])
+    conn = _conn_with(tmp_path, snap)
+    store.set_tracked_state(conn, "ff4gg", "offer", offer=OfferDetail(salary_year=1))
+    assert pipeline.build_pipeline(conn)[0].state == "offer"
+    store.set_tracked_state(conn, "ff4gg", "interested")  # reset
+    j = pipeline.build_pipeline(conn)[0]
+    assert j.state == "interviewing" and j.offer is None  # 回歸 104 訊號

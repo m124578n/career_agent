@@ -1,5 +1,5 @@
 from career_sentinel import store
-from career_sentinel.models import TrackedJob
+from career_sentinel.models import OfferDetail, TrackedJob
 
 
 def test_upsert_and_load_tracked_jobs(tmp_path):
@@ -84,3 +84,45 @@ def test_migrate_adds_offer_json_to_existing_table(tmp_path):
     assert "offer_json" in cols
     got = store.get_tracked_job(conn, "old1")
     assert got is not None and got.state == "matched" and got.offer_json == ""
+
+
+def test_set_offer_stores_detail(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    of = OfferDetail(salary_year=1200000, salary_month=90000, location="台北",
+                     level="資深", start_date="2026-09-01", notes="含年終")
+    final = store.set_tracked_state(conn, "of1", "offer", offer=of)
+    assert final == "offer"
+    got = store.get_tracked_job(conn, "of1")
+    assert got.state == "offer"
+    parsed = OfferDetail.model_validate_json(got.offer_json)
+    assert parsed.salary_year == 1200000 and parsed.location == "台北" and parsed.level == "資深"
+
+
+def test_set_reject_clears_offer(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.set_tracked_state(conn, "of1", "offer", offer=OfferDetail(salary_year=100))
+    store.set_tracked_state(conn, "of1", "rejected")
+    got = store.get_tracked_job(conn, "of1")
+    assert got.state == "rejected" and got.offer_json == ""
+
+
+def test_reset_from_offer_clears(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.set_tracked_state(conn, "of1", "offer", offer=OfferDetail(salary_year=100))
+    store.set_tracked_state(conn, "of1", "interested")
+    got = store.get_tracked_job(conn, "of1")
+    assert got.state == "interested" and got.offer_json == ""
+
+
+def test_set_state_new_code_creates(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.set_tracked_state(conn, "new1", "offer", offer=OfferDetail(salary_month=60000))
+    assert store.get_tracked_job(conn, "new1").state == "offer"
+
+
+def test_set_state_keeps_created_at(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.upsert_tracked_job(conn, TrackedJob(code="k1", state="interviewing", created_at="2026-07-01T00:00:00"))
+    store.set_tracked_state(conn, "k1", "offer", offer=OfferDetail(salary_year=1))
+    got = store.get_tracked_job(conn, "k1")
+    assert got.created_at == "2026-07-01T00:00:00" and got.state == "offer"

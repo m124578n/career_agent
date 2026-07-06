@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 
 from . import calendar_link, company_link, jobfetch, store, watch
-from .models import PipelineJob, Snapshot, interview_key
+from .models import OfferDetail, PipelineJob, Snapshot, interview_key
 
 STATE_RANK: dict[str, int] = {
     "interested": 1,
@@ -30,6 +30,15 @@ def effective_state(manual: str | None, signal_rank: int) -> str:
     manual_rank = STATE_RANK.get(manual or "", 0)
     best = max(manual_rank, signal_rank)
     return _RANK_NAME.get(best, "interested")
+
+
+def _parse_offer(offer_json: str) -> OfferDetail | None:
+    if not offer_json:
+        return None
+    try:
+        return OfferDetail.model_validate_json(offer_json)
+    except Exception:
+        return None
 
 
 def build_pipeline(conn: sqlite3.Connection) -> list[PipelineJob]:
@@ -94,6 +103,7 @@ def _build(conn: sqlite3.Connection) -> list[PipelineJob]:
                 pj.match_score = tj.match_score
             pj.company = pj.company or tj.company
             pj.title = pj.title or tj.title
+            pj.offer = _parse_offer(tj.offer_json)
         pj.state = effective_state(tj.state if tj else None, signal.get(key, 0))
 
     seen_codes = {pj.code for pj in jobs.values() if pj.code}
@@ -105,6 +115,7 @@ def _build(conn: sqlite3.Connection) -> list[PipelineJob]:
             url=tj.url, salary=tj.salary, match_score=tj.match_score,
         )
         pj.state = effective_state(tj.state, 0)
+        pj.offer = _parse_offer(tj.offer_json)
         jobs[code] = pj
 
     return list(jobs.values())
