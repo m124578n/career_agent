@@ -96,3 +96,39 @@ def test_track_then_snapshot_pipeline_has_matched(tmp_path):
     body = c.get("/api/snapshot").json()
     states = {j["code"]: j["state"] for j in body["pipeline"]}
     assert states.get("abc12") == "matched"
+
+
+def test_set_offer_endpoint(tmp_path):
+    c = _client(tmp_path)
+    r = c.post("/api/tracked/of1/offer", json={
+        "salary_year": 1200000, "salary_month": 90000, "location": "台北",
+        "level": "資深", "start_date": "2026-09-01", "notes": "含年終"})
+    assert r.status_code == 200 and r.json()["state"] == "offer"
+    got = c.get("/api/tracked/of1").json()
+    assert got["state"] == "offer"
+    assert got["offer"]["salary_year"] == 1200000 and got["offer"]["location"] == "台北"
+
+
+def test_reject_endpoint_clears_offer(tmp_path):
+    c = _client(tmp_path)
+    c.post("/api/tracked/of1/offer", json={"salary_year": 100})
+    r = c.post("/api/tracked/of1/reject")
+    assert r.json()["state"] == "rejected"
+    got = c.get("/api/tracked/of1").json()
+    assert got["state"] == "rejected" and got["offer"] is None
+
+
+def test_reset_endpoint_clears_offer(tmp_path):
+    c = _client(tmp_path)
+    c.post("/api/tracked/of1/offer", json={"salary_year": 100})
+    r = c.post("/api/tracked/of1/reset")
+    assert r.json()["state"] == "interested"
+    got = c.get("/api/tracked/of1").json()
+    assert got["state"] == "interested" and got["offer"] is None
+
+
+def test_tracked_get_non_offer_offer_none(tmp_path):
+    c = _client(tmp_path)
+    c.post("/api/tracked", json={"code": "m1", "match_score": 70})
+    got = c.get("/api/tracked/m1").json()
+    assert got["offer"] is None

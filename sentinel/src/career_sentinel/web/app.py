@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, pipeline, research, resume, store, tailor, usage as usagemod, watch
-from ..models import ChatMessage, ChatState, JobPreferences, ResumeState, Settings, SuggestedUpdate, TrackedJob, interview_key
+from ..models import ChatMessage, ChatState, JobPreferences, OfferDetail, ResumeState, Settings, SuggestedUpdate, TrackedJob, interview_key
 from . import apply, runner, scheduler
 
 logger = logging.getLogger("career_sentinel.web")
@@ -514,17 +514,39 @@ def create_app(db_path: str | None = None) -> FastAPI:
         tj = store.get_tracked_job(_conn(), code)
         if tj is None:
             return {"code": code, "found": False, "state": "", "match_score": None,
-                    "match": None, "tailor": None}
+                    "match": None, "tailor": None, "offer": None}
         return {
             "code": tj.code, "found": True, "state": tj.state, "match_score": tj.match_score,
             "match": json.loads(tj.match_json) if tj.match_json else None,
             "tailor": json.loads(tj.tailor_json) if tj.tailor_json else None,
+            "offer": json.loads(tj.offer_json) if tj.offer_json else None,
         }
 
     @app.delete("/api/tracked/{code}")
     def untrack_job(code: str) -> dict:
         store.delete_tracked_job(_conn(), code)
         return {"status": "untracked"}
+
+    @app.post("/api/tracked/{code}/offer")
+    def tracked_set_offer(code: str, offer: OfferDetail) -> dict:
+        if not code.strip():
+            raise HTTPException(status_code=400, detail="缺少職缺代碼")
+        final = store.set_tracked_state(_conn(), code, "offer", offer=offer)
+        return {"status": "ok", "state": final}
+
+    @app.post("/api/tracked/{code}/reject")
+    def tracked_set_reject(code: str) -> dict:
+        if not code.strip():
+            raise HTTPException(status_code=400, detail="缺少職缺代碼")
+        final = store.set_tracked_state(_conn(), code, "rejected")
+        return {"status": "ok", "state": final}
+
+    @app.post("/api/tracked/{code}/reset")
+    def tracked_reset(code: str) -> dict:
+        if not code.strip():
+            raise HTTPException(status_code=400, detail="缺少職缺代碼")
+        final = store.set_tracked_state(_conn(), code, "interested")
+        return {"status": "ok", "state": final}
 
     @app.get("/api/job")
     def job_by_url(url: str = "") -> dict:
