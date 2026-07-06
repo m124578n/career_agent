@@ -41,10 +41,10 @@ class _InterviewKeyReq(BaseModel):
     key: str
 
 
-def _chat_events(messages, system):
+def _chat_events(messages, system, db_path=None):
     """依 provider 產聊天事件流：foundry 走工具迴圈、openai 走既有純聊天。"""
     if config.llm_provider() == "foundry":
-        yield from chatmod.stream_with_tools(messages, system=system)
+        yield from chatmod.stream_with_tools(messages, system=system, db_path=db_path)
     else:
         for chunk in llm.chat_stream(messages, system=system, feature="整理助手"):
             yield {"type": "text", "text": chunk}
@@ -343,9 +343,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if not config.llm_provider():
             raise HTTPException(status_code=400, detail="請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
         conn = _conn()
+        try:
+            pipe_summary = chatmod.format_pipeline_summary(pipeline.build_pipeline(conn))
+        except Exception:
+            pipe_summary = ""
         system = chatmod.build_system_prompt(
             store.load_resume(conn), store.load_settings(conn),
-            store.load_preferences(conn), store.load_memory(conn),
+            store.load_preferences(conn), store.load_memory(conn), pipe_summary,
         )
         messages = chatmod.build_messages(store.load_chat(conn), req.message)
         settings_snapshot = store.load_settings(conn)
@@ -357,7 +361,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             filt = chatmod.StreamFilter()
             clean_parts: list[str] = []
             try:
-                for ev in _chat_events(messages, system):
+                for ev in _chat_events(messages, system, resolved_db):
                     if ev["type"] == "jobs":
                         yield _sse("jobs", {
                             "keyword": ev["keyword"],
