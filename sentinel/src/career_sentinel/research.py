@@ -30,15 +30,19 @@ def build_research_prompt(name: str) -> str:
     )
 
 
-def research_company(name: str, *, client=None, feature: str = "公司研究") -> CompanyResearch:
+def web_search_complete(prompt: str, *, feature: str, client=None) -> str:
+    """依 provider 跑一次帶 web search 的 LLM 補全，回文字。"""
     provider = llm_provider()
-    prompt = build_research_prompt(name)
     if provider == "openai":
-        text = _openai_research(prompt, client, feature)
-    elif provider == "foundry":
-        text = _foundry_research(prompt, client, feature)
-    else:
-        raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
+        return _openai_research(prompt, client, feature)
+    if provider == "foundry":
+        return _foundry_research(prompt, client, feature)
+    raise RuntimeError("請先設定 LLM_API_KEY 或 FOUNDRY_API_KEY")
+
+
+def research_company(name: str, *, client=None, feature: str = "公司研究") -> CompanyResearch:
+    prompt = build_research_prompt(name)
+    text = web_search_complete(prompt, feature=feature, client=client)
     r = CompanyResearch.model_validate(json.loads(llm._extract_json(text)))
     r.company = name
     r.researched_at = datetime.now().isoformat(timespec="seconds")

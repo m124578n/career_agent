@@ -271,6 +271,17 @@ class CompanyResearch(BaseModel):
         return v if v in ("low", "mid", "high") else "mid"
 
 
+class NegotiationAdvice(BaseModel):
+    summary: str = ""
+    market_assessment: str = ""
+    leverage_points: list[str] = Field(default_factory=list)
+    suggested_ask: str = ""
+    scripts: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    sources: list[ResearchSource] = Field(default_factory=list)
+    advised_at: str = ""
+
+
 class TailoredApplication(BaseModel):
     job_title: str = ""
     company: str = ""
