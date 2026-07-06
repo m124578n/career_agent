@@ -12,6 +12,7 @@ const NAV = [
   { to: "/jobs", label: "職缺契合度", tag: "02" },
   { to: "/applications", label: "追蹤清單", tag: "03" },
   { to: "/about", label: "關於我", tag: "04" },
+  { to: "/self-host", label: "本機自架", tag: "05" },
 ];
 
 export function GatedLayout() {
