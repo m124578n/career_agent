@@ -303,9 +303,11 @@ export default function JobCardDrawer({ job, opened, onClose }: {
             )}
           </Paper>
 
-          <Anchor href={job.url || undefined} target="_blank" size="xs" c="dimmed">
-            {job.url ? "去 104 看原始職缺" : ""}
-          </Anchor>
+          {job.url && (
+            <Anchor href={job.url} target="_blank" size="xs" c="dimmed">
+              去 104 看原始職缺
+            </Anchor>
+          )}
         </Stack>
       )}
     </Drawer>

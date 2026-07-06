@@ -54,7 +54,8 @@ export function NegotiationView({ data }: { data: NegotiationAdvice }) {
   );
 }
 
-export default function NegotiateButton({ code, company }: { code: string; company?: string; title?: string }) {
+export default function NegotiateButton({ code, company, title }: { code: string; company?: string; title?: string }) {
+  const label = [company, title].filter(Boolean).join(" · ");
   const [opened, setOpened] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -80,7 +81,7 @@ export default function NegotiateButton({ code, company }: { code: string; compa
         <IconMoneybag size={13} />
       </ActionIcon>
       <Modal opened={opened} onClose={() => setOpened(false)} size="lg"
-        title={`談判建議：${company ?? ""}`}>
+        title={label ? `談判建議：${label}` : "談判建議"}>
         {busy && (
           <Group justify="center" py="xl">
             <Loader size="sm" />
