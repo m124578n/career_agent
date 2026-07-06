@@ -22,6 +22,7 @@ export interface PipelineJob {
   job_url: string;
   thread_url: string;
   watched: boolean;
+  offer?: OfferDetail | null;
 }
 export interface SnapshotResp {
   run_at: string | null;
@@ -135,6 +136,15 @@ export interface RecommendedJob {
   is_watched: boolean;
 }
 
+export interface OfferDetail {
+  salary_year: number | null;
+  salary_month: number | null;
+  location: string;
+  level: string;
+  start_date: string;
+  notes: string;
+}
+
 export interface TrackReq {
   code: string;
   company?: string;
@@ -161,6 +171,7 @@ export interface TrackedCard {
   match_score: number | null;
   match: MatchResult | null;
   tailor: TailoredApplication | null;
+  offer: OfferDetail | null;
 }
 
 export async function getTrackedJob(code: string): Promise<Response> {
@@ -169,6 +180,22 @@ export async function getTrackedJob(code: string): Promise<Response> {
 
 export async function untrackJob(code: string): Promise<Response> {
   return fetch(`/api/tracked/${encodeURIComponent(code)}`, { method: "DELETE" });
+}
+
+export async function setOffer(code: string, offer: OfferDetail): Promise<Response> {
+  return fetch(`/api/tracked/${encodeURIComponent(code)}/offer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(offer),
+  });
+}
+
+export async function rejectJob(code: string): Promise<Response> {
+  return fetch(`/api/tracked/${encodeURIComponent(code)}/reject`, { method: "POST" });
+}
+
+export async function resetTracked(code: string): Promise<Response> {
+  return fetch(`/api/tracked/${encodeURIComponent(code)}/reset`, { method: "POST" });
 }
 
 export async function getJobByUrl(url: string): Promise<Response> {

@@ -1,12 +1,13 @@
 import {
-  ActionIcon, Anchor, Button, Drawer, Group, List, Paper, Progress, Stack, Text, ThemeIcon,
+  ActionIcon, Anchor, Button, Drawer, Group, List, NumberInput, Paper, Progress, Stack,
+  Text, Textarea, TextInput, ThemeIcon,
 } from "@mantine/core";
 import { IconCheck, IconCopy, IconExternalLink } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
-  getResume, getTrackedJob, matchJob, openApplyPage, tailorApplication, trackJob,
-  type MatchResult, type TailoredApplication,
+  getResume, getTrackedJob, matchJob, openApplyPage, rejectJob, resetTracked, setOffer,
+  tailorApplication, trackJob, type MatchResult, type OfferDetail, type TailoredApplication,
 } from "./api";
 import BusyHint from "./BusyHint";
 import ResearchButton from "./ResearchButton";
@@ -36,14 +37,27 @@ export default function JobCardDrawer({ job, opened, onClose }: {
   const [applyBusy, setApplyBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<string>("");
+  const [offer, setOfferState] = useState<OfferDetail | null>(null);
+  const [editingOffer, setEditingOffer] = useState(false);
+  const [form, setForm] = useState<OfferDetail>({
+    salary_year: null, salary_month: null, location: "", level: "", start_date: "", notes: "",
+  });
+  const [stateBusy, setStateBusy] = useState(false);
 
   // 開啟時載入快取
   useEffect(() => {
     if (!opened || !job) return;
     setErr(null); setMatch(null); setTailor(null);
+    setState(""); setOfferState(null); setEditingOffer(false);
     getTrackedJob(job.code).then((r) => r.json()).then((c) => {
       if (c.match) setMatch(c.match);
       if (c.tailor) setTailor(c.tailor);
+      setState(c.state || "");
+      if (c.offer) {
+        setOfferState(c.offer);
+        setForm(c.offer);
+      }
     }).catch(() => {});
   }, [opened, job?.code]);
 
@@ -81,6 +95,42 @@ export default function JobCardDrawer({ job, opened, onClose }: {
     finally { setTailorBusy(false); }
   }
 
+  async function saveOffer() {
+    if (!job) return;
+    setErr(null); setStateBusy(true);
+    try {
+      const r = await setOffer(job.code, form);
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.detail ?? "儲存失敗"); return; }
+      setState("offer"); setOfferState(form); setEditingOffer(false);
+      qc.invalidateQueries({ queryKey: ["snapshot"] });
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setStateBusy(false); }
+  }
+
+  async function markReject() {
+    if (!job) return;
+    setErr(null); setStateBusy(true);
+    try {
+      const r = await rejectJob(job.code);
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.detail ?? "操作失敗"); return; }
+      setState("rejected"); setOfferState(null); setEditingOffer(false);
+      qc.invalidateQueries({ queryKey: ["snapshot"] });
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setStateBusy(false); }
+  }
+
+  async function resetState() {
+    if (!job) return;
+    setErr(null); setStateBusy(true);
+    try {
+      const r = await resetTracked(job.code);
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.detail ?? "操作失敗"); return; }
+      setState("interested"); setOfferState(null); setEditingOffer(false);
+      qc.invalidateQueries({ queryKey: ["snapshot"] });
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setStateBusy(false); }
+  }
+
   async function copyCover() {
     if (!tailor) return;
     try {
@@ -105,6 +155,63 @@ export default function JobCardDrawer({ job, opened, onClose }: {
       {job && (
         <Stack gap="lg">
           {err && <Text c="danger.6" size="sm">{err}</Text>}
+
+          {/* 狀態 */}
+          <Paper bg="dark.6" radius="md" p="lg">
+            <Text fw={600} mb="sm">狀態</Text>
+            {state === "offer" && !editingOffer ? (
+              <Stack gap={6}>
+                <Text c="teal.5" size="sm" fw={600}>已錄取</Text>
+                {offer && (
+                  <Text size="xs" c="dimmed">
+                    {offer.salary_year != null ? `年薪 ${offer.salary_year}` : ""}
+                    {offer.salary_month != null ? ` · 月薪 ${offer.salary_month}` : ""}
+                    {offer.location ? ` · ${offer.location}` : ""}
+                    {offer.level ? ` · ${offer.level}` : ""}
+                    {offer.start_date ? ` · ${offer.start_date}` : ""}
+                  </Text>
+                )}
+                {offer?.notes && <Text size="xs" c="dimmed">{offer.notes}</Text>}
+                <Group gap="sm" mt={4}>
+                  <Button size="compact-sm" variant="light" onClick={() => setEditingOffer(true)}>編輯</Button>
+                  <Button size="compact-sm" variant="subtle" color="gray" onClick={resetState} loading={stateBusy}>重設</Button>
+                </Group>
+              </Stack>
+            ) : state === "rejected" ? (
+              <Group justify="space-between">
+                <Text c="dimmed" size="sm">已標記未錄取</Text>
+                <Button size="compact-sm" variant="subtle" color="gray" onClick={resetState} loading={stateBusy}>重設</Button>
+              </Group>
+            ) : editingOffer ? (
+              <Stack gap="sm">
+                <Group grow>
+                  <NumberInput label="年薪" value={form.salary_year ?? undefined} thousandSeparator=","
+                    onChange={(v) => setForm({ ...form, salary_year: typeof v === "number" ? v : null })} />
+                  <NumberInput label="月薪" value={form.salary_month ?? undefined} thousandSeparator=","
+                    onChange={(v) => setForm({ ...form, salary_month: typeof v === "number" ? v : null })} />
+                </Group>
+                <Group grow>
+                  <TextInput label="地點" value={form.location}
+                    onChange={(e) => setForm({ ...form, location: e.currentTarget.value })} />
+                  <TextInput label="職級" value={form.level}
+                    onChange={(e) => setForm({ ...form, level: e.currentTarget.value })} />
+                </Group>
+                <TextInput label="到職日" value={form.start_date}
+                  onChange={(e) => setForm({ ...form, start_date: e.currentTarget.value })} />
+                <Textarea label="備註" autosize minRows={2} value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.currentTarget.value })} />
+                <Group gap="sm">
+                  <Button size="compact-sm" onClick={saveOffer} loading={stateBusy}>儲存</Button>
+                  <Button size="compact-sm" variant="subtle" color="gray" onClick={() => setEditingOffer(false)}>取消</Button>
+                </Group>
+              </Stack>
+            ) : (
+              <Group gap="sm">
+                <Button size="compact-sm" variant="light" color="teal" onClick={() => setEditingOffer(true)}>標記錄取</Button>
+                <Button size="compact-sm" variant="light" color="gray" onClick={markReject} loading={stateBusy}>標記未錄取</Button>
+              </Group>
+            )}
+          </Paper>
 
           {/* 比對 */}
           <Paper bg="dark.6" radius="md" p="lg">
