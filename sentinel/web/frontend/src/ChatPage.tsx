@@ -31,6 +31,8 @@ const FIELD_LABEL: Record<string, string> = {
   target_title: "目標職稱", expected_salary: "期望薪資", locations: "地點",
   conditions: "軟條件", avoid: "避雷", watched_companies: "關注公司",
   watched_keywords: "關注關鍵字", resume_text: "履歷",
+  track: "追蹤", job_offer: "標記錄取", job_reject: "標記未錄取",
+  job_reset: "重設狀態", untrack: "取消追蹤",
 };
 
 function fmtValue(v: string | number | string[] | null): string {
@@ -42,8 +44,16 @@ function SuggestionCard({ s }: { s: SuggestedUpdate }) {
   const qc = useQueryClient();
   const [state, setState] = useState<"idle" | "busy" | "ok" | "fail">("idle");
   const [msg, setMsg] = useState("");
+  const PIPE_FIELDS = ["track", "job_offer", "job_reject", "job_reset", "untrack"];
+  const p = (s.payload ?? {}) as Record<string, any>;
+  const pipeLabel =
+    s.field === "track" ? `${p.company ?? ""} · ${p.title ?? ""}`
+    : s.field === "job_offer"
+      ? `${p.company ?? p.code ?? ""}${p.salary_year ? ` · 年薪 ${p.salary_year}` : p.salary_month ? ` · 月薪 ${p.salary_month}` : ""}`
+    : `${p.company ?? p.code ?? ""}`;
   const label =
-    s.op === "replace_snippet" ? `「${s.old}」→「${s.new}」`
+    PIPE_FIELDS.includes(s.field) ? pipeLabel
+    : s.op === "replace_snippet" ? `「${s.old}」→「${s.new}」`
     : s.op === "append_section" ? `附加：${fmtValue(s.value)}`
     : `→ ${fmtValue(s.value)}`;
   const apply = async () => {
@@ -55,6 +65,7 @@ function SuggestionCard({ s }: { s: SuggestedUpdate }) {
         setState("ok");
         qc.invalidateQueries({ queryKey: ["resume"] });
         qc.invalidateQueries({ queryKey: ["settings"] });
+        if (PIPE_FIELDS.includes(s.field)) qc.invalidateQueries({ queryKey: ["snapshot"] });
       } else {
         setState("fail");
         setMsg(body.message || body.detail || "無法套用");

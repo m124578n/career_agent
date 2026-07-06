@@ -228,6 +228,7 @@ export interface SuggestedUpdate {
   value: string | number | string[] | null;
   old: string | null;
   new: string | null;
+  payload?: Record<string, unknown> | null;
 }
 export interface MemoryFact { text: string; created_at: string }
 export interface ChatHistory { summary: string; messages: ChatMsg[]; memory: MemoryFact[] }
