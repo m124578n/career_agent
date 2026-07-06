@@ -16,6 +16,7 @@ import { AuthGate } from "./components/AuthGate";
 
 // 路由層拆包：各頁按需載入，首屏只下載必要的程式碼
 const About = lazy(() => import("./pages/About").then((m) => ({ default: m.About })));
+const SelfHost = lazy(() => import("./pages/SelfHost").then((m) => ({ default: m.SelfHost })));
 const ResumeSetup = lazy(() => import("./pages/ResumeSetup").then((m) => ({ default: m.ResumeSetup })));
 const JobList = lazy(() => import("./pages/JobList").then((m) => ({ default: m.JobList })));
 const Applications = lazy(() => import("./pages/Applications").then((m) => ({ default: m.Applications })));
@@ -56,6 +57,7 @@ const app = (
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/about" element={<About />} />
+          <Route path="/self-host" element={<SelfHost />} />
           <Route path="/" element={<RootRoute />} />
           <Route element={<GatedShell />}>
             <Route path="/home" element={<Dashboard />} />

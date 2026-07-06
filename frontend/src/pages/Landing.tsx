@@ -26,9 +26,14 @@ export function Landing() {
         <span className="jt-brand">
           JobTracker<span className="dot" aria-hidden="true">.</span>
         </span>
-        <Anchor component={Link} to="/about" c="dimmed" fz="sm">
-          關於作者 →
-        </Anchor>
+        <Group gap="lg">
+          <Anchor component={Link} to="/self-host" c="dimmed" fz="sm">
+            本機自架版 →
+          </Anchor>
+          <Anchor component={Link} to="/about" c="dimmed" fz="sm">
+            關於作者 →
+          </Anchor>
+        </Group>
       </Group>
 
       <Box p={{ base: "lg", md: 40 }} maw={960} mx="auto" w="100%" style={{ flex: 1 }}>
