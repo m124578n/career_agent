@@ -1,9 +1,9 @@
 import {
-  ActionIcon, Alert, Badge, Button, Divider, Group, Loader, Paper, ScrollArea,
+  ActionIcon, Alert, Badge, Button, Divider, Group, List, Loader, Paper, ScrollArea,
   Stack, Text, TextInput, TypographyStylesProvider,
 } from "@mantine/core";
 import {
-  IconBrain, IconDownload, IconEraser, IconSearch, IconTrash, IconX,
+  IconBrain, IconCheck, IconCopy, IconDownload, IconEraser, IconExternalLink, IconSearch, IconTrash, IconX,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -11,8 +11,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./chat-md.css";
 import {
-  applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, readSse, sendChat,
-  SuggestedUpdate, type RecommendedJob,
+  applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, openApplyPage, readSse,
+  sendChat, SuggestedUpdate, tailorApplication, type RecommendedJob, type TailoredApplication,
 } from "./api";
 import JobRow from "./JobRow";
 import { PageContainer, PageHeader } from "./ui";
@@ -91,6 +91,93 @@ function SuggestionCard({ s }: { s: SuggestedUpdate }) {
         )}
       </Group>
       {state === "fail" && msg && <Text size="xs" c="dimmed">{msg}</Text>}
+    </Paper>
+  );
+}
+
+function TailorCard({ payload }: { payload: { code: string; company?: string; title?: string } }) {
+  const url = `https://www.104.com.tw/job/${payload.code}`;
+  const [result, setResult] = useState<TailoredApplication | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [opened, setOpened] = useState(false);
+
+  const runTailor = async () => {
+    setErr(null); setBusy(true);
+    try {
+      const r = await tailorApplication(url);
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(b.detail ?? "生成失敗"); return; }
+      setResult(b as TailoredApplication);
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setBusy(false); }
+  };
+
+  const openApply = async () => {
+    setErr(null); setApplyBusy(true); setOpened(false);
+    try {
+      const r = await openApplyPage(url);
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(b.detail ?? "開啟失敗"); return; }
+      setOpened(true);
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setApplyBusy(false); }
+  };
+
+  const copyCover = async () => {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result.cover_letter);
+      setCopied(true); setTimeout(() => setCopied(false), 1500);
+    } catch { setErr("複製失敗"); }
+  };
+
+  return (
+    <Paper bg="dark.6" radius="md" px="md" py="sm" maw="92%">
+      <Group justify="space-between" wrap="nowrap" mb={result ? "sm" : 0}>
+        <Text size="sm"><b>客製化</b> {payload.company ?? ""}{payload.title ? ` · ${payload.title}` : ""}</Text>
+        {!result && <Button size="compact-xs" loading={busy} onClick={runTailor}>客製化</Button>}
+      </Group>
+      {err && <Text size="xs" c="danger.6">{err}</Text>}
+      {result && (
+        <Stack gap="sm">
+          {result.resume_tips.length > 0 && (
+            <div>
+              <Text fw={600} size="xs" mb={2}>要強調的重點</Text>
+              <List size="xs" spacing={2}>{result.resume_tips.map((t, i) => <List.Item key={i}>{t}</List.Item>)}</List>
+            </div>
+          )}
+          {result.resume_adjustments.length > 0 && (
+            <div>
+              <Text fw={600} size="xs" mb={2}>建議調整</Text>
+              <List size="xs" spacing={2}>{result.resume_adjustments.map((t, i) => <List.Item key={i}>{t}</List.Item>)}</List>
+            </div>
+          )}
+          {result.missing_keywords.length > 0 && (
+            <div>
+              <Text fw={600} size="xs" mb={2}>該補的關鍵字</Text>
+              <Group gap={6}>{result.missing_keywords.map((k, i) => <Text key={i} size="xs" c="amber.5">{k}</Text>)}</Group>
+            </div>
+          )}
+          <div>
+            <Group justify="space-between" mb={2}>
+              <Text fw={600} size="xs">求職信</Text>
+              <ActionIcon variant="subtle" color="gray" size="sm" onClick={copyCover} title="複製求職信">
+                {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+              </ActionIcon>
+            </Group>
+            <Text size="xs" style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{result.cover_letter}</Text>
+          </div>
+          <Group gap="sm">
+            <Button size="compact-sm" leftSection={<IconExternalLink size={14} />} onClick={openApply} loading={applyBusy}>
+              開 104 投遞頁
+            </Button>
+            {opened && <Text size="xs" c="teal.5">已在瀏覽器開啟投遞頁</Text>}
+          </Group>
+        </Stack>
+      )}
     </Paper>
   );
 }
@@ -223,7 +310,11 @@ export default function ChatPage() {
                     {m.interrupted && <Text size="xs" c="danger.6">回覆中斷</Text>}
                   </div>
                 )}
-                {m.suggestions?.map((s, j) => <SuggestionCard key={j} s={s} />)}
+                {m.suggestions?.map((s, j) =>
+                  s.field === "tailor"
+                    ? <TailorCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
+                    : <SuggestionCard key={j} s={s} />
+                )}
                 {m.remembered?.map((f, j) => (
                   <Badge key={j} variant="light" color="grape" leftSection={<IconBrain size={12} />}>
                     已記住：{f}
