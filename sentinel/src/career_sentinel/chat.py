@@ -110,6 +110,7 @@ def build_system_prompt(
         "你是「career-sentinel 求職總指揮」：用繁體中文陪使用者跑完整條求職流程"
         "（整理履歷與偏好、找職缺、追蹤管道、記錄 offer）。回覆口語、精簡。\n\n"
         "目前狀態：\n"
+        f"- 今天日期：{datetime.now().strftime('%Y-%m-%d')}\n"
         f"- 目標職稱：{prefs.target_title or '（未設定）'}\n"
         f"- 期望月薪：{prefs.expected_salary or '（未設定）'}\n"
         f"- 求職偏好：地點={prefs.locations}；軟條件={prefs.conditions}；避雷={prefs.avoid}\n"

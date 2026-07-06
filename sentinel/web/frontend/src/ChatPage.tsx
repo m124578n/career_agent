@@ -1,6 +1,6 @@
 import {
-  ActionIcon, Alert, Badge, Button, Divider, Group, List, Loader, Paper, ScrollArea,
-  Stack, Text, TextInput, TypographyStylesProvider,
+  ActionIcon, Alert, Badge, Box, Button, Divider, Group, List, Loader, Paper, ScrollArea,
+  Stack, Text, TextInput, Title, TypographyStylesProvider,
 } from "@mantine/core";
 import {
   IconBrain, IconCheck, IconCopy, IconDownload, IconEraser, IconExternalLink, IconSearch, IconTrash, IconX,
@@ -17,7 +17,7 @@ import {
 } from "./api";
 import { NegotiationView } from "./NegotiateButton";
 import JobRow from "./JobRow";
-import { PageContainer, PageHeader } from "./ui";
+import { PageContainer } from "./ui";
 
 interface UiMsg {
   role: string;
@@ -338,10 +338,10 @@ export default function ChatPage() {
   return (
     <PageContainer size="lg">
       <Group align="flex-start" gap="xl" wrap="nowrap">
-      <Stack style={{ flex: 1, minWidth: 0 }} gap="sm">
-        <PageHeader title="求職總指揮" subtitle="邊聊邊整理履歷與偏好、找職缺、追蹤管道；動作需按套用才生效" />
-        <Paper withBorder radius="md" bg="dark.7" p="xs"
-          style={{ overflow: "hidden", borderColor: dragActive ? "var(--mantine-color-teal-5)" : undefined }}
+      <Stack style={{ flex: 1, minWidth: 0, height: "calc(100vh - 64px)" }} gap="xs">
+        <Title order={4} style={{ letterSpacing: "-0.3px" }}>求職總指揮</Title>
+        <Box
+          style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
           onDragOver={(e) => { e.preventDefault(); if (!dragActive) setDragActive(true); }}
           onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
           onDrop={(e) => {
@@ -349,7 +349,7 @@ export default function ChatPage() {
             const f = e.dataTransfer.files?.[0];
             if (f) handleDropFile(f);
           }}>
-        <ScrollArea h="calc(100vh - 360px)" mih={320} viewportRef={viewport} type="auto">
+        <ScrollArea style={{ flex: 1, minHeight: 0 }} viewportRef={viewport} type="auto">
           <Stack gap="md" pr="sm">
             {msgs.map((m, i) => (
               <Stack key={i} gap={6} align={m.role === "user" ? "flex-end" : "flex-start"}>
@@ -392,7 +392,7 @@ export default function ChatPage() {
             )}
           </Stack>
         </ScrollArea>
-        </Paper>
+        </Box>
         {dragActive && <Text size="xs" c="teal.5">放開以上傳履歷（PDF / TXT）</Text>}
         {uploadNote && (
           <Alert color="gray" variant="light" withCloseButton onClose={() => setUploadNote(null)} py={6}>
