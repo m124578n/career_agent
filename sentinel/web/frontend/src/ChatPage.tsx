@@ -11,9 +11,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./chat-md.css";
 import {
-  applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, openApplyPage, readSse,
-  sendChat, SuggestedUpdate, tailorApplication, uploadResume, type RecommendedJob, type TailoredApplication,
+  applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, negotiateOffer, openApplyPage,
+  readSse, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
+  type NegotiationAdvice, type RecommendedJob, type TailoredApplication,
 } from "./api";
+import { NegotiationView } from "./NegotiateButton";
 import JobRow from "./JobRow";
 import { PageContainer, PageHeader } from "./ui";
 
@@ -182,6 +184,34 @@ function TailorCard({ payload }: { payload: { code: string; company?: string; ti
   );
 }
 
+function NegotiateCard({ payload }: { payload: { code: string; company?: string; title?: string } }) {
+  const [result, setResult] = useState<NegotiationAdvice | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const run = async () => {
+    setErr(null); setBusy(true);
+    try {
+      const r = await negotiateOffer(payload.code);
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(b.detail ?? "產生失敗"); return; }
+      setResult(b as NegotiationAdvice);
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Paper bg="dark.6" radius="md" px="md" py="sm" maw="92%">
+      <Group justify="space-between" wrap="nowrap" mb={result ? "sm" : 0}>
+        <Text size="sm"><b>談判建議</b> {payload.company ?? ""}{payload.title ? ` · ${payload.title}` : ""}</Text>
+        {!result && <Button size="compact-xs" loading={busy} onClick={run}>談判建議</Button>}
+      </Group>
+      {err && <Text size="xs" c="danger.6">{err}</Text>}
+      {result && <NegotiationView data={result} />}
+    </Paper>
+  );
+}
+
 export default function ChatPage() {
   const qc = useQueryClient();
   const history = useQuery({ queryKey: ["chat"], queryFn: getChat });
@@ -339,7 +369,9 @@ export default function ChatPage() {
                 {m.suggestions?.map((s, j) =>
                   s.field === "tailor"
                     ? <TailorCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
-                    : <SuggestionCard key={j} s={s} />
+                    : s.field === "negotiate"
+                      ? <NegotiateCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
+                      : <SuggestionCard key={j} s={s} />
                 )}
                 {m.remembered?.map((f, j) => (
                   <Badge key={j} variant="light" color="grape" leftSection={<IconBrain size={12} />}>
