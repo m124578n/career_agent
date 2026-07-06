@@ -306,3 +306,86 @@ def test_system_prompt_mentions_tailor():
     from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
     assert "tailor" in p
+
+
+def test_html_to_text_strips():
+    html = ('<html><head><style>.x{color:red}</style></head><body>'
+            '<script>var a=1;</script><h1>職缺</h1><p>需要 &amp; Python</p></body></html>')
+    t = chat._html_to_text(html)
+    assert "職缺" in t and "Python" in t and "&" in t
+    assert "color:red" not in t and "var a" not in t and "<" not in t
+
+
+def test_execute_fetch_url_generic(monkeypatch):
+    import curl_cffi.requests as creq_mod
+    class FakeResp:
+        text = "<html><body><h1>資深後端工程師</h1><p>負責 API 開發</p></body></html>"
+        def raise_for_status(self): pass
+    monkeypatch.setattr(creq_mod, "get", lambda *a, **k: FakeResp())
+    event, text, is_error = chat._execute_fetch_url("https://example.com/jobs/1")
+    assert event is None and is_error is False
+    data = json.loads(text)
+    assert data["url"] == "https://example.com/jobs/1"
+    assert "資深後端工程師" in data["text"] and "API" in data["text"]
+
+
+def test_execute_fetch_url_truncates(monkeypatch):
+    import curl_cffi.requests as creq_mod
+    class FakeResp:
+        text = "<p>" + ("x" * 5000) + "</p>"
+        def raise_for_status(self): pass
+    monkeypatch.setattr(creq_mod, "get", lambda *a, **k: FakeResp())
+    _, text, _ = chat._execute_fetch_url("https://example.com/x")
+    assert len(json.loads(text)["text"]) == chat._FETCH_URL_MAX
+
+
+def test_execute_fetch_url_104_delegates(monkeypatch):
+    from career_sentinel import jobfetch
+    from career_sentinel.models import JobDetail
+    monkeypatch.setattr(jobfetch, "fetch_job_detail",
+                        lambda code, **kw: JobDetail(title="後端", description="做後端"))
+    event, text, is_error = chat._execute_fetch_url("https://www.104.com.tw/job/9zzz9")
+    assert is_error is False
+    data = json.loads(text)
+    assert data["code"] == "9zzz9" and data["title"] == "後端"  # 走 _execute_job_detail 的 JSON
+
+
+def test_execute_fetch_url_empty_is_error():
+    event, text, is_error = chat._execute_fetch_url("  ")
+    assert is_error is True and "缺少" in text
+
+
+def test_execute_fetch_url_non_http_is_error():
+    event, text, is_error = chat._execute_fetch_url("ftp://x")
+    assert is_error is True
+
+
+def test_execute_fetch_url_fetch_failure(monkeypatch):
+    import curl_cffi.requests as creq_mod
+    def boom(*a, **k):
+        raise RuntimeError("網路掛")
+    monkeypatch.setattr(creq_mod, "get", boom)
+    event, text, is_error = chat._execute_fetch_url("https://example.com/x")
+    assert is_error is True and "抓取網頁失敗" in text
+
+
+def test_execute_fetch_url_js_page_is_error(monkeypatch):
+    import curl_cffi.requests as creq_mod
+    class FakeResp:
+        text = "<html><body></body></html>"  # 去標籤後幾乎空
+        def raise_for_status(self): pass
+    monkeypatch.setattr(creq_mod, "get", lambda *a, **k: FakeResp())
+    event, text, is_error = chat._execute_fetch_url("https://spa.example.com/job")
+    assert is_error is True and "JavaScript" in text
+
+
+def test_execute_tool_fetch_url_dispatch(monkeypatch):
+    monkeypatch.setattr(chat, "_execute_fetch_url", lambda u: (None, '{"ok":1}', False))
+    event, text, is_error = chat._execute_tool("fetch_url", {"url": "https://x"}, None)
+    assert event is None and text == '{"ok":1}' and is_error is False
+
+
+def test_system_prompt_mentions_fetch_url():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    assert "fetch_url" in p

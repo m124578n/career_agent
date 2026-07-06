@@ -1,7 +1,9 @@
 """SP8 整理助手服務層：prompt 組裝、串流截斷、建議解析、套用、compact。"""
 from __future__ import annotations
 
+import html as _html
 import json
+import re as _re
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -111,7 +113,8 @@ def build_system_prompt(
         f"目前求職管道：\n{pipeline_summary or '（管道目前無職缺）'}\n\n"
         "工具：search_jobs 用關鍵字搜尋 104 職缺（使用者明確要找才用，關鍵字精簡 2–4 個詞）；"
         "get_pipeline 讀你目前的求職管道（要引用或操作既有職缺前，先用它確認 code 與現況）；"
-        "get_job_detail 讀指定職缺的完整 JD（傳 code 或網址；回答職缺細節、比較、給建議前先讀）。工具呼叫請節制。\n\n"
+        "get_job_detail 讀指定職缺的完整 JD（傳 code 或網址；回答職缺細節、比較、給建議前先讀）；"
+        "fetch_url 讀任意網址內容（使用者貼網址要你看/分析職缺時用；非 104 站也可）。工具呼叫請節制。\n\n"
         f"履歷全文（前 {_RESUME_MAX_CHARS} 字）：\n{resume_text}\n"
     )
     return head + _CONTRACT
@@ -425,6 +428,15 @@ TOOLS = [
             "required": ["code_or_url"],
         },
     },
+    {
+        "name": "fetch_url",
+        "description": "讀取任意網址的內容（職缺頁、文章等）。使用者貼上網址要你看或分析時用。104 職缺會回結構化 JD；其他網站回去標籤後的純文字。若是需要 JavaScript 才顯示的頁面可能抓不到，會請使用者改貼文字。",
+        "input_schema": {
+            "type": "object",
+            "properties": {"url": {"type": "string", "description": "要讀取的網址（http/https）"}},
+            "required": ["url"],
+        },
+    },
 ]
 
 
@@ -443,6 +455,50 @@ def _execute_search(keyword: str):
         for j in jobs[:JOBS_RESULT_LIMIT]
     ]
     return jobs, json.dumps(brief, ensure_ascii=False), False
+
+
+_FETCH_URL_MAX = 3000  # 通用抓取文字截斷（控 token）
+_SCRIPT_STYLE_RE = _re.compile(r"<(script|style)[^>]*>.*?</\1>", _re.DOTALL | _re.IGNORECASE)
+_TAG_RE = _re.compile(r"<[^>]+>")
+_WS_RE = _re.compile(r"[ \t\r\f\v]+")
+_MULTINL_RE = _re.compile(r"\n{3,}")
+
+
+def _html_to_text(html_text: str) -> str:
+    """粗略把 HTML 轉純文字：去 script/style、去標籤、還原 entity、收斂空白。"""
+    t = _SCRIPT_STYLE_RE.sub(" ", html_text or "")
+    t = _TAG_RE.sub(" ", t)
+    t = _html.unescape(t)
+    t = _WS_RE.sub(" ", t)
+    t = _MULTINL_RE.sub("\n\n", t)
+    return t.strip()
+
+
+def _execute_fetch_url(url: str):
+    """fetch_url 執行體。回 (None, result_text, is_error)。唯讀、需真網路。
+    104 職缺網址走結構化 JD；其他網址通用抓取去標籤。"""
+    raw = (url or "").strip()
+    if not raw:
+        return None, "缺少網址", True
+    if not raw.startswith(("http://", "https://")):
+        return None, "請提供有效網址（http/https 開頭）", True
+    from . import jobfetch
+    try:
+        jobfetch.extract_job_code(raw)   # 是 104 職缺網址就走結構化 JD
+        return _execute_job_detail(raw)
+    except ValueError:
+        pass
+    try:
+        from curl_cffi import requests as creq
+        resp = creq.get(raw, impersonate="chrome", timeout=30)
+        resp.raise_for_status()
+        html_text = resp.text
+    except Exception:
+        return None, "抓取網頁失敗，請確認網址或直接貼上內容文字", True
+    text = _html_to_text(html_text)
+    if len(text) < 10:
+        return None, "這頁可能需要 JavaScript 才顯示內容，抓不到；請直接貼上職缺內容文字", True
+    return None, json.dumps({"url": raw, "text": text[:_FETCH_URL_MAX]}, ensure_ascii=False), False
 
 
 _JD_DESC_MAX = 1500  # JD description 截斷（控 token）
@@ -504,6 +560,8 @@ def _execute_tool(name: str, tool_input: dict, db_path: str | None):
         return None, _pipeline_tool_json(db_path), False
     if name == "get_job_detail":
         return _execute_job_detail(str((tool_input or {}).get("code_or_url", "")))
+    if name == "fetch_url":
+        return _execute_fetch_url(str((tool_input or {}).get("url", "")))
     return None, f"未知工具：{name}", True
 
 
