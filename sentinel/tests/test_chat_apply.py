@@ -223,3 +223,19 @@ def test_apply_track_preserves_offer_terminal(tmp_path):
     chat.apply_update(conn, SuggestedUpdate(field="track", op="set", payload={"code": "t1", "company": "甲"}))
     tj = store.get_tracked_job(conn, "t1")
     assert tj.state == "offer" and tj.offer_json != ""
+
+
+def test_parse_suggestions_tailor():
+    tail = ('<suggestions>{"items":[{"field":"tailor","op":"run",'
+            '"payload":{"code":"abc12","company":"甲","title":"後端"}}]}</suggestions>')
+    items = chat.parse_suggestions(tail)
+    assert len(items) == 1
+    assert items[0].field == "tailor" and items[0].op == "run"
+    assert items[0].payload["code"] == "abc12" and items[0].payload["title"] == "後端"
+
+
+def test_apply_update_rejects_tailor(tmp_path):
+    # tailor 不走 apply_update（前端直接打 /api/tailor）；誤打到 apply 應落 fallback ok=False
+    conn = _conn(tmp_path)
+    r = chat.apply_update(conn, SuggestedUpdate(field="tailor", op="run", payload={"code": "x"}))
+    assert not r.ok

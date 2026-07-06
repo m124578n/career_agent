@@ -300,3 +300,9 @@ def test_system_prompt_mentions_get_job_detail():
     from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
     assert "get_job_detail" in p
+
+
+def test_system_prompt_mentions_tailor():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    assert "tailor" in p

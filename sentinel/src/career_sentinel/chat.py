@@ -66,7 +66,8 @@ _CONTRACT = """
   {"field": "job_offer", "op": "set", "payload": {"code": "abc12", "salary_year": 1200000, "location": "台北", "level": "資深", "start_date": "2026-09-01", "notes": "含年終"}},
   {"field": "job_reject", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
   {"field": "job_reset", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
-  {"field": "untrack", "op": "set", "payload": {"code": "abc12", "company": "台積電"}}
+  {"field": "untrack", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
+  {"field": "tailor", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}}
 ]}</suggestions>
 規則：
 - 允許的 field/op：target_title/set、expected_salary/set（value 為整數**月薪**；
@@ -83,6 +84,10 @@ _CONTRACT = """
   salary_month 為整數，使用者說年薪填 salary_year、月薪填 salary_month）；job_reject＝標記未錄取；
   job_reset＝重設狀態；untrack＝取消追蹤。payload.code 必須來自 get_pipeline 或 search_jobs 的
   實際結果，**不得杜撰**。這些動作只是「提議」，會等使用者按下確認才生效——**不要在回覆中聲稱已完成**。
+- 客製化（tailor/run）：使用者想要某職缺的客製化履歷與求職信時，提議
+  {"field": "tailor", "op": "run", "payload": {"code": "...", "company": "...", "title": "..."}}.
+  需使用者已上傳履歷；payload.code 必來自 get_pipeline/search_jobs/get_job_detail 的實際結果、不得杜撰。
+  這是**提議**，會等使用者按下「客製化」才實際生成（花 LLM 錢）——**你不要自行寫出客製化內容或聲稱已完成**，只丟提議卡。
 - 沒有要更新時不要輸出 <suggestions> 區塊。
 - <suggestions> 之後不要再有任何文字。
 """
