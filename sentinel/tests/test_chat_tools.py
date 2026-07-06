@@ -129,9 +129,56 @@ def test_execute_search_limits_and_error(monkeypatch):
 def test_system_prompt_mentions_tool_rules():
     from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
-    assert "search_jobs" in p and "至多 2 次" in p
+    assert "search_jobs" in p and "get_pipeline" in p
 
 
 def test_execute_search_empty_keyword_is_error():
     jobs, text, is_error = chat._execute_search("  ")
     assert jobs == [] and is_error is True and "關鍵字為空" in text
+
+
+def test_format_pipeline_summary_groups_and_counts():
+    from career_sentinel.models import OfferDetail, PipelineJob
+    jobs = [
+        PipelineJob(key="a", code="a", company="甲", title="後端", state="offer",
+                    offer=OfferDetail(salary_year=1200000)),
+        PipelineJob(key="b", code="b", company="乙", title="前端", state="interviewing",
+                    when="2026-07-10 14:00:00"),
+        PipelineJob(key="c", code="c", company="丙", title="PM", state="interested"),
+    ]
+    s = chat.format_pipeline_summary(jobs)
+    assert "offer" in s and "甲" in s and "1200000" in s
+    assert "乙" in s and "2026-07-10" in s
+    assert "（a）" in s  # code 供 agent 引用
+
+
+def test_format_pipeline_summary_empty():
+    assert chat.format_pipeline_summary([]) == ""
+
+
+def test_format_pipeline_summary_group_limit():
+    from career_sentinel.models import PipelineJob
+    jobs = [PipelineJob(key=str(i), code=str(i), company=f"公司{i}", title="x", state="interested")
+            for i in range(8)]
+    s = chat.format_pipeline_summary(jobs)
+    assert "8 筆" in s              # 計數顯示全部 8 筆
+    assert "公司0" in s and "公司4" in s and "公司5" not in s  # 只列前 5 筆
+
+
+def test_system_prompt_includes_pipeline_summary():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState(), "【管道摘要文字】")
+    assert "目前求職管道" in p and "【管道摘要文字】" in p
+
+
+def test_system_prompt_empty_pipeline_shows_placeholder():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState(), "")
+    assert "管道目前無職缺" in p
+
+
+def test_contract_mentions_pipeline_actions():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    for f in ("track", "job_offer", "job_reject", "job_reset", "untrack"):
+        assert f in p

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from . import llm, store, usage
 from .models import (
-    ChatState, JobPreferences, MemoryFact, MemoryState, ResumeState, Settings, SuggestedUpdate,
+    ChatState, JobPreferences, MemoryFact, MemoryState, PipelineJob, ResumeState, Settings, SuggestedUpdate,
 )
 
 SUGGESTIONS_OPEN = "<suggestions>"
@@ -19,16 +19,54 @@ CURATE_THRESHOLD = 12   # memory facts 超過此數觸發 LLM 整理
 TOOL_LOOP_MAX = 2       # 每輪對話最多執行幾次工具
 JOBS_RESULT_LIMIT = 8   # tool_result 給 LLM 的精簡職缺數上限
 _RESUME_MAX_CHARS = 8000
+_PIPE_GROUP_LIMIT = 5  # 每組摘要最多列幾筆
+_PIPE_STATE_ORDER = ["interviewing", "offer", "applied", "tailored", "matched", "interested", "rejected"]
+_PIPE_STATE_LABEL = {
+    "interviewing": "面試中", "offer": "offer", "applied": "已投遞",
+    "tailored": "已客製化", "matched": "已比對", "interested": "有興趣", "rejected": "未錄取",
+}
+
+
+def format_pipeline_summary(jobs: list[PipelineJob]) -> str:
+    """把 build_pipeline 結果壓成給 system prompt 的精簡摘要（含 code 供引用）。空則回 ''。"""
+    if not jobs:
+        return ""
+    groups: dict[str, list[PipelineJob]] = {}
+    for j in jobs:
+        groups.setdefault(j.state, []).append(j)
+    lines: list[str] = []
+    for state in _PIPE_STATE_ORDER:
+        items = groups.get(state) or []
+        if not items:
+            continue
+        lines.append(f"- {_PIPE_STATE_LABEL.get(state, state)}（{len(items)} 筆）：")
+        for j in items[:_PIPE_GROUP_LIMIT]:
+            extra = ""
+            if state == "interviewing" and j.when:
+                extra = f"，面試 {j.when}"
+            elif state == "offer" and j.offer:
+                if j.offer.salary_year is not None:
+                    extra = f"，年薪 {j.offer.salary_year}"
+                elif j.offer.salary_month is not None:
+                    extra = f"，月薪 {j.offer.salary_month}"
+            code = f"（{j.code}）" if j.code else ""
+            lines.append(f"  · {j.company} · {j.title}{code}{extra}")
+    return "\n".join(lines)
 
 _CONTRACT = """
-當對話中出現應更新上述狀態的資訊時，在回覆文字結束後（最後）輸出一個建議區塊，格式：
+當對話中出現應更新上述狀態的資訊，或使用者要對職缺採取管道動作時，在回覆文字結束後（最後）輸出一個建議區塊，格式：
 <suggestions>{"items": [
   {"field": "expected_salary", "op": "set", "value": 60000},
   {"field": "locations", "op": "set", "value": ["台北", "新北"]},
   {"field": "resume_text", "op": "replace_snippet", "old": "原文片段", "new": "改後片段"},
   {"field": "resume_text", "op": "append_section", "value": "要附加的新段落"},
   {"field": "memory", "op": "remember", "value": "值得長期記住的使用者事實"},
-  {"field": "memory", "op": "forget", "value": "要刪除的既有記憶原文"}
+  {"field": "memory", "op": "forget", "value": "要刪除的既有記憶原文"},
+  {"field": "track", "op": "set", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師", "url": "https://www.104.com.tw/job/abc12", "salary": "月薪6萬"}},
+  {"field": "job_offer", "op": "set", "payload": {"code": "abc12", "salary_year": 1200000, "location": "台北", "level": "資深", "start_date": "2026-09-01", "notes": "含年終"}},
+  {"field": "job_reject", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
+  {"field": "job_reset", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
+  {"field": "untrack", "op": "set", "payload": {"code": "abc12", "company": "台積電"}}
 ]}</suggestions>
 規則：
 - 允許的 field/op：target_title/set、expected_salary/set（value 為整數**月薪**；
@@ -40,6 +78,11 @@ _CONTRACT = """
   內容——包括同義改寫——不要重複 remember）、
   memory/forget（既有記憶過時或與新資訊矛盾時，主動輸出 forget 刪除舊記憶——value 需
   逐字等於清單中該條原文——並視需要接著 remember 更新後的內容，保持記憶清單精簡不重複）。
+- 管道動作（track/job_offer/job_reject/job_reset/untrack）：一律用 payload 帶資料。
+  track＝把職缺加入管道（追蹤）；job_offer＝標記錄取並記 offer 明細（payload 的 salary_year/
+  salary_month 為整數，使用者說年薪填 salary_year、月薪填 salary_month）；job_reject＝標記未錄取；
+  job_reset＝重設狀態；untrack＝取消追蹤。payload.code 必須來自 get_pipeline 或 search_jobs 的
+  實際結果，**不得杜撰**。這些動作只是「提議」，會等使用者按下確認才生效——**不要在回覆中聲稱已完成**。
 - 沒有要更新時不要輸出 <suggestions> 區塊。
 - <suggestions> 之後不要再有任何文字。
 """
@@ -47,19 +90,22 @@ _CONTRACT = """
 
 def build_system_prompt(
     resume: ResumeState, settings: Settings, prefs: JobPreferences, memory: MemoryState,
+    pipeline_summary: str = "",
 ) -> str:
     mem_lines = "\n".join(f"- {f.text}" for f in memory.facts) or "（無）"
     resume_text = resume.resume_text[:_RESUME_MAX_CHARS] or "（尚未上傳履歷）"
     head = (
-        "你是「career-sentinel 整理助手」：用繁體中文陪使用者整理履歷與求職偏好。回覆口語、精簡。\n\n"
+        "你是「career-sentinel 求職總指揮」：用繁體中文陪使用者跑完整條求職流程"
+        "（整理履歷與偏好、找職缺、追蹤管道、記錄 offer）。回覆口語、精簡。\n\n"
         "目前狀態：\n"
         f"- 目標職稱：{prefs.target_title or '（未設定）'}\n"
         f"- 期望月薪：{prefs.expected_salary or '（未設定）'}\n"
         f"- 求職偏好：地點={prefs.locations}；軟條件={prefs.conditions}；避雷={prefs.avoid}\n"
         f"- 關注公司：{settings.watched_companies}；關注關鍵字：{settings.watched_keywords}\n\n"
         f"長期記憶（半永久）：\n{mem_lines}\n\n"
-        "工具：你有 search_jobs 工具可搜尋 104 職缺。"
-        "只在使用者明確要求找職缺時使用 search_jobs；關鍵字精簡（2–4 個詞）；每輪對話至多 2 次。\n\n"
+        f"目前求職管道：\n{pipeline_summary or '（管道目前無職缺）'}\n\n"
+        "工具：search_jobs 用關鍵字搜尋 104 職缺（使用者明確要找才用，關鍵字精簡 2–4 個詞）；"
+        "get_pipeline 讀你目前的求職管道（要引用或操作既有職缺前，先用它確認 code 與現況）。工具呼叫請節制。\n\n"
         f"履歷全文（前 {_RESUME_MAX_CHARS} 字）：\n{resume_text}\n"
     )
     return head + _CONTRACT
