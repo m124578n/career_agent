@@ -180,6 +180,15 @@ class JobPreferences(BaseModel):
     avoid: list[str] = Field(default_factory=list)       # 避雷條件
 
 
+class OfferDetail(BaseModel):
+    salary_year: int | None = None   # 年薪
+    salary_month: int | None = None  # 月薪
+    location: str = ""
+    level: str = ""                  # 職級
+    start_date: str = ""             # 到職日
+    notes: str = ""
+
+
 class TrackedJob(BaseModel):
     code: str
     company: str = ""
@@ -190,6 +199,7 @@ class TrackedJob(BaseModel):
     match_score: int | None = None
     match_json: str = ""
     tailor_json: str = ""
+    offer_json: str = ""
     created_at: str = ""
     updated_at: str = ""
 
@@ -204,6 +214,7 @@ class PipelineJob(BaseModel):
     url: str = ""
     salary: str = ""
     match_score: int | None = None
+    offer: "OfferDetail | None" = None
     # 已投遞側（來自 applications）
     status: str = ""
     applied_at: str = ""

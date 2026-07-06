@@ -73,14 +73,15 @@ CREATE TABLE IF NOT EXISTS tracked_jobs (
     created_at TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT '',
     match_json TEXT NOT NULL DEFAULT '',
-    tailor_json TEXT NOT NULL DEFAULT ''
+    tailor_json TEXT NOT NULL DEFAULT '',
+    offer_json TEXT NOT NULL DEFAULT ''
 );
 """
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(tracked_jobs)")}
-    for col in ("match_json", "tailor_json"):
+    for col in ("match_json", "tailor_json", "offer_json"):
         if col not in cols:
             conn.execute(f"ALTER TABLE tracked_jobs ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
     conn.commit()
@@ -259,38 +260,40 @@ def save_research(conn: sqlite3.Connection, r: CompanyResearch) -> None:
 def load_tracked_jobs(conn: sqlite3.Connection) -> list[TrackedJob]:
     rows = conn.execute(
         "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at, "
-        "match_json, tailor_json FROM tracked_jobs ORDER BY updated_at DESC"
+        "match_json, tailor_json, offer_json FROM tracked_jobs ORDER BY updated_at DESC"
     )
     return [
         TrackedJob(
             code=c, company=co or "", title=t or "", url=u or "", salary=sa or "", state=st,
-            match_score=ms, created_at=ca or "", updated_at=ua or "", match_json=mj or "", tailor_json=tj or "",
+            match_score=ms, created_at=ca or "", updated_at=ua or "", match_json=mj or "",
+            tailor_json=tj or "", offer_json=oj or "",
         )
-        for c, co, t, u, sa, st, ms, ca, ua, mj, tj in rows
+        for c, co, t, u, sa, st, ms, ca, ua, mj, tj, oj in rows
     ]
 
 
 def get_tracked_job(conn: sqlite3.Connection, code: str) -> TrackedJob | None:
     row = conn.execute(
         "SELECT code, company, title, url, salary, state, match_score, created_at, updated_at, "
-        "match_json, tailor_json FROM tracked_jobs WHERE code = ?", (code,)
+        "match_json, tailor_json, offer_json FROM tracked_jobs WHERE code = ?", (code,)
     ).fetchone()
     if row is None:
         return None
-    c, co, t, u, sa, st, ms, ca, ua, mj, tj = row
+    c, co, t, u, sa, st, ms, ca, ua, mj, tj, oj = row
     return TrackedJob(
         code=c, company=co or "", title=t or "", url=u or "", salary=sa or "", state=st,
-        match_score=ms, created_at=ca or "", updated_at=ua or "", match_json=mj or "", tailor_json=tj or "",
+        match_score=ms, created_at=ca or "", updated_at=ua or "", match_json=mj or "",
+        tailor_json=tj or "", offer_json=oj or "",
     )
 
 
 def upsert_tracked_job(conn: sqlite3.Connection, job: TrackedJob) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO tracked_jobs "
-        "(code, company, title, url, salary, state, match_score, created_at, updated_at, match_json, tailor_json) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        "(code, company, title, url, salary, state, match_score, created_at, updated_at, match_json, tailor_json, offer_json) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         (job.code, job.company, job.title, job.url, job.salary, job.state,
-         job.match_score, job.created_at, job.updated_at, job.match_json, job.tailor_json),
+         job.match_score, job.created_at, job.updated_at, job.match_json, job.tailor_json, job.offer_json),
     )
     conn.commit()
 
