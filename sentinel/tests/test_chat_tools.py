@@ -83,17 +83,17 @@ def test_stream_with_tools_happy_path(monkeypatch):
 def test_stream_with_tools_loop_limit(monkeypatch):
     monkeypatch.setenv("FOUNDRY_API_KEY", "k")
     monkeypatch.setattr(chat, "_execute_search", lambda kw: ([], "[]", False))
+    n = chat.TOOL_LOOP_MAX
     def tu(i):
         return _Blk("tool_use", id=f"tu{i}", name="search_jobs", input={"keyword": f"k{i}"})
-    client = _FakeClient([
-        ([], _FakeFinal("tool_use", [tu(1)])),
-        ([], _FakeFinal("tool_use", [tu(2)])),
-        (["只好用現有結果回答"], _FakeFinal("end_turn", [_Blk("text", text="只好用現有結果回答")])),
-    ])
+    turns = [([], _FakeFinal("tool_use", [tu(i)])) for i in range(n)]
+    turns.append((["只好用現有結果回答"], _FakeFinal("end_turn", [_Blk("text", text="只好用現有結果回答")])))
+    client = _FakeClient(turns)
     list(chat.stream_with_tools([{"role": "user", "content": "找"}], system="s", client=client))
     cap = client.messages.captured
-    assert "tools" in cap[0] and "tools" in cap[1]
-    assert "tools" not in cap[2]  # 達上限，最後一輪強制作答
+    for i in range(n):
+        assert "tools" in cap[i]
+    assert "tools" not in cap[n]  # 達上限，最後一輪強制作答
 
 
 def test_stream_with_tools_error_no_jobs_event(monkeypatch):
@@ -182,3 +182,55 @@ def test_contract_mentions_pipeline_actions():
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
     for f in ("track", "job_offer", "job_reject", "job_reset", "untrack"):
         assert f in p
+
+
+def test_pipeline_tool_json_no_db():
+    assert chat._pipeline_tool_json(None) == "[]"
+
+
+def test_pipeline_tool_json_reads_pipeline(tmp_path):
+    from career_sentinel import store
+    from career_sentinel.models import OfferDetail
+    db = str(tmp_path / "db.sqlite")
+    conn = store.connect(db)
+    store.set_tracked_state(conn, "of1", "offer", offer=OfferDetail(salary_year=1200000))
+    data = json.loads(chat._pipeline_tool_json(db))
+    row = next(j for j in data if j["code"] == "of1")
+    assert row["state"] == "offer" and row["offer"]["salary_year"] == 1200000
+
+
+def test_execute_tool_search_dispatch(monkeypatch):
+    monkeypatch.setattr(chat, "_execute_search", lambda kw: (_jobs(1), "[]", False))
+    event, text, is_error = chat._execute_tool("search_jobs", {"keyword": "python"}, None)
+    assert event["type"] == "jobs" and event["keyword"] == "python" and len(event["items"]) == 1
+    assert is_error is False
+
+
+def test_execute_tool_get_pipeline_dispatch(tmp_path):
+    from career_sentinel import store
+    db = str(tmp_path / "db.sqlite")
+    store.connect(db)
+    event, text, is_error = chat._execute_tool("get_pipeline", {}, db)
+    assert event is None and is_error is False and text == "[]"
+
+
+def test_execute_tool_unknown():
+    event, text, is_error = chat._execute_tool("nope", {}, None)
+    assert event is None and is_error is True
+
+
+def test_stream_with_tools_get_pipeline(tmp_path, monkeypatch):
+    monkeypatch.setenv("FOUNDRY_API_KEY", "k")
+    from career_sentinel import store
+    db = str(tmp_path / "db.sqlite")
+    store.connect(db)
+    tu = _Blk("tool_use", id="p1", name="get_pipeline", input={})
+    client = _FakeClient([
+        ([], _FakeFinal("tool_use", [tu])),
+        (["你目前沒有職缺"], _FakeFinal("end_turn", [_Blk("text", text="你目前沒有職缺")])),
+    ])
+    evs = list(chat.stream_with_tools(
+        [{"role": "user", "content": "我的管道"}], system="s", client=client, db_path=db))
+    assert [e["type"] for e in evs] == ["text"]  # get_pipeline 不 yield jobs 事件
+    tr = client.messages.captured[1]["messages"][-1]["content"][0]
+    assert tr["tool_use_id"] == "p1" and tr["content"] == "[]"

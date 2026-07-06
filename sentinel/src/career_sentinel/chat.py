@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from . import llm, store, usage
+from . import llm, pipeline, store, usage
 from .models import (
     ChatState, JobPreferences, MemoryFact, MemoryState, PipelineJob, ResumeState, Settings, SuggestedUpdate,
 )
@@ -16,7 +16,7 @@ SUGGESTIONS_CLOSE = "</suggestions>"
 COMPACT_THRESHOLD = 30  # messages 超過此數觸發 compact
 COMPACT_KEEP = 10       # compact 後保留的近期逐字訊息數
 CURATE_THRESHOLD = 12   # memory facts 超過此數觸發 LLM 整理
-TOOL_LOOP_MAX = 2       # 每輪對話最多執行幾次工具
+TOOL_LOOP_MAX = 4       # 每輪對話最多執行幾次工具
 JOBS_RESULT_LIMIT = 8   # tool_result 給 LLM 的精簡職缺數上限
 _RESUME_MAX_CHARS = 8000
 _PIPE_GROUP_LIMIT = 5  # 每組摘要最多列幾筆
@@ -392,15 +392,22 @@ def build_export_md(
     return "\n".join(lines)
 
 
-TOOLS = [{
-    "name": "search_jobs",
-    "description": "在 104 站內以關鍵字搜尋職缺。只在使用者明確要求找職缺時使用。",
-    "input_schema": {
-        "type": "object",
-        "properties": {"keyword": {"type": "string", "description": "精簡的搜尋關鍵字"}},
-        "required": ["keyword"],
+TOOLS = [
+    {
+        "name": "search_jobs",
+        "description": "在 104 站內以關鍵字搜尋職缺。只在使用者明確要求找職缺時使用。",
+        "input_schema": {
+            "type": "object",
+            "properties": {"keyword": {"type": "string", "description": "精簡的搜尋關鍵字"}},
+            "required": ["keyword"],
+        },
     },
-}]
+    {
+        "name": "get_pipeline",
+        "description": "讀取使用者目前的求職管道（各狀態職缺、offer 明細、面試時間、job code）。要引用或操作既有職缺前先用它確認 code 與現況。",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+]
 
 
 def _execute_search(keyword: str):
@@ -420,7 +427,37 @@ def _execute_search(keyword: str):
     return jobs, json.dumps(brief, ensure_ascii=False), False
 
 
-def stream_with_tools(messages: list[dict], *, system: str, client=None, feature: str = "整理助手"):
+def _pipeline_tool_json(db_path: str | None) -> str:
+    """get_pipeline 執行體：開新連線讀管道，回精簡 JSON（唯讀 best-effort）。"""
+    if not db_path:
+        return "[]"
+    try:
+        conn = store.connect(db_path)
+        jobs = pipeline.build_pipeline(conn)
+    except Exception:
+        return "[]"
+    brief = [
+        {"code": j.code, "company": j.company, "title": j.title, "state": j.state,
+         "salary": j.salary, "match_score": j.match_score, "when": j.when,
+         "offer": j.offer.model_dump() if j.offer else None}
+        for j in jobs
+    ]
+    return json.dumps(brief, ensure_ascii=False)
+
+
+def _execute_tool(name: str, tool_input: dict, db_path: str | None):
+    """工具分派。回 (event_dict_or_None, result_text, is_error)。event 供 yield 給前端（如 jobs）。"""
+    if name == "search_jobs":
+        keyword = str((tool_input or {}).get("keyword", ""))
+        jobs, result_text, is_error = _execute_search(keyword)
+        event = None if is_error else {"type": "jobs", "keyword": keyword, "items": jobs}
+        return event, result_text, is_error
+    if name == "get_pipeline":
+        return None, _pipeline_tool_json(db_path), False
+    return None, f"未知工具：{name}", True
+
+
+def stream_with_tools(messages: list[dict], *, system: str, client=None, feature: str = "整理助手", db_path: str | None = None):
     """Foundry 原生 tool use 串流：yield {"type":"text"} 與 {"type":"jobs"} 事件。
 
     工具執行達 TOOL_LOOP_MAX 後，最後一輪不帶 tools 強制作答。
@@ -454,11 +491,11 @@ def stream_with_tools(messages: list[dict], *, system: str, client=None, feature
         for block in final.content:
             if getattr(block, "type", None) != "tool_use":
                 continue
-            keyword = str((block.input or {}).get("keyword", ""))
-            jobs, result_text, is_error = _execute_search(keyword)
+            event, result_text, is_error = _execute_tool(
+                getattr(block, "name", ""), block.input or {}, db_path)
             tool_runs += 1
-            if not is_error:
-                yield {"type": "jobs", "keyword": keyword, "items": jobs}
+            if event is not None:
+                yield event
             entry = {"type": "tool_result", "tool_use_id": block.id, "content": result_text}
             if is_error:
                 entry["is_error"] = True
