@@ -187,3 +187,23 @@ def test_migrate_adds_interviews_json(tmp_path):
     assert "interviews_json" in cols
     got = store.get_tracked_job(conn, "old1")
     assert got is not None and got.state == "matched" and got.interviews_json == ""
+
+
+def test_merge_preserves_interviews(tmp_path):
+    from career_sentinel.models import InterviewNote
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.set_interviews(conn, "m1", [InterviewNote(when="一面", content="A")])
+    store.merge_tracked_job(conn, "m1", state="matched", match_score=80)  # scrape/追蹤路徑
+    import json
+    notes = json.loads(store.get_tracked_job(conn, "m1").interviews_json)
+    assert [n["content"] for n in notes] == ["A"]  # 面試紀錄不被清
+
+
+def test_set_tracked_state_preserves_interviews(tmp_path):
+    from career_sentinel.models import InterviewNote
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.set_interviews(conn, "s1", [InterviewNote(when="一面", content="B")])
+    store.set_tracked_state(conn, "s1", "rejected")  # 改狀態路徑
+    import json
+    notes = json.loads(store.get_tracked_job(conn, "s1").interviews_json)
+    assert [n["content"] for n in notes] == ["B"]

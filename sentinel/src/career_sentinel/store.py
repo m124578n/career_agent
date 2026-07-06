@@ -328,6 +328,7 @@ def merge_tracked_job(
         new_mj = json.dumps(match_json, ensure_ascii=False) if match_json is not None else existing.match_json
         new_tj = json.dumps(tailor_json, ensure_ascii=False) if tailor_json is not None else existing.tailor_json
         new_oj = existing.offer_json
+        new_iv = existing.interviews_json
         new_co, new_t, new_u, new_sa = (company or existing.company, title or existing.title,
                                         url or existing.url, salary or existing.salary)
     else:
@@ -337,11 +338,12 @@ def merge_tracked_job(
         new_mj = json.dumps(match_json, ensure_ascii=False) if match_json is not None else ""
         new_tj = json.dumps(tailor_json, ensure_ascii=False) if tailor_json is not None else ""
         new_oj = ""
+        new_iv = ""
         new_co, new_t, new_u, new_sa = company, title, url, salary
     upsert_tracked_job(conn, TrackedJob(
         code=code, company=new_co, title=new_t, url=new_u, salary=new_sa,
         state=final_state, match_score=new_score, created_at=created_at, updated_at=now,
-        match_json=new_mj, tailor_json=new_tj, offer_json=new_oj,
+        match_json=new_mj, tailor_json=new_tj, offer_json=new_oj, interviews_json=new_iv,
     ))
     return final_state
 
@@ -364,6 +366,7 @@ def set_tracked_state(
             salary=existing.salary, state=state, match_score=existing.match_score,
             created_at=existing.created_at or now, updated_at=now,
             match_json=existing.match_json, tailor_json=existing.tailor_json, offer_json=offer_json,
+            interviews_json=existing.interviews_json,
         ))
     else:
         upsert_tracked_job(conn, TrackedJob(
