@@ -1,5 +1,5 @@
 import {
-  ActionIcon, Alert, Badge, Button, Group, Loader, Paper, ScrollArea,
+  ActionIcon, Alert, Badge, Button, Divider, Group, Loader, Paper, ScrollArea,
   Stack, Text, TextInput, TypographyStylesProvider,
 } from "@mantine/core";
 import {
@@ -24,7 +24,6 @@ interface UiMsg {
   remembered?: string[];
   forgot?: string[];
   interrupted?: boolean;
-  jobsBlocks?: { keyword: string; items: RecommendedJob[] }[];
 }
 
 const FIELD_LABEL: Record<string, string> = {
@@ -104,6 +103,7 @@ export default function ChatPage() {
   const canMatch = !!resume.data?.has_resume;
   const trackedCodes = new Set(snap.data?.tracked_codes ?? []);
   const [msgs, setMsgs] = useState<UiMsg[]>([]);
+  const [search, setSearch] = useState<{ keyword: string; items: RecommendedJob[] } | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -166,7 +166,7 @@ export default function ChatPage() {
       }
       await readSse(r, (event, data) => {
         if (event === "delta") pending.text += data.text;
-        if (event === "jobs") patchLast((m) => ({ ...m, jobsBlocks: [...(m.jobsBlocks ?? []), { keyword: data.keyword, items: data.items }] }));
+        if (event === "jobs") setSearch({ keyword: data.keyword, items: data.items });
         if (event === "suggestions") pending.suggestions = data.items;
         if (event === "remembered") pending.remembered = data.facts;
         if (event === "forgot") pending.forgot = data.facts;
@@ -184,6 +184,7 @@ export default function ChatPage() {
     try {
       await clearChat();
       setMsgs([]);
+      setSearch(null);
       qc.invalidateQueries({ queryKey: ["chat"] });
     } catch {
       window.alert("網路錯誤，請重試");
@@ -203,8 +204,9 @@ export default function ChatPage() {
     <PageContainer size="lg">
       <Group align="flex-start" gap="xl" wrap="nowrap">
       <Stack style={{ flex: 1, minWidth: 0 }} gap="sm">
-        <PageHeader title="整理助手" subtitle="邊聊邊整理履歷與求職偏好；更新建議需按「套用」才會寫入" />
-        <ScrollArea h="calc(100vh - 330px)" mih={320} viewportRef={viewport} type="auto">
+        <PageHeader title="求職總指揮" subtitle="邊聊邊整理履歷與偏好、找職缺、追蹤管道；動作需按套用才生效" />
+        <Paper withBorder radius="md" bg="dark.7" p="xs" style={{ overflow: "hidden" }}>
+        <ScrollArea h="calc(100vh - 360px)" mih={320} viewportRef={viewport} type="auto">
           <Stack gap="md" pr="sm">
             {msgs.map((m, i) => (
               <Stack key={i} gap={6} align={m.role === "user" ? "flex-end" : "flex-start"}>
@@ -221,16 +223,6 @@ export default function ChatPage() {
                     {m.interrupted && <Text size="xs" c="danger.6">回覆中斷</Text>}
                   </div>
                 )}
-                {m.jobsBlocks?.map((b, j) => (
-                  <Stack key={j} gap={6} w="100%" maw="92%">
-                    <Group gap={6}>
-                      <IconSearch size={13} style={{ color: "var(--mantine-color-dark-2)" }} />
-                      <Text size="xs" c="dimmed">搜尋：{b.keyword}</Text>
-                    </Group>
-                    {b.items.length === 0 && <Text size="xs" c="dimmed">找不到符合的職缺</Text>}
-                    {b.items.map((job) => <JobRow key={job.code} job={job} canMatch={canMatch} tracked={trackedCodes.has(job.code)} />)}
-                  </Stack>
-                ))}
                 {m.suggestions?.map((s, j) => <SuggestionCard key={j} s={s} />)}
                 {m.remembered?.map((f, j) => (
                   <Badge key={j} variant="light" color="grape" leftSection={<IconBrain size={12} />}>
@@ -251,6 +243,7 @@ export default function ChatPage() {
             )}
           </Stack>
         </ScrollArea>
+        </Paper>
         <Group wrap="nowrap">
           <TextInput
             style={{ flex: 1 }}
@@ -263,7 +256,21 @@ export default function ChatPage() {
           <Button onClick={send} loading={busy}>送出</Button>
         </Group>
       </Stack>
-      <Paper bg="dark.6" radius="md" p="md" w={280} style={{ flexShrink: 0 }}>
+      <Paper bg="dark.6" radius="md" p="md" w={360} style={{ flexShrink: 0 }}>
+        <Group gap={6} mb="sm">
+          <IconSearch size={15} style={{ color: "var(--mantine-color-dark-2)" }} />
+          <Text size="sm" fw={600}>搜尋結果{search ? `：${search.keyword}` : ""}</Text>
+        </Group>
+        {!search && <Text size="xs" c="dimmed" mb="md">（agent 搜尋後，結果會出現在這）</Text>}
+        {search && search.items.length === 0 && <Text size="xs" c="dimmed" mb="md">找不到符合的職缺</Text>}
+        {search && search.items.length > 0 && (
+          <Stack gap={6} mb="md">
+            {search.items.map((job) => (
+              <JobRow key={job.code} job={job} canMatch={canMatch} tracked={trackedCodes.has(job.code)} />
+            ))}
+          </Stack>
+        )}
+        <Divider mb="sm" />
         <Group justify="space-between" mb="sm">
           <Group gap={6}>
             <IconBrain size={15} style={{ color: "var(--mantine-color-grape-4)" }} />
