@@ -63,9 +63,7 @@ def recommend_session() -> list[RecommendedJob] | None:
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         try:
             page.goto(_HOME, wait_until="domcontentloaded")
-            # www host 的 Cloudflare 可能不會自動過；headful 下給 120s 讓使用者手動點過真人驗證，
-            # 過關後 clearance cookie 會存進 persistent profile，之後即自動有 clearance。
-            browser.wait_until_ready(page, timeout_ms=120000)
+            browser.wait_until_ready(page)
             if browser.is_login_url(page.url):
                 return None
             return fetch_recommendations(page)
