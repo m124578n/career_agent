@@ -163,12 +163,14 @@ def fetch_resume104(page) -> Resume104:
     if not lst.ok:
         raise RuntimeError(f"resume list HTTP {lst.status}")
     raw = lst.json()
-    data = raw.get("data") if isinstance(raw, dict) else None
-    items = data if isinstance(data, list) else []
+    # 104 新結構：data.formData.completeResumeList = [ {versionNo, title, isMaster?, ...} ]；
+    # 舊結構：data = [ {vno, ...} ]。id 欄位新為 versionNo、舊為 vno。
+    resumes = _extract_resume_list(raw.get("data") if isinstance(raw, dict) else None)
     vno = ""
-    for r in items:
-        if isinstance(r, dict) and r.get("vno"):
-            vno = str(r.get("vno"))
+    for r in resumes:
+        rid = r.get("versionNo") or r.get("vno")
+        if rid:
+            vno = str(rid)
             if r.get("isMaster") or r.get("master"):
                 break
     if not vno:
@@ -183,7 +185,26 @@ def fetch_resume104(page) -> Resume104:
     blk = page.request.get(RESUME_BLOCK_URL.format(vno=vno))
     if not blk.ok:
         raise RuntimeError(f"resumeByBlock HTTP {blk.status}")
-    return parse_resume104(blk.json())
+    try:
+        return parse_resume104(blk.json())
+    except Exception:
+        import logging
+        logging.getLogger("career_sentinel").warning(
+            "resume104 block 解析失敗：vno=%s body=%s", vno, (blk.text() or "")[:500])
+        raise
+
+
+def _extract_resume_list(data) -> list:
+    """從履歷列表回應取出履歷陣列（相容新舊結構）。"""
+    if isinstance(data, list):
+        return [r for r in data if isinstance(r, dict)]
+    if isinstance(data, dict):
+        lst = (data.get("formData") or {}).get("completeResumeList")
+        if not isinstance(lst, list):
+            lst = data.get("completeResumeList")
+        if isinstance(lst, list):
+            return [r for r in lst if isinstance(r, dict)]
+    return []
 
 
 def resume104_session() -> Resume104 | None:
