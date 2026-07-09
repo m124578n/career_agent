@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from .. import calendar_link, company_link, config, diagnosis, diff, digest, jobfetch, match, negotiate, research, resume, store, tailor, usage as usagemod
-from ..models import InterviewNote, JobPreferences, OfferDetail, Settings, interview_key
-from . import apply, runner, scheduler
+from .. import config, store
+from . import scheduler
 from .routers import chat, dashboard, jobs, resume, settings, tracked
-
-logger = logging.getLogger("career_sentinel.web")
 
 
 def create_app(db_path: str | None = None) -> FastAPI:
@@ -22,9 +17,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     scheduler.start(lambda: store.load_settings(store.connect(resolved_db)))
 
+    app.include_router(dashboard.router)
     app.include_router(settings.router)
     app.include_router(resume.router)
-    app.include_router(dashboard.router)
     app.include_router(jobs.router)
     app.include_router(tracked.router)
     app.include_router(chat.router)
