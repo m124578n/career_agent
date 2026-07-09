@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, negotiate, pipeline, research, resume, store, tailor, usage as usagemod, watch
 from ..models import ChatMessage, ChatState, InterviewNote, JobPreferences, OfferDetail, Settings, SuggestedUpdate, interview_key
 from . import apply, runner, scheduler
+from .routers import settings
 
 logger = logging.getLogger("career_sentinel.web")
 
@@ -110,11 +111,12 @@ def _snapshot_payload(conn) -> dict:
 def create_app(db_path: str | None = None) -> FastAPI:
     app = FastAPI(title="career-sentinel")
     resolved_db = db_path or str(config.db_path())
+    app.state.db_path = resolved_db
 
     def _conn():
         return store.connect(resolved_db)
 
-    scheduler.start(lambda: store.load_settings(_conn()))
+    scheduler.start(lambda: store.load_settings(store.connect(resolved_db)))
 
     @app.get("/api/snapshot")
     def snapshot() -> dict:
@@ -147,24 +149,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def schedule_ack() -> dict:
         scheduler.ack()
         return {"due": False}
-
-    @app.get("/api/settings")
-    def get_settings() -> dict:
-        return store.load_settings(_conn()).model_dump()
-
-    @app.put("/api/settings")
-    def put_settings(settings: Settings) -> dict:
-        store.save_settings(_conn(), settings)
-        return settings.model_dump()
-
-    @app.get("/api/preferences")
-    def get_preferences() -> dict:
-        return store.load_preferences(_conn()).model_dump()
-
-    @app.put("/api/preferences")
-    def put_preferences(prefs: JobPreferences) -> dict:
-        store.save_preferences(_conn(), prefs)
-        return prefs.model_dump()
 
     @app.post("/api/resume/upload")
     async def resume_upload(file: UploadFile = File(...)) -> dict:
@@ -611,6 +595,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "code": code, "url": url, "title": jd.title, "company": jd.company,
             "salary": jd.salary, "is_watched": watch.is_watched(jd.company, jd.title, settings),
         }
+
+    app.include_router(settings.router)
 
     dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
     if dist.is_dir():
