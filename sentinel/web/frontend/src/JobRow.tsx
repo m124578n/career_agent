@@ -64,7 +64,7 @@ export default function JobRow({ job, canMatch, tracked, compact = false }: { jo
           </Group>
           <Text size="xs" c="dimmed">{job.company} · <Text span c="teal.5" ff="monospace">{job.salary}</Text></Text>
         </div>
-        <Group gap="sm" wrap="nowrap" justify={compact ? "flex-end" : undefined}
+        <Group gap="sm" wrap="nowrap" justify={compact ? "flex-start" : undefined}
           style={compact ? { width: "100%" } : undefined}>
           <Anchor href={job.url} target="_blank" size="xs" c="dimmed">去 104 看</Anchor>
           <Button size="compact-sm" variant="light" onClick={run} loading={busy} disabled={!canMatch}>比對</Button>
