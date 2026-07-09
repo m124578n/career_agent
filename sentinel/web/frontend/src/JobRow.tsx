@@ -6,7 +6,7 @@ import { matchJob, trackJob, untrackJob, type MatchResult, type RecommendedJob }
 import BusyHint from "./BusyHint";
 import ResearchButton from "./ResearchButton";
 
-export default function JobRow({ job, canMatch, tracked }: { job: RecommendedJob; canMatch: boolean; tracked: boolean }) {
+export default function JobRow({ job, canMatch, tracked, compact = false }: { job: RecommendedJob; canMatch: boolean; tracked: boolean; compact?: boolean }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -52,8 +52,9 @@ export default function JobRow({ job, canMatch, tracked }: { job: RecommendedJob
 
   return (
     <Paper bg="dark.6" radius="md" px="md" py={12} className="flat-row" style={{ transition: "background-color 200ms" }}>
-      <Group justify="space-between" wrap="nowrap">
-        <div style={{ minWidth: 0 }}>
+      <Group justify="space-between" wrap="nowrap" align={compact ? "flex-start" : "center"}
+        style={compact ? { flexDirection: "column", gap: 10 } : undefined}>
+        <div style={{ minWidth: 0, width: compact ? "100%" : undefined }}>
           <Group gap={8} wrap="nowrap">
             {job.is_watched && (
               <IconStarFilled size={12} style={{ color: "var(--mantine-color-tangerine-5)", flexShrink: 0 }} />
@@ -63,7 +64,8 @@ export default function JobRow({ job, canMatch, tracked }: { job: RecommendedJob
           </Group>
           <Text size="xs" c="dimmed">{job.company} · <Text span c="teal.5" ff="monospace">{job.salary}</Text></Text>
         </div>
-        <Group gap="sm" wrap="nowrap">
+        <Group gap="sm" wrap="nowrap" justify={compact ? "flex-end" : undefined}
+          style={compact ? { width: "100%" } : undefined}>
           <Anchor href={job.url} target="_blank" size="xs" c="dimmed">去 104 看</Anchor>
           <Button size="compact-sm" variant="light" onClick={run} loading={busy} disabled={!canMatch}>比對</Button>
           <Button size="compact-sm" variant={tracked ? "filled" : "outline"} color="teal"

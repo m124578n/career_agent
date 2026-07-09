@@ -1,9 +1,10 @@
 import {
-  ActionIcon, Alert, Badge, Box, Button, Group, List, Loader, Paper, ScrollArea,
-  Stack, Text, TextInput, Title, TypographyStylesProvider,
+  ActionIcon, Alert, Badge, Box, Button, Collapse, Group, List, Loader, Paper, ScrollArea,
+  Stack, Text, TextInput, Title, TypographyStylesProvider, UnstyledButton,
 } from "@mantine/core";
 import {
-  IconBrain, IconCheck, IconCopy, IconDownload, IconEraser, IconExternalLink, IconSearch, IconTrash, IconX,
+  IconBrain, IconCheck, IconChevronRight, IconCopy, IconDownload, IconEraser, IconExternalLink,
+  IconSearch, IconTrash, IconX,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -25,6 +26,12 @@ interface UiMsg {
   remembered?: string[];
   forgot?: string[];
   interrupted?: boolean;
+}
+
+interface SearchGroup {
+  keyword: string;
+  items: RecommendedJob[];
+  ts: number;
 }
 
 const FIELD_LABEL: Record<string, string> = {
@@ -221,17 +228,33 @@ export default function ChatPage() {
   const canMatch = !!resume.data?.has_resume;
   const trackedCodes = new Set(snap.data?.tracked_codes ?? []);
   const [msgs, setMsgs] = useState<UiMsg[]>([]);
-  const [search, setSearch] = useState<{ keyword: string; items: RecommendedJob[] } | null>(() => {
-    try { const raw = localStorage.getItem("cs_chat_search"); return raw ? JSON.parse(raw) : null; }
-    catch { return null; }
+  const [searches, setSearches] = useState<SearchGroup[]>(() => {
+    try {
+      const raw = localStorage.getItem("cs_chat_search");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+      // 相容舊格式（單一搜尋物件）
+      if (parsed && Array.isArray(parsed.items)) {
+        return [{ keyword: parsed.keyword ?? "", items: parsed.items, ts: Date.now() }];
+      }
+      return [];
+    } catch { return []; }
   });
-  // 最新一次搜尋結果持久化到 localStorage，重整後還原；清空時移除
+  // 各次搜尋結果持久化到 localStorage，重整後還原；清空時移除
   useEffect(() => {
     try {
-      if (search) localStorage.setItem("cs_chat_search", JSON.stringify(search));
+      if (searches.length) localStorage.setItem("cs_chat_search", JSON.stringify(searches));
       else localStorage.removeItem("cs_chat_search");
     } catch { /* localStorage 不可用時略過 */ }
-  }, [search]);
+  }, [searches]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCollapsed = (keyword: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(keyword)) next.delete(keyword); else next.add(keyword);
+      return next;
+    });
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -297,7 +320,10 @@ export default function ChatPage() {
       }
       await readSse(r, (event, data) => {
         if (event === "delta") pending.text += data.text;
-        if (event === "jobs") setSearch({ keyword: data.keyword, items: data.items });
+        if (event === "jobs") setSearches((prev) => [
+          { keyword: data.keyword, items: data.items, ts: Date.now() },
+          ...prev.filter((g) => g.keyword !== data.keyword),
+        ].slice(0, 10));
         if (event === "suggestions") pending.suggestions = data.items;
         if (event === "remembered") pending.remembered = data.facts;
         if (event === "forgot") pending.forgot = data.facts;
@@ -314,7 +340,7 @@ export default function ChatPage() {
     try {
       await clearChat();
       setMsgs([]);
-      setSearch(null);
+      setSearches([]);
       setInput("");
       qc.invalidateQueries({ queryKey: ["chat"] });
     } catch {
@@ -364,7 +390,7 @@ export default function ChatPage() {
             <IconDownload size={14} />
           </ActionIcon>
         </Group>
-        <ScrollArea style={{ maxHeight: "calc(100vh - 180px)" }} type="auto">
+        <ScrollArea.Autosize mah="calc(100vh - 180px)" type="auto">
           <Stack gap={6} pr="sm">
             {(history.data?.memory ?? []).map((f, i) => (
               <Group key={i} justify="space-between" wrap="nowrap" gap={4}>
@@ -378,7 +404,7 @@ export default function ChatPage() {
               <Text size="xs" c="dimmed">（尚無記憶——聊天中提到的長期偏好會自動記在這）</Text>
             )}
           </Stack>
-        </ScrollArea>
+        </ScrollArea.Autosize>
       </Paper>
       <Stack style={{ flex: 1, minWidth: 0, height: "calc(100vh - 64px)" }} gap="xs">
         <Group justify="space-between" align="center">
@@ -470,20 +496,59 @@ export default function ChatPage() {
         </Group>
       </Stack>
       <Paper bg="dark.6" radius="md" p="md" w={440} style={{ flexShrink: 0 }}>
-        <Group gap={6} mb="sm">
-          <IconSearch size={15} style={{ color: "var(--mantine-color-dark-2)" }} />
-          <Text size="sm" fw={600}>搜尋結果{search ? `：${search.keyword}` : ""}</Text>
+        <Group gap={6} mb="sm" justify="space-between" wrap="nowrap">
+          <Group gap={6} wrap="nowrap">
+            <IconSearch size={15} style={{ color: "var(--mantine-color-dark-2)" }} />
+            <Text size="sm" fw={600}>搜尋結果</Text>
+          </Group>
+          {searches.length > 0 && (
+            <Group gap={6} wrap="nowrap">
+              <Badge size="sm" variant="light" color="gray">{searches.length} 次</Badge>
+              <ActionIcon size="sm" variant="subtle" color="gray"
+                onClick={() => setSearches([])} title="清除全部搜尋">
+                <IconTrash size={14} />
+              </ActionIcon>
+            </Group>
+          )}
         </Group>
-        {!search && <Text size="xs" c="dimmed">（agent 搜尋後，結果會出現在這）</Text>}
-        {search && search.items.length === 0 && <Text size="xs" c="dimmed">找不到符合的職缺</Text>}
-        {search && search.items.length > 0 && (
-          <ScrollArea style={{ maxHeight: "calc(100vh - 180px)" }} type="auto">
-            <Stack gap={6} pr="sm">
-              {search.items.map((job) => (
-                <JobRow key={job.code} job={job} canMatch={canMatch} tracked={trackedCodes.has(job.code)} />
-              ))}
+        {searches.length === 0 && <Text size="xs" c="dimmed">（agent 搜尋後，結果會出現在這）</Text>}
+        {searches.length > 0 && (
+          <ScrollArea.Autosize mah="calc(100vh - 180px)" type="auto">
+            <Stack gap="md" pr="sm">
+              {searches.map((g) => {
+                const open = !collapsed.has(g.keyword);
+                return (
+                  <Stack key={g.keyword} gap={6}>
+                    <Group gap={6} justify="space-between" wrap="nowrap">
+                      <UnstyledButton onClick={() => toggleCollapsed(g.keyword)}
+                        style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 4 }}
+                        title={open ? "收合" : "展開"}>
+                        <IconChevronRight size={13}
+                          style={{ flexShrink: 0, color: "var(--mantine-color-dark-2)",
+                            transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
+                        <Text size="xs" fw={600} c="dimmed" truncate>
+                          「{g.keyword || "搜尋"}」· {g.items.length} 筆
+                        </Text>
+                      </UnstyledButton>
+                      <ActionIcon size="xs" variant="subtle" color="gray" title="移除這次搜尋"
+                        onClick={() => setSearches((prev) => prev.filter((x) => x.keyword !== g.keyword))}>
+                        <IconX size={12} />
+                      </ActionIcon>
+                    </Group>
+                    <Collapse in={open}>
+                      <Stack gap={6}>
+                        {g.items.length === 0
+                          ? <Text size="xs" c="dimmed">找不到符合的職缺</Text>
+                          : g.items.map((job) => (
+                              <JobRow key={job.code} job={job} canMatch={canMatch} tracked={trackedCodes.has(job.code)} compact />
+                            ))}
+                      </Stack>
+                    </Collapse>
+                  </Stack>
+                );
+              })}
             </Stack>
-          </ScrollArea>
+          </ScrollArea.Autosize>
         )}
       </Paper>
       </Group>
