@@ -56,7 +56,7 @@ def _jobs(n):
 def test_stream_with_tools_happy_path(monkeypatch):
     monkeypatch.setenv("FOUNDRY_API_KEY", "k")
     monkeypatch.setattr(chat, "_execute_search",
-                        lambda kw: (_jobs(2), json.dumps([{"title": "職缺0"}]), False))
+                        lambda kw, page=1: (_jobs(2), json.dumps([{"title": "職缺0"}]), False))
     tool_use = _Blk("tool_use", id="tu1", name="search_jobs", input={"keyword": "python 後端"})
     client = _FakeClient([
         (["我來搜尋"], _FakeFinal("tool_use", [_Blk("text", text="我來搜尋"), tool_use])),
@@ -82,7 +82,7 @@ def test_stream_with_tools_happy_path(monkeypatch):
 
 def test_stream_with_tools_loop_limit(monkeypatch):
     monkeypatch.setenv("FOUNDRY_API_KEY", "k")
-    monkeypatch.setattr(chat, "_execute_search", lambda kw: ([], "[]", False))
+    monkeypatch.setattr(chat, "_execute_search", lambda kw, page=1: ([], "[]", False))
     n = chat.TOOL_LOOP_MAX
     def tu(i):
         return _Blk("tool_use", id=f"tu{i}", name="search_jobs", input={"keyword": f"k{i}"})
@@ -98,7 +98,7 @@ def test_stream_with_tools_loop_limit(monkeypatch):
 
 def test_stream_with_tools_error_no_jobs_event(monkeypatch):
     monkeypatch.setenv("FOUNDRY_API_KEY", "k")
-    monkeypatch.setattr(chat, "_execute_search", lambda kw: ([], "搜尋失敗：boom", True))
+    monkeypatch.setattr(chat, "_execute_search", lambda kw, page=1: ([], "搜尋失敗：boom", True))
     tool_use = _Blk("tool_use", id="tu1", name="search_jobs", input={"keyword": "x"})
     client = _FakeClient([
         ([], _FakeFinal("tool_use", [tool_use])),
@@ -112,18 +112,33 @@ def test_stream_with_tools_error_no_jobs_event(monkeypatch):
 
 def test_execute_search_limits_and_error(monkeypatch):
     from career_sentinel.scraper import search as search_mod
-    monkeypatch.setattr(search_mod, "fetch_search", lambda kw: _jobs(10))
+    monkeypatch.setattr(search_mod, "fetch_search", lambda kw, page=1: _jobs(10))
     jobs, text, is_error = chat._execute_search("python")
     assert len(jobs) == 10 and is_error is False
-    brief = json.loads(text)
-    assert len(brief) == 8  # JOBS_RESULT_LIMIT
-    assert set(brief[0].keys()) == {"title", "company", "salary", "url"}
+    payload = json.loads(text)
+    assert payload["page"] == 1 and payload["count"] == 10
+    assert payload["has_more"] is False and payload["next_page"] is None
+    assert len(payload["jobs"]) == 8  # JOBS_RESULT_LIMIT
+    assert set(payload["jobs"][0].keys()) == {"title", "company", "salary", "url"}
 
-    def boom(kw):
+    def boom(kw, page=1):
         raise RuntimeError("104 掛了")
     monkeypatch.setattr(search_mod, "fetch_search", boom)
     jobs2, text2, is_error2 = chat._execute_search("python")
     assert jobs2 == [] and is_error2 is True and "搜尋失敗" in text2
+
+
+def test_execute_search_passes_page_and_reports_more(monkeypatch):
+    from career_sentinel.scraper import search as search_mod
+    captured = {}
+    def fake(kw, page=1):
+        captured["kw"], captured["page"] = kw, page
+        return _jobs(20)  # 滿頁 → 還有下一頁
+    monkeypatch.setattr(search_mod, "fetch_search", fake)
+    jobs, text, is_error = chat._execute_search("python", 2)
+    assert captured["page"] == 2 and is_error is False and len(jobs) == 20
+    payload = json.loads(text)
+    assert payload["page"] == 2 and payload["has_more"] is True and payload["next_page"] == 3
 
 
 def test_system_prompt_mentions_tool_rules():
@@ -200,10 +215,20 @@ def test_pipeline_tool_json_reads_pipeline(tmp_path):
 
 
 def test_execute_tool_search_dispatch(monkeypatch):
-    monkeypatch.setattr(chat, "_execute_search", lambda kw: (_jobs(1), "[]", False))
+    monkeypatch.setattr(chat, "_execute_search", lambda kw, page=1: (_jobs(1), "[]", False))
     event, text, is_error = chat._execute_tool("search_jobs", {"keyword": "python"}, None)
     assert event["type"] == "jobs" and event["keyword"] == "python" and len(event["items"]) == 1
-    assert is_error is False
+    assert event["page"] == 1 and is_error is False
+
+
+def test_execute_tool_search_dispatch_passes_page(monkeypatch):
+    captured = {}
+    def fake(kw, page=1):
+        captured["kw"], captured["page"] = kw, page
+        return (_jobs(1), "{}", False)
+    monkeypatch.setattr(chat, "_execute_search", fake)
+    event, _, is_error = chat._execute_tool("search_jobs", {"keyword": "python", "page": 3}, None)
+    assert captured["page"] == 3 and event["page"] == 3 and is_error is False
 
 
 def test_execute_tool_get_pipeline_dispatch(tmp_path):

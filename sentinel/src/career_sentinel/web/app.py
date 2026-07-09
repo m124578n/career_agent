@@ -323,16 +323,19 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return result.model_dump()
 
     @app.get("/api/search")
-    def search(kw: str = "") -> dict:
+    def search(kw: str = "", page: int = 1) -> dict:
         from ..scraper.search import fetch_search
         if not kw.strip():
             raise HTTPException(status_code=400, detail="請輸入搜尋關鍵字")
+        page = max(1, page)
         try:
-            jobs = fetch_search(kw.strip())
+            jobs = fetch_search(kw.strip(), page=page)
         except Exception:
             raise HTTPException(status_code=502, detail="搜尋失敗，請重試")
         settings = store.load_settings(_conn())
         return {
+            "page": page,
+            "has_more": len(jobs) >= 20,  # 滿頁視為還有下一頁
             "jobs": [
                 {
                     "code": j.code, "url": j.url, "title": j.title,
@@ -340,7 +343,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
                     "is_watched": watch.is_watched(j.company, j.title, settings),
                 }
                 for j in jobs
-            ]
+            ],
         }
 
     @app.get("/api/recommend")

@@ -121,7 +121,8 @@ def build_system_prompt(
         f"- 關注公司：{settings.watched_companies}；關注關鍵字：{settings.watched_keywords}\n\n"
         f"長期記憶（半永久）：\n{mem_lines}\n\n"
         f"目前求職管道：\n{pipeline_summary or '（管道目前無職缺）'}\n\n"
-        "工具：search_jobs 用關鍵字搜尋 104 職缺（使用者明確要找才用，關鍵字精簡 2–4 個詞）；"
+        "工具：search_jobs 用關鍵字搜尋 104 職缺（使用者明確要找才用，關鍵字精簡 2–4 個詞；"
+        "每頁 20 筆，使用者要『下一頁/再多找一些』時用同一關鍵字、page 遞增再搜）；"
         "get_pipeline 讀你目前的求職管道（要引用或操作既有職缺前，先用它確認 code 與現況）；"
         "get_job_detail 讀指定職缺的完整 JD（傳 code 或網址；回答職缺細節、比較、給建議前先讀）；"
         "fetch_url 讀任意網址內容（使用者貼網址要你看/分析職缺時用；非 104 站也可）。工具呼叫請節制。\n\n"
@@ -427,10 +428,20 @@ def build_export_md(
 TOOLS = [
     {
         "name": "search_jobs",
-        "description": "在 104 站內以關鍵字搜尋職缺。只在使用者明確要求找職缺時使用。",
+        "description": (
+            "在 104 站內以關鍵字搜尋職缺，每頁 20 筆。只在使用者明確要求找職缺時使用。"
+            "使用者要『下一頁 / 再多找一些 / 繼續往下』時，用同一個 keyword、page 遞增再呼叫一次。"
+        ),
         "input_schema": {
             "type": "object",
-            "properties": {"keyword": {"type": "string", "description": "精簡的搜尋關鍵字"}},
+            "properties": {
+                "keyword": {"type": "string", "description": "精簡的搜尋關鍵字"},
+                "page": {
+                    "type": "integer",
+                    "description": "1 起算的頁碼，預設 1；往下翻更多職缺時用同一關鍵字遞增。",
+                    "minimum": 1,
+                },
+            },
             "required": ["keyword"],
         },
     },
@@ -460,21 +471,31 @@ TOOLS = [
 ]
 
 
-def _execute_search(keyword: str):
-    """執行站內搜尋工具。回 (jobs, tool_result文字, is_error)。"""
+def _execute_search(keyword: str, page: int = 1):
+    """執行站內搜尋工具。回 (jobs, tool_result文字, is_error)。page 為 1 起算頁碼。"""
     from .scraper import search as search_mod
 
     if not keyword.strip():
         return [], "搜尋失敗：關鍵字為空", True
+    page = max(1, page)
     try:
-        jobs = search_mod.fetch_search(keyword.strip())
+        jobs = search_mod.fetch_search(keyword.strip(), page=page)
     except Exception as exc:
         return [], f"搜尋失敗：{exc}", True
     brief = [
         {"title": j.title, "company": j.company, "salary": j.salary, "url": j.url}
         for j in jobs[:JOBS_RESULT_LIMIT]
     ]
-    return jobs, json.dumps(brief, ensure_ascii=False), False
+    # 告知目前頁與是否還有下一頁，讓 LLM 知道可用 page+1 續搜
+    has_more = len(jobs) >= 20
+    payload = {
+        "page": page,
+        "count": len(jobs),
+        "has_more": has_more,
+        "next_page": page + 1 if has_more else None,
+        "jobs": brief,
+    }
+    return jobs, json.dumps(payload, ensure_ascii=False), False
 
 
 _FETCH_URL_MAX = 3000  # 通用抓取文字截斷（控 token）
@@ -573,8 +594,12 @@ def _execute_tool(name: str, tool_input: dict, db_path: str | None):
     """工具分派。回 (event_dict_or_None, result_text, is_error)。event 供 yield 給前端（如 jobs）。"""
     if name == "search_jobs":
         keyword = str((tool_input or {}).get("keyword", ""))
-        jobs, result_text, is_error = _execute_search(keyword)
-        event = None if is_error else {"type": "jobs", "keyword": keyword, "items": jobs}
+        try:
+            page = int((tool_input or {}).get("page", 1) or 1)
+        except (TypeError, ValueError):
+            page = 1
+        jobs, result_text, is_error = _execute_search(keyword, page)
+        event = None if is_error else {"type": "jobs", "keyword": keyword, "page": max(1, page), "items": jobs}
         return event, result_text, is_error
     if name == "get_pipeline":
         return None, _pipeline_tool_json(db_path), False

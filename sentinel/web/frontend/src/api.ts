@@ -220,8 +220,8 @@ export async function getRecommend(): Promise<Response> {
   return fetch("/api/recommend");
 }
 
-export async function searchJobs(kw: string): Promise<Response> {
-  return fetch(`/api/search?kw=${encodeURIComponent(kw)}`);
+export async function searchJobs(kw: string, page = 1): Promise<Response> {
+  return fetch(`/api/search?kw=${encodeURIComponent(kw)}&page=${page}`);
 }
 
 export interface ScheduleState { due: boolean; notify_time: string | null; last_prompted_date: string | null }

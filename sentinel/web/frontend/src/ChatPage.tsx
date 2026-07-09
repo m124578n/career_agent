@@ -13,7 +13,7 @@ import remarkGfm from "remark-gfm";
 import "./chat-md.css";
 import {
   applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, negotiateOffer, openApplyPage,
-  readSse, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
+  readSse, searchJobs, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
   type NegotiationAdvice, type RecommendedJob, type TailoredApplication,
 } from "./api";
 import { NegotiationView } from "./NegotiateButton";
@@ -32,6 +32,8 @@ interface SearchGroup {
   keyword: string;
   items: RecommendedJob[];
   ts: number;
+  page: number;      // 已載入到第幾頁（每頁 20 筆）
+  done?: boolean;    // 某頁回傳不足 20 筆 → 已無更多
 }
 
 const FIELD_LABEL: Record<string, string> = {
@@ -233,11 +235,17 @@ export default function ChatPage() {
       const raw = localStorage.getItem("cs_chat_search");
       if (!raw) return [];
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-      // 相容舊格式（單一搜尋物件）
-      if (parsed && Array.isArray(parsed.items)) {
-        return [{ keyword: parsed.keyword ?? "", items: parsed.items, ts: Date.now() }];
-      }
+      // 舊資料可能沒有 page 欄位，用既有筆數回推目前頁碼
+      const withPage = (g: Partial<SearchGroup> & { items?: RecommendedJob[]; keyword?: string }): SearchGroup => ({
+        keyword: g.keyword ?? "",
+        items: g.items ?? [],
+        ts: g.ts ?? Date.now(),
+        page: g.page ?? Math.max(1, Math.ceil((g.items?.length ?? 0) / 20)),
+        done: g.done,
+      });
+      if (Array.isArray(parsed)) return parsed.map(withPage);
+      // 相容更舊格式（單一搜尋物件）
+      if (parsed && Array.isArray(parsed.items)) return [withPage(parsed)];
       return [];
     } catch { return []; }
   });
@@ -260,7 +268,35 @@ export default function ChatPage() {
   const [loaded, setLoaded] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [uploadNote, setUploadNote] = useState<string | null>(null);
+  const [moreBusy, setMoreBusy] = useState<Set<string>>(new Set());
+  const [moreErr, setMoreErr] = useState<Record<string, string>>({});
   const viewport = useRef<HTMLDivElement>(null);
+
+  // 「載入更多」：前端自己記著關鍵字與頁碼，直接抓下一頁併入該組（不靠 agent 記憶）
+  async function loadMore(g: SearchGroup) {
+    if (moreBusy.has(g.keyword)) return;
+    setMoreBusy((prev) => new Set(prev).add(g.keyword));
+    setMoreErr((prev) => { const n = { ...prev }; delete n[g.keyword]; return n; });
+    try {
+      const r = await searchJobs(g.keyword, g.page + 1);
+      if (!r.ok) { setMoreErr((prev) => ({ ...prev, [g.keyword]: "載入更多失敗，請重試" })); return; }
+      const data = await r.json();
+      const fresh: RecommendedJob[] = data.jobs ?? [];
+      setSearches((prev) => prev.map((x) => x.keyword === g.keyword
+        ? {
+            ...x,
+            items: [...x.items, ...fresh.filter((n) => !x.items.some((o) => o.code === n.code))],
+            page: g.page + 1,
+            done: !data.has_more,
+            ts: Date.now(),
+          }
+        : x));
+    } catch {
+      setMoreErr((prev) => ({ ...prev, [g.keyword]: "網路錯誤，請重試" }));
+    } finally {
+      setMoreBusy((prev) => { const s = new Set(prev); s.delete(g.keyword); return s; });
+    }
+  }
 
   useEffect(() => {
     if (history.data && !loaded) {
@@ -320,10 +356,23 @@ export default function ChatPage() {
       }
       await readSse(r, (event, data) => {
         if (event === "delta") pending.text += data.text;
-        if (event === "jobs") setSearches((prev) => [
-          { keyword: data.keyword, items: data.items, ts: Date.now() },
-          ...prev.filter((g) => g.keyword !== data.keyword),
-        ].slice(0, 10));
+        if (event === "jobs") setSearches((prev) => {
+          // 同關鍵字往下翻頁：併入既有那組（依 code 去重），移到最上；新關鍵字則開新組
+          const existing = prev.find((g) => g.keyword === data.keyword);
+          const items = existing
+            ? [...existing.items, ...data.items.filter(
+                (n: RecommendedJob) => !existing.items.some((o) => o.code === n.code))]
+            : data.items;
+          const evPage = data.page ?? 1;
+          return [
+            {
+              keyword: data.keyword, items, ts: Date.now(),
+              page: Math.max(existing?.page ?? 0, evPage),
+              done: data.items.length < 20,
+            },
+            ...prev.filter((g) => g.keyword !== data.keyword),
+          ].slice(0, 10);
+        });
         if (event === "suggestions") pending.suggestions = data.items;
         if (event === "remembered") pending.remembered = data.facts;
         if (event === "forgot") pending.forgot = data.facts;
@@ -542,6 +591,15 @@ export default function ChatPage() {
                           : g.items.map((job) => (
                               <JobRow key={job.code} job={job} canMatch={canMatch} tracked={trackedCodes.has(job.code)} compact />
                             ))}
+                        {moreErr[g.keyword] && <Text size="xs" c="danger.6">{moreErr[g.keyword]}</Text>}
+                        {g.items.length > 0 && (
+                          g.done
+                            ? <Text size="xs" c="dimmed" ta="center">沒有更多了</Text>
+                            : <Button size="compact-sm" variant="subtle" color="gray" fullWidth
+                                onClick={() => loadMore(g)} loading={moreBusy.has(g.keyword)}>
+                                載入更多 20 筆
+                              </Button>
+                        )}
                       </Stack>
                     </Collapse>
                   </Stack>
