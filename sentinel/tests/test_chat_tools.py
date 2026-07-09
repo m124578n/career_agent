@@ -55,7 +55,7 @@ def _jobs(n):
 
 def test_stream_with_tools_happy_path(monkeypatch):
     monkeypatch.setenv("FOUNDRY_API_KEY", "k")
-    monkeypatch.setattr(chat, "_execute_search",
+    monkeypatch.setattr(chat.tools, "_execute_search",
                         lambda kw, page=1: (_jobs(2), json.dumps([{"title": "職缺0"}]), False))
     tool_use = _Blk("tool_use", id="tu1", name="search_jobs", input={"keyword": "python 後端"})
     client = _FakeClient([
@@ -82,7 +82,7 @@ def test_stream_with_tools_happy_path(monkeypatch):
 
 def test_stream_with_tools_loop_limit(monkeypatch):
     monkeypatch.setenv("FOUNDRY_API_KEY", "k")
-    monkeypatch.setattr(chat, "_execute_search", lambda kw, page=1: ([], "[]", False))
+    monkeypatch.setattr(chat.tools, "_execute_search", lambda kw, page=1: ([], "[]", False))
     n = chat.TOOL_LOOP_MAX
     def tu(i):
         return _Blk("tool_use", id=f"tu{i}", name="search_jobs", input={"keyword": f"k{i}"})
@@ -98,7 +98,7 @@ def test_stream_with_tools_loop_limit(monkeypatch):
 
 def test_stream_with_tools_error_no_jobs_event(monkeypatch):
     monkeypatch.setenv("FOUNDRY_API_KEY", "k")
-    monkeypatch.setattr(chat, "_execute_search", lambda kw, page=1: ([], "搜尋失敗：boom", True))
+    monkeypatch.setattr(chat.tools, "_execute_search", lambda kw, page=1: ([], "搜尋失敗：boom", True))
     tool_use = _Blk("tool_use", id="tu1", name="search_jobs", input={"keyword": "x"})
     client = _FakeClient([
         ([], _FakeFinal("tool_use", [tool_use])),
@@ -215,7 +215,7 @@ def test_pipeline_tool_json_reads_pipeline(tmp_path):
 
 
 def test_execute_tool_search_dispatch(monkeypatch):
-    monkeypatch.setattr(chat, "_execute_search", lambda kw, page=1: (_jobs(1), "[]", False))
+    monkeypatch.setattr(chat.tools, "_execute_search", lambda kw, page=1: (_jobs(1), "[]", False))
     event, text, is_error = chat._execute_tool("search_jobs", {"keyword": "python"}, None)
     assert event["type"] == "jobs" and event["keyword"] == "python" and len(event["items"]) == 1
     assert event["page"] == 1 and is_error is False
@@ -226,7 +226,7 @@ def test_execute_tool_search_dispatch_passes_page(monkeypatch):
     def fake(kw, page=1):
         captured["kw"], captured["page"] = kw, page
         return (_jobs(1), "{}", False)
-    monkeypatch.setattr(chat, "_execute_search", fake)
+    monkeypatch.setattr(chat.tools, "_execute_search", fake)
     event, _, is_error = chat._execute_tool("search_jobs", {"keyword": "python", "page": 3}, None)
     assert captured["page"] == 3 and event["page"] == 3 and is_error is False
 
@@ -316,7 +316,7 @@ def test_execute_job_detail_fetch_failure(monkeypatch):
 
 
 def test_execute_tool_get_job_detail_dispatch(monkeypatch):
-    monkeypatch.setattr(chat, "_execute_job_detail", lambda x: (None, '{"ok":1}', False))
+    monkeypatch.setattr(chat.tools, "_execute_job_detail", lambda x: (None, '{"ok":1}', False))
     event, text, is_error = chat._execute_tool("get_job_detail", {"code_or_url": "abc12"}, None)
     assert event is None and text == '{"ok":1}' and is_error is False
 
@@ -406,7 +406,7 @@ def test_execute_fetch_url_js_page_is_error(monkeypatch):
 
 
 def test_execute_tool_fetch_url_dispatch(monkeypatch):
-    monkeypatch.setattr(chat, "_execute_fetch_url", lambda u: (None, '{"ok":1}', False))
+    monkeypatch.setattr(chat.tools, "_execute_fetch_url", lambda u: (None, '{"ok":1}', False))
     event, text, is_error = chat._execute_tool("fetch_url", {"url": "https://x"}, None)
     assert event is None and text == '{"ok":1}' and is_error is False
 
