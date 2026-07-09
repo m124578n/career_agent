@@ -2,7 +2,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from career_sentinel import chat as chatmod, config, llm, store
+from career_sentinel import chat as chatmod, config, llm, pipeline, store
 from career_sentinel.models import ChatMessage, ChatState, MemoryFact, MemoryState, OfferDetail
 from career_sentinel.web import app as webapp
 
@@ -213,7 +213,7 @@ def test_chat_pipeline_summary_best_effort(tmp_path, monkeypatch):
     db = str(tmp_path / "db.sqlite")
     store.connect(db)
     monkeypatch.setattr(config, "llm_provider", lambda: "foundry")
-    monkeypatch.setattr(webapp.pipeline, "build_pipeline",
+    monkeypatch.setattr(pipeline, "build_pipeline",
                         lambda conn: (_ for _ in ()).throw(RuntimeError("boom")))
     captured = {}
 
