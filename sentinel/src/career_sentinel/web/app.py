@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from .. import calendar_link, chat as chatmod, company_link, config, diagnosis, diff, digest, jobfetch, llm, match, negotiate, pipeline, research, resume, store, tailor, usage as usagemod, watch
 from ..models import ChatMessage, ChatState, InterviewNote, JobPreferences, OfferDetail, Settings, SuggestedUpdate, interview_key
 from . import apply, runner, scheduler
-from .routers import resume, settings
+from .routers import dashboard, resume, settings
 
 logger = logging.getLogger("career_sentinel.web")
 
@@ -59,55 +59,6 @@ def _chat_events(messages, system, db_path=None):
             yield {"type": "text", "text": chunk}
 
 
-def _snapshot_payload(conn) -> dict:
-    failed = runner.status()["last_failed_readers"]
-    try:
-        pipeline_jobs = [pj.model_dump() for pj in pipeline.build_pipeline(conn)]
-    except Exception:
-        pipeline_jobs = []
-    try:
-        tracked_codes = [tj.code for tj in store.load_tracked_jobs(conn)]
-    except Exception:
-        tracked_codes = []
-    ids = store.latest_two_ids(conn)
-    if not ids:
-        return {
-            "run_at": None,
-            "viewers": [], "applications": [], "messages": [], "interviews": [],
-            "pipeline": pipeline_jobs,
-            "digest": "尚無資料，請先重新抓取",
-            "failed_readers": failed,
-            "tracked_codes": tracked_codes,
-        }
-    sid = ids[0]
-    snap = store.load_snapshot(conn, sid)
-    d = diff.diff_against_last(conn, sid)
-    settings = store.load_settings(conn)
-    dismissed = set(store.load_dismissed(conn).keys)
-    return {
-        "run_at": store.latest_run_at(conn),
-        "viewers": [{"company": v.company, "job_title": v.job_title, "viewed_at": v.viewed_at, "watched": watch.is_watched(v.company, v.job_title, settings), "company_url": company_link.company_url_from_raw(v.raw)} for v in snap.viewers],
-        "applications": [{"job_id": a.job_id, "company": a.company, "title": a.title, "status": a.status, "applied_at": a.applied_at, "watched": watch.is_watched(a.company, a.title, settings), "company_url": company_link.company_url_from_raw(a.raw), "job_url": company_link.job_url_from_raw(a.raw)} for a in snap.applications],
-        "messages": [{"thread_id": m.thread_id, "company": m.company, "last_message": m.last_message, "has_interview_invite": m.has_interview_invite, "watched": watch.is_watched(m.company, m.last_message, settings), "company_url": company_link.company_url_from_raw(m.raw), "thread_url": company_link.chat_url_from_raw(m.raw)} for m in snap.messages],
-        "interviews": [
-            {
-                "company": iv.company, "job_title": iv.job_title, "when": iv.when,
-                "location": iv.location, "job_url": iv.job_url,
-                "gcal_link": calendar_link.build_gcal_link(iv),
-                "key": interview_key(iv),
-                "dismissed": interview_key(iv) in dismissed,
-                "company_url": company_link.company_url_from_raw(iv.raw),
-                "thread_url": company_link.chat_url_from_raw(iv.raw),
-            }
-            for iv in sorted(snap.interviews, key=lambda iv: (iv.when == "", iv.when))
-        ],
-        "pipeline": pipeline_jobs,
-        "digest": digest.render_human(d, snap),
-        "failed_readers": failed,
-        "tracked_codes": tracked_codes,
-    }
-
-
 def create_app(db_path: str | None = None) -> FastAPI:
     app = FastAPI(title="career-sentinel")
     resolved_db = db_path or str(config.db_path())
@@ -117,38 +68,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return store.connect(resolved_db)
 
     scheduler.start(lambda: store.load_settings(store.connect(resolved_db)))
-
-    @app.get("/api/snapshot")
-    def snapshot() -> dict:
-        return _snapshot_payload(_conn())
-
-    @app.post("/api/scrape")
-    def scrape():
-        if not runner.start_scrape(lambda: runner.default_scrape(resolved_db)):
-            return JSONResponse({"status": "already_running"}, status_code=409)
-        return {"status": "running"}
-
-    @app.get("/api/status")
-    def status() -> dict:
-        return runner.status()
-
-    @app.get("/api/usage")
-    def usage_summary() -> dict:
-        return usagemod.summary(_conn())
-
-    @app.delete("/api/usage")
-    def usage_reset() -> dict:
-        usagemod.reset(_conn())
-        return {"status": "reset"}
-
-    @app.get("/api/schedule")
-    def schedule() -> dict:
-        return scheduler.state()
-
-    @app.post("/api/schedule/ack")
-    def schedule_ack() -> dict:
-        scheduler.ack()
-        return {"due": False}
 
     @app.post("/api/match")
     def match_job(req: _MatchReq) -> dict:
@@ -531,6 +450,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     app.include_router(settings.router)
     app.include_router(resume.router)
+    app.include_router(dashboard.router)
 
     dist = Path(__file__).resolve().parents[3] / "web" / "frontend" / "dist"
     if dist.is_dir():
