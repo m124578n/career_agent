@@ -8,8 +8,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from . import llm, pipeline, store, usage
-from .models import (
+from .. import llm, pipeline, store, usage
+from ..models import (
     ChatState, JobPreferences, MemoryFact, MemoryState, PipelineJob, ResumeState, Settings, SuggestedUpdate,
 )
 
@@ -286,7 +286,7 @@ def apply_update(conn, upd: SuggestedUpdate) -> ApplyResult:
             )
             return ApplyResult(ok=True)
         if upd.field == "job_offer":
-            from .models import OfferDetail
+            from ..models import OfferDetail
             try:
                 offer = OfferDetail(
                     salary_year=payload.get("salary_year"), salary_month=payload.get("salary_month"),
@@ -310,7 +310,7 @@ def apply_update(conn, upd: SuggestedUpdate) -> ApplyResult:
         code = str(payload.get("code", "")).strip()
         if not code:
             return ApplyResult(ok=False, message="缺少職缺代碼")
-        from .models import InterviewNote
+        from ..models import InterviewNote
         store.add_interview_note(conn, code, InterviewNote(
             when=str(payload.get("when", "")), content=str(payload.get("content", ""))))
         return ApplyResult(ok=True)
@@ -473,7 +473,7 @@ TOOLS = [
 
 def _execute_search(keyword: str, page: int = 1):
     """執行站內搜尋工具。回 (jobs, tool_result文字, is_error)。page 為 1 起算頁碼。"""
-    from .scraper import search as search_mod
+    from ..scraper import search as search_mod
 
     if not keyword.strip():
         return [], "搜尋失敗：關鍵字為空", True
@@ -523,7 +523,7 @@ def _execute_fetch_url(url: str):
         return None, "缺少網址", True
     if not raw.startswith(("http://", "https://")):
         return None, "請提供有效網址（http/https 開頭）", True
-    from . import jobfetch
+    from .. import jobfetch
     try:
         jobfetch.extract_job_code(raw)   # 是 104 職缺網址就走結構化 JD
         return _execute_job_detail(raw)
@@ -547,7 +547,7 @@ _JD_DESC_MAX = 1500  # JD description 截斷（控 token）
 
 def _execute_job_detail(code_or_url: str):
     """get_job_detail 執行體。回 (None, result_text, is_error)。唯讀、需真網路。"""
-    from . import jobfetch
+    from .. import jobfetch
 
     raw = (code_or_url or "").strip()
     if not raw:
@@ -615,7 +615,7 @@ def stream_with_tools(messages: list[dict], *, system: str, client=None, feature
 
     工具執行達 TOOL_LOOP_MAX 後，最後一輪不帶 tools 強制作答。
     """
-    from .config import foundry_settings
+    from ..config import foundry_settings
 
     fs = foundry_settings()
     if client is None:
