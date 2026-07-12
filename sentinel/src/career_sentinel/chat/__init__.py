@@ -16,6 +16,6 @@ from .prompt import build_messages, build_system_prompt, format_pipeline_summary
 from .suggestions import ApplyResult, StreamFilter, apply_update, parse_suggestions  # noqa: F401
 from .tools import (  # noqa: F401
     JOBS_RESULT_LIMIT, TOOLS, _FETCH_URL_MAX, _JD_DESC_MAX,
-    _execute_fetch_url, _execute_job_detail, _execute_search, _execute_tool,
-    _html_to_text, _pipeline_tool_json,
+    _execute_fetch_url, _execute_job_detail, _execute_salary_insights, _execute_search,
+    _execute_tool, _html_to_text, _pipeline_tool_json,
 )

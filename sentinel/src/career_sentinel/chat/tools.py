@@ -53,6 +53,15 @@ TOOLS = [
             "required": ["url"],
         },
     },
+    {
+        "name": "salary_insights",
+        "description": "查某職稱/關鍵字在 104 的薪資行情（月薪中位數與區間）。使用者問行情、談薪資或討論 offer 時可用。",
+        "input_schema": {
+            "type": "object",
+            "properties": {"keyword": {"type": "string", "description": "職稱或關鍵字，如 後端工程師"}},
+            "required": ["keyword"],
+        },
+    },
 ]
 
 
@@ -175,6 +184,20 @@ def _pipeline_tool_json(db_path: str | None) -> str:
     return json.dumps(brief, ensure_ascii=False)
 
 
+def _execute_salary_insights(keyword: str):
+    """salary_insights 工具執行體。回 (None, JSON文字, is_error)。唯讀、需真網路。"""
+    from .. import salary_insights
+
+    kw = (keyword or "").strip()
+    if not kw:
+        return None, "缺少關鍵字", True
+    try:
+        r = salary_insights.salary_insights_for_keyword(kw, pages=3)
+    except Exception:
+        return None, "查詢薪資行情失敗，請稍後再試", True
+    return None, r.model_dump_json(), False
+
+
 def _execute_tool(name: str, tool_input: dict, db_path: str | None):
     """工具分派。回 (event_dict_or_None, result_text, is_error)。event 供 yield 給前端（如 jobs）。"""
     if name == "search_jobs":
@@ -192,4 +215,6 @@ def _execute_tool(name: str, tool_input: dict, db_path: str | None):
         return _execute_job_detail(str((tool_input or {}).get("code_or_url", "")))
     if name == "fetch_url":
         return _execute_fetch_url(str((tool_input or {}).get("url", "")))
+    if name == "salary_insights":
+        return _execute_salary_insights(str((tool_input or {}).get("keyword", "")))
     return None, f"未知工具：{name}", True

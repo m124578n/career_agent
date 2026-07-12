@@ -440,3 +440,20 @@ def test_system_prompt_mentions_interview_prep():
     from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
     assert "interview_prep" in p
+
+
+def test_execute_tool_salary_insights(monkeypatch):
+    import json
+    from career_sentinel import salary_insights
+    from career_sentinel.models import SalaryInsight
+    monkeypatch.setattr(salary_insights, "salary_insights_for_keyword",
+                        lambda kw, **kw2: SalaryInsight(keyword=kw, sample=5, median_monthly=60000))
+    event, text, is_error = chat._execute_tool("salary_insights", {"keyword": "後端"}, None)
+    assert event is None and is_error is False
+    assert json.loads(text)["median_monthly"] == 60000
+
+
+def test_system_prompt_mentions_salary_insights():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    assert "salary_insights" in p

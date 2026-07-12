@@ -115,7 +115,9 @@ def build_system_prompt(
         "每頁 20 筆，使用者要『下一頁/再多找一些』時用同一關鍵字、page 遞增再搜）；"
         "get_pipeline 讀你目前的求職管道（要引用或操作既有職缺前，先用它確認 code 與現況）；"
         "get_job_detail 讀指定職缺的完整 JD（傳 code 或網址；回答職缺細節、比較、給建議前先讀）；"
-        "fetch_url 讀任意網址內容（使用者貼網址要你看/分析職缺時用；非 104 站也可）。工具呼叫請節制。\n\n"
+        "fetch_url 讀任意網址內容（使用者貼網址要你看/分析職缺時用；非 104 站也可）；"
+        "salary_insights 查某職稱/關鍵字的 104 薪資行情（談薪資或討論 offer 時可用）；"
+        "工具呼叫請節制。\n\n"
         f"履歷全文（前 {_RESUME_MAX_CHARS} 字）：\n{resume_text}\n"
     )
     return head + _CONTRACT
