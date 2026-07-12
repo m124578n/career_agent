@@ -11,6 +11,7 @@ import ProfilePage from "./ProfilePage";
 import ScrapeStepper from "./ScrapeStepper";
 import SettingsModal from "./SettingsModal";
 import Sidebar, { type PageKey } from "./Sidebar";
+import StatsPage from "./StatsPage";
 
 export default function App() {
   const qc = useQueryClient();
@@ -109,6 +110,7 @@ export default function App() {
             進行中的操作狀態（原本只有聊天頁這樣做，其餘條件掛載會在切走時清空 local state）。
             各頁 mount 時只 seed 表單、不自動觸發爬蟲/LLM，故全掛載安全。 */}
         <div style={{ display: page === "dashboard" ? undefined : "none" }}><Dashboard /></div>
+        <div style={{ display: page === "stats" ? undefined : "none" }}><StatsPage /></div>
         <div style={{ display: page === "resume" ? undefined : "none" }}><ProfilePage /></div>
         <div style={{ display: page === "jobs" ? undefined : "none" }}><FindJobsPage /></div>
         <div style={{ display: page === "chat" ? undefined : "none" }}><ChatPage /></div>
