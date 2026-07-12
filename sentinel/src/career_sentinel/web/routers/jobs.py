@@ -6,7 +6,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ... import config, jobfetch, match, negotiate, pipeline, research, store, tailor, watch
+from ... import config, jobfetch, match, negotiate, pipeline, research, salary_insights, store, tailor, watch
 from ...models import OfferDetail
 from ..deps import get_db_path
 from .. import apply, runner
@@ -140,6 +140,17 @@ def search(kw: str = "", page: int = 1, db_path: str = Depends(get_db_path)) -> 
             for j in jobs
         ],
     }
+
+
+@router.get("/api/salary-insights")
+def salary_insights_ep(kw: str = "", pages: int = 3) -> dict:
+    if not kw.strip():
+        raise HTTPException(status_code=400, detail="請輸入關鍵字")
+    try:
+        result = salary_insights.salary_insights_for_keyword(kw.strip(), pages=pages)
+    except Exception:
+        raise HTTPException(status_code=502, detail="查詢薪資行情失敗，請重試")
+    return result.model_dump()
 
 
 @router.get("/api/recommend")

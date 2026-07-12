@@ -442,3 +442,19 @@ export async function getStats(): Promise<StatsResp> {
   const r = await fetch("/api/stats");
   return r.json();
 }
+
+export interface SalaryInsight {
+  keyword: string;
+  sample: number;
+  negotiable: number;
+  hourly_excluded: number;
+  median_monthly: number | null;
+  p25_monthly: number | null;
+  p75_monthly: number | null;
+  min_monthly: number | null;
+  max_monthly: number | null;
+}
+
+export async function getSalaryInsights(kw: string): Promise<Response> {
+  return fetch(`/api/salary-insights?kw=${encodeURIComponent(kw)}`);
+}
