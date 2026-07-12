@@ -249,7 +249,7 @@ export default function JobCardDrawer({ job, opened, onClose }: {
           <Paper bg="dark.6" radius="md" p="lg">
             <Group justify="space-between" mb="sm">
               <Text fw={600}>面試紀錄</Text>
-              {job.code && <InterviewPrepButton code={job.code} company={job.company} title={job.title} initial={prep} />}
+              {job.code && <InterviewPrepButton key={job.code} code={job.code} company={job.company} title={job.title} initial={prep} />}
             </Group>
             {!job.code && <Text c="amber.5" size="xs">此職缺無代碼，無法記錄面試。</Text>}
             {job.code && (
