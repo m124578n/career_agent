@@ -17,7 +17,7 @@ _LABELS: dict[str, str] = {
 _FUNNEL_ORDER = ["interested", "matched", "tailored", "applied", "interviewing", "offer"]
 _DWELL_STATES = ["interested", "matched", "tailored", "offer", "rejected"]
 # offer 視為 6（高於 interviewing 的 5）；rejected 不參與 reached
-_RANK = {"interested": 1, "matched": 2, "tailored": 3, "applied": 4, "interviewing": 5, "offer": 6}
+_RANK = {**pipeline.STATE_RANK, "offer": 6}   # offer 視為 6（高於 interviewing 的 5）
 
 
 class FunnelStage(BaseModel):
