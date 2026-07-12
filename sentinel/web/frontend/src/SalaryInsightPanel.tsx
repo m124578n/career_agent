@@ -25,12 +25,14 @@ export default function SalaryInsightPanel() {
 
   async function setAsExpected() {
     if (!data?.median_monthly) return;
-    setSetting(true);
+    setErr(null); setSetting(true);
     try {
       const prefs = await getPreferences();
-      await putPreferences({ ...prefs, expected_salary: data.median_monthly });
+      const r = await putPreferences({ ...prefs, expected_salary: data.median_monthly });
+      if (!r.ok) { setErr("寫入期望薪資失敗，請重試"); return; }
       qc.invalidateQueries({ queryKey: ["preferences"] });
-    } finally { setSetting(false); }
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setSetting(false); }
   }
 
   return (

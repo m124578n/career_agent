@@ -7,10 +7,17 @@ _HOME = "https://www.104.com.tw/"
 _PERIOD = {40: "時薪", 50: "月薪", 60: "年薪"}
 
 
+def _to_int(v) -> int:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _salary_fields(job: dict) -> tuple[int, int, str]:
     """回 (low, high, period)。面議或無數字→(0, 0, "")；『以上』開放式→high 為 0。"""
-    low = int(job.get("salaryLow") or 0)
-    high = int(job.get("salaryHigh") or 0)
+    low = _to_int(job.get("salaryLow"))
+    high = _to_int(job.get("salaryHigh"))
     if job.get("s10") == 10 or (not low and not high):
         return 0, 0, ""
     period = _PERIOD.get(job.get("s10"), "月薪")

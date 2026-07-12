@@ -32,3 +32,9 @@ def test_parse_structured_salary_negotiable():
     r = parse_recommendations(_payload([_job("d", 0, 0, 10)]))[0]
     assert (r.salary_low, r.salary_high, r.salary_period) == (0, 0, "")
     assert r.salary == "面議"
+
+
+def test_parse_non_numeric_salary_does_not_raise():
+    r = parse_recommendations(_payload([_job("e", "N/A", None, 50)]))[0]
+    assert (r.salary_low, r.salary_high, r.salary_period) == (0, 0, "")
+    assert r.salary == "面議"

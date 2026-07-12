@@ -35,6 +35,7 @@ def compute_salary_insights(keyword: str, jobs: list[RecommendedJob]) -> SalaryI
         else:
             mh = 0
         rep = round((ml + mh) / 2) if mh > 0 else ml
+        # rep 為 0 的退化筆（月/年薪但四捨五入後為 0，實務不會發生）直接略過、不計入任何桶
         if rep > 0:
             reps.append(rep)
     if not reps:
