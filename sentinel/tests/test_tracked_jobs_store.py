@@ -249,3 +249,38 @@ def test_backfill_is_idempotent(tmp_path):
     store._backfill_state_events(conn)  # 再跑一次仍只有一筆
     evs = [e for e in store.load_state_events(conn) if e.code == "d"]
     assert len(evs) == 1 and evs[0].state == "tailored" and evs[0].at == "2026-07-01T09:00:00"
+
+
+def test_set_interview_prep_persists(tmp_path):
+    from career_sentinel import store
+    from career_sentinel.models import InterviewPrep
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    store.merge_tracked_job(conn, "a", state="interested", company="甲")
+    store.set_interview_prep(conn, "a", InterviewPrep(likely_questions=["為什麼想來"], deep=False))
+    tj = store.get_tracked_job(conn, "a")
+    assert tj.interview_prep_json
+    import json
+    assert json.loads(tj.interview_prep_json)["likely_questions"] == ["為什麼想來"]
+
+
+def test_merge_preserves_interview_prep(tmp_path):
+    from career_sentinel import store
+    from career_sentinel.models import InterviewPrep
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    store.merge_tracked_job(conn, "a", state="interested")
+    store.set_interview_prep(conn, "a", InterviewPrep(likely_questions=["Q"]))
+    # 再次 merge（模擬擷取沿用）不得清空 interview_prep_json
+    store.merge_tracked_job(conn, "a", state="matched", match_score=70)
+    tj = store.get_tracked_job(conn, "a")
+    assert tj.interview_prep_json and "Q" in tj.interview_prep_json
+
+
+def test_set_tracked_state_preserves_interview_prep(tmp_path):
+    from career_sentinel import store
+    from career_sentinel.models import InterviewPrep
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    store.merge_tracked_job(conn, "a", state="interested")
+    store.set_interview_prep(conn, "a", InterviewPrep(likely_questions=["Q"]))
+    store.set_tracked_state(conn, "a", "rejected")  # 改狀態不得清空
+    tj = store.get_tracked_job(conn, "a")
+    assert tj.interview_prep_json and "Q" in tj.interview_prep_json

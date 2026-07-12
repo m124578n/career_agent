@@ -212,6 +212,7 @@ class TrackedJob(BaseModel):
     tailor_json: str = ""
     offer_json: str = ""
     interviews_json: str = ""
+    interview_prep_json: str = ""
     created_at: str = ""
     updated_at: str = ""
 
@@ -301,6 +302,16 @@ class TailoredApplication(BaseModel):
     resume_adjustments: list[str] = Field(default_factory=list)
     missing_keywords: list[str] = Field(default_factory=list)
     cover_letter: str = ""
+
+
+class InterviewPrep(BaseModel):
+    likely_questions: list[str] = Field(default_factory=list)   # 可能考題
+    gap_watchouts: list[str] = Field(default_factory=list)      # 缺口可能被追問 + 建議回法
+    talking_points: list[str] = Field(default_factory=list)     # 你的亮點，主動帶出
+    prep_checklist: list[str] = Field(default_factory=list)     # 面試前複習清單
+    sources: list[ResearchSource] = Field(default_factory=list) # 深度模式才有
+    deep: bool = False
+    prepared_at: str = ""
 
 
 class Resume104Block(BaseModel):
