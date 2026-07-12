@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from ... import calendar_link, company_link, diff, digest, pipeline, store, usage as usagemod, watch
+from ... import calendar_link, company_link, diff, digest, pipeline, stats, store, usage as usagemod, watch
 from ...models import interview_key
 from ..deps import get_db_path
 from .. import runner, scheduler
@@ -87,6 +87,11 @@ def usage_summary(db_path: str = Depends(get_db_path)) -> dict:
 def usage_reset(db_path: str = Depends(get_db_path)) -> dict:
     usagemod.reset(store.connect(db_path))
     return {"status": "reset"}
+
+
+@router.get("/api/stats")
+def stats_ep(db_path: str = Depends(get_db_path)) -> dict:
+    return stats.compute_stats(store.connect(db_path)).model_dump()
 
 
 @router.get("/api/schedule")

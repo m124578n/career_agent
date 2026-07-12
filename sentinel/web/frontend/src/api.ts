@@ -35,6 +35,24 @@ export interface SnapshotResp {
   failed_readers: string[];
   tracked_codes: string[];
 }
+export interface FunnelStage { state: string; label: string; count: number }
+export interface Conversions {
+  applied_to_interview: number | null;
+  interview_to_offer: number | null;
+  interested_to_offer: number | null;
+}
+export interface DwellStat { state: string; label: string; median_days: number | null; sample: number }
+export interface StaleJob {
+  code: string; company: string; title: string; state: string;
+  label: string; days_since_update: number; url: string;
+}
+export interface StatsResp {
+  funnel: FunnelStage[];
+  rejected_count: number;
+  conversions: Conversions;
+  dwell: DwellStat[];
+  stale: StaleJob[];
+}
 export interface ChangeCounts { new_viewers: number; status_changes: number; new_messages: number; new_invites: number }
 export interface StatusResp { running: boolean; last_run: string | null; last_error: string | null; last_failed_readers: string[]; last_change_counts: ChangeCounts; phase: string }
 
@@ -399,4 +417,9 @@ export async function getUsage(): Promise<UsageSummary> {
 }
 export async function resetUsage(): Promise<Response> {
   return fetch("/api/usage", { method: "DELETE" });
+}
+
+export async function getStats(): Promise<StatsResp> {
+  const r = await fetch("/api/stats");
+  return r.json();
 }
