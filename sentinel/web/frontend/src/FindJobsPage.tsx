@@ -8,6 +8,7 @@ import {
 } from "./api";
 import BusyHint from "./BusyHint";
 import JobRow from "./JobRow";
+import SalaryInsightPanel from "./SalaryInsightPanel";
 import { PageContainer, PageHeader } from "./ui";
 
 export default function FindJobsPage() {
@@ -94,6 +95,7 @@ export default function FindJobsPage() {
     <PageContainer>
       <Stack gap="md">
         <PageHeader title="找職缺" subtitle="搜尋、推薦或貼網址找職缺，比對後一鍵追蹤" />
+        <SalaryInsightPanel />
         {!canMatch && <Text c="amber.5" size="sm">請先到「履歷健檢」上傳履歷，才能對職缺做比對。</Text>}
         <SegmentedControl
           value={source}
