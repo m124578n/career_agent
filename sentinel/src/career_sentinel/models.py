@@ -126,6 +126,18 @@ class RecommendedJob(BaseModel):
     salary_period: str = ""   # "月薪" / "年薪" / "時薪"；面議為 ""
 
 
+class SalaryInsight(BaseModel):
+    keyword: str = ""
+    sample: int = 0            # 納入統計的職缺數（月/年薪且有數字）
+    negotiable: int = 0        # 面議數
+    hourly_excluded: int = 0   # 時薪排除數
+    median_monthly: int | None = None
+    p25_monthly: int | None = None
+    p75_monthly: int | None = None
+    min_monthly: int | None = None
+    max_monthly: int | None = None
+
+
 class ChangeCounts(BaseModel):
     new_viewers: int = 0
     status_changes: int = 0
