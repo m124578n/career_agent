@@ -57,7 +57,7 @@ export default function JobCardDrawer({ job, opened, onClose }: {
     if (!opened || !job) return;
     setErr(null); setMatch(null); setTailor(null);
     setState(""); setOfferState(null); setEditingOffer(false);
-    setNotes([]);
+    setNotes([]); setPrep(null);
     getTrackedJob(job.code).then((r) => r.json()).then((c) => {
       if (c.match) setMatch(c.match);
       if (c.tailor) setTailor(c.tailor);
