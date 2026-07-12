@@ -121,6 +121,9 @@ class RecommendedJob(BaseModel):
     company: str = ""
     salary: str = ""
     is_watched: bool = False
+    salary_low: int = 0       # 原始下限（依 period 單位）
+    salary_high: int = 0      # 原始上限；「以上」開放式或面議為 0
+    salary_period: str = ""   # "月薪" / "年薪" / "時薪"；面議為 ""
 
 
 class ChangeCounts(BaseModel):

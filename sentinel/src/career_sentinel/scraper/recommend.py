@@ -7,13 +7,23 @@ _HOME = "https://www.104.com.tw/"
 _PERIOD = {40: "時薪", 50: "月薪", 60: "年薪"}
 
 
-def _format_salary(job: dict) -> str:
-    low = job.get("salaryLow") or 0
-    high = job.get("salaryHigh") or 0
+def _salary_fields(job: dict) -> tuple[int, int, str]:
+    """回 (low, high, period)。面議或無數字→(0, 0, "")；『以上』開放式→high 為 0。"""
+    low = int(job.get("salaryLow") or 0)
+    high = int(job.get("salaryHigh") or 0)
     if job.get("s10") == 10 or (not low and not high):
-        return "面議"
+        return 0, 0, ""
     period = _PERIOD.get(job.get("s10"), "月薪")
     if high >= 9999999:
+        high = 0
+    return low, high, period
+
+
+def _format_salary(job: dict) -> str:
+    low, high, period = _salary_fields(job)
+    if not period:
+        return "面議"
+    if high == 0:
         return f"{period} {low:,} 元以上"
     return f"{period} {low:,}~{high:,} 元"
 
@@ -29,6 +39,7 @@ def parse_recommendations(payload: dict) -> list[RecommendedJob]:
             continue
         link = job.get("link")
         url = (link.get("job") if isinstance(link, dict) else None) or f"https://www.104.com.tw/job/{code}"
+        low, high, period = _salary_fields(job)
         out.append(
             RecommendedJob(
                 code=code,
@@ -36,6 +47,7 @@ def parse_recommendations(payload: dict) -> list[RecommendedJob]:
                 title=(job.get("jobName") or "").strip(),
                 company=(job.get("custName") or "").strip(),
                 salary=_format_salary(job),
+                salary_low=low, salary_high=high, salary_period=period,
             )
         )
     return out
