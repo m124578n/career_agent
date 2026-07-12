@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .models import (
     Application, ChatState, CompanyResearch, DismissedInterviews, Interview, InterviewNote, JobPreferences,
-    MemoryState, Message, OfferDetail, ResumeState, Settings, Snapshot, TrackedJob, Viewer,
+    MemoryState, Message, OfferDetail, ResumeState, Settings, Snapshot, StateEvent, TrackedJob, Viewer,
 )
 
 _SCHEMA = """
@@ -77,6 +77,12 @@ CREATE TABLE IF NOT EXISTS tracked_jobs (
     offer_json TEXT NOT NULL DEFAULT '',
     interviews_json TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS state_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL,
+    state TEXT NOT NULL,
+    at TEXT NOT NULL
+);
 """
 
 
@@ -119,6 +125,7 @@ def connect(path: Path | str) -> sqlite3.Connection:
     conn.executescript(_SCHEMA)
     _migrate(conn)
     _migrate_preferences(conn)
+    _backfill_state_events(conn)
     return conn
 
 
@@ -302,7 +309,31 @@ def upsert_tracked_job(conn: sqlite3.Connection, job: TrackedJob) -> None:
 
 def delete_tracked_job(conn: sqlite3.Connection, code: str) -> None:
     conn.execute("DELETE FROM tracked_jobs WHERE code = ?", (code,))
+    conn.execute("DELETE FROM state_events WHERE code = ?", (code,))
     conn.commit()
+
+
+def append_state_event(conn: sqlite3.Connection, code: str, state: str, at: str) -> None:
+    conn.execute("INSERT INTO state_events (code, state, at) VALUES (?, ?, ?)", (code, state, at))
+    conn.commit()
+
+
+def load_state_events(conn: sqlite3.Connection) -> list[StateEvent]:
+    rows = conn.execute("SELECT code, state, at FROM state_events ORDER BY at ASC, id ASC")
+    return [StateEvent(code=c, state=s, at=a) for c, s, a in rows]
+
+
+def _backfill_state_events(conn: sqlite3.Connection) -> None:
+    """對既有 tracked_jobs 但無事件者，補一筆合成事件（現狀態 + created_at/updated_at）。冪等。"""
+    rows = conn.execute(
+        "SELECT t.code, t.state, t.created_at, t.updated_at FROM tracked_jobs t "
+        "WHERE NOT EXISTS (SELECT 1 FROM state_events e WHERE e.code = t.code)"
+    ).fetchall()
+    for code, state, created_at, updated_at in rows:
+        at = created_at or updated_at or datetime.now().isoformat(timespec="seconds")
+        conn.execute("INSERT INTO state_events (code, state, at) VALUES (?, ?, ?)", (code, state, at))
+    if rows:
+        conn.commit()
 
 
 def merge_tracked_job(
@@ -345,6 +376,8 @@ def merge_tracked_job(
         state=final_state, match_score=new_score, created_at=created_at, updated_at=now,
         match_json=new_mj, tailor_json=new_tj, offer_json=new_oj, interviews_json=new_iv,
     ))
+    if existing is None or final_state != existing.state:
+        append_state_event(conn, code, final_state, now)
     return final_state
 
 
@@ -372,6 +405,8 @@ def set_tracked_state(
         upsert_tracked_job(conn, TrackedJob(
             code=code, state=state, created_at=now, updated_at=now, offer_json=offer_json,
         ))
+    if existing is None or state != existing.state:
+        append_state_event(conn, code, state, now)
     return state
 
 

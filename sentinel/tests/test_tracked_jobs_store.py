@@ -207,3 +207,45 @@ def test_set_tracked_state_preserves_interviews(tmp_path):
     import json
     notes = json.loads(store.get_tracked_job(conn, "s1").interviews_json)
     assert [n["content"] for n in notes] == ["B"]
+
+
+def test_merge_logs_event_only_on_change(tmp_path):
+    from career_sentinel import store
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    store.merge_tracked_job(conn, "a", state="interested", company="甲")
+    store.merge_tracked_job(conn, "a", state="interested")  # 狀態沒變 → 不記
+    store.merge_tracked_job(conn, "a", state="matched", match_score=80)  # 進階 → 記
+    evs = [e for e in store.load_state_events(conn) if e.code == "a"]
+    assert [e.state for e in evs] == ["interested", "matched"]
+
+
+def test_set_tracked_state_logs_on_change(tmp_path):
+    from career_sentinel import store
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    store.merge_tracked_job(conn, "b", state="interested")
+    store.set_tracked_state(conn, "b", "rejected")
+    store.set_tracked_state(conn, "b", "rejected")  # 同狀態 → 不記
+    evs = [e for e in store.load_state_events(conn) if e.code == "b"]
+    assert [e.state for e in evs] == ["interested", "rejected"]
+
+
+def test_delete_removes_state_events(tmp_path):
+    from career_sentinel import store
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    store.merge_tracked_job(conn, "c", state="interested")
+    store.delete_tracked_job(conn, "c")
+    assert [e for e in store.load_state_events(conn) if e.code == "c"] == []
+
+
+def test_backfill_is_idempotent(tmp_path):
+    from career_sentinel import store
+    from career_sentinel.models import TrackedJob
+    conn = store.connect(str(tmp_path / "db.sqlite"))
+    # 直接 upsert（不經 merge/set）→ 模擬升級前的舊資料，無事件
+    store.upsert_tracked_job(conn, TrackedJob(code="d", state="tailored",
+                                              created_at="2026-07-01T09:00:00", updated_at="2026-07-01T09:00:00"))
+    assert [e for e in store.load_state_events(conn) if e.code == "d"] == []
+    store._backfill_state_events(conn)
+    store._backfill_state_events(conn)  # 再跑一次仍只有一筆
+    evs = [e for e in store.load_state_events(conn) if e.code == "d"]
+    assert len(evs) == 1 and evs[0].state == "tailored" and evs[0].at == "2026-07-01T09:00:00"

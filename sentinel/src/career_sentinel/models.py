@@ -194,6 +194,12 @@ class InterviewNote(BaseModel):
     content: str = ""   # 面試內容/心得
 
 
+class StateEvent(BaseModel):
+    code: str
+    state: str
+    at: str      # ISO 秒；狀態進入時間
+
+
 class TrackedJob(BaseModel):
     code: str
     company: str = ""
