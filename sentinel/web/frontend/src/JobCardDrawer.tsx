@@ -7,9 +7,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   getResume, getTrackedJob, matchJob, openApplyPage, rejectJob, resetTracked, setInterviews, setOffer,
-  tailorApplication, trackJob, type InterviewNote, type MatchResult, type OfferDetail, type TailoredApplication,
+  tailorApplication, trackJob, type InterviewNote, type InterviewPrep, type MatchResult, type OfferDetail,
+  type TailoredApplication,
 } from "./api";
 import BusyHint from "./BusyHint";
+import InterviewPrepButton from "./InterviewPrepView";
 import ResearchButton from "./ResearchButton";
 
 export interface CardJob {
@@ -45,6 +47,7 @@ export default function JobCardDrawer({ job, opened, onClose }: {
   });
   const [stateBusy, setStateBusy] = useState(false);
   const [notes, setNotes] = useState<InterviewNote[]>([]);
+  const [prep, setPrep] = useState<InterviewPrep | null>(null);
   const [ivWhen, setIvWhen] = useState("");
   const [ivContent, setIvContent] = useState("");
   const [ivBusy, setIvBusy] = useState(false);
@@ -66,6 +69,7 @@ export default function JobCardDrawer({ job, opened, onClose }: {
         setForm({ salary_year: null, salary_month: null, location: "", level: "", start_date: "", notes: "" });
       }
       setNotes(Array.isArray(c.interviews) ? c.interviews : []);
+      setPrep(c.interview_prep ?? null);
     }).catch(() => {});
   }, [opened, job?.code]);
 
@@ -243,7 +247,10 @@ export default function JobCardDrawer({ job, opened, onClose }: {
 
           {/* 面試紀錄 */}
           <Paper bg="dark.6" radius="md" p="lg">
-            <Text fw={600} mb="sm">面試紀錄</Text>
+            <Group justify="space-between" mb="sm">
+              <Text fw={600}>面試紀錄</Text>
+              {job.code && <InterviewPrepButton code={job.code} company={job.company} title={job.title} initial={prep} />}
+            </Group>
             {!job.code && <Text c="amber.5" size="xs">此職缺無代碼，無法記錄面試。</Text>}
             {job.code && (
               <Stack gap="sm">

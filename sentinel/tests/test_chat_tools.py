@@ -434,3 +434,9 @@ def test_system_prompt_mentions_interview_note():
     from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
     p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
     assert "interview_note" in p
+
+
+def test_system_prompt_mentions_interview_prep():
+    from career_sentinel.models import JobPreferences, MemoryState, ResumeState, Settings
+    p = chat.build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    assert "interview_prep" in p

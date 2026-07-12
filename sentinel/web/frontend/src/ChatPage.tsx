@@ -1,6 +1,6 @@
 import {
   ActionIcon, Alert, Badge, Box, Button, Collapse, Group, List, Loader, Paper, ScrollArea,
-  Stack, Text, TextInput, Title, TypographyStylesProvider, UnstyledButton,
+  Stack, Switch, Text, TextInput, Title, TypographyStylesProvider, UnstyledButton,
 } from "@mantine/core";
 import {
   IconBrain, IconCheck, IconChevronRight, IconCopy, IconDownload, IconEraser, IconExternalLink,
@@ -12,10 +12,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./chat-md.css";
 import {
-  applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, negotiateOffer, openApplyPage,
-  readSse, searchJobs, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
-  type NegotiationAdvice, type RecommendedJob, type TailoredApplication,
+  applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, interviewPrep, negotiateOffer,
+  openApplyPage, readSse, searchJobs, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
+  type InterviewPrep, type NegotiationAdvice, type RecommendedJob, type TailoredApplication,
 } from "./api";
+import { InterviewPrepView } from "./InterviewPrepView";
 import { NegotiationView } from "./NegotiateButton";
 import JobRow from "./JobRow";
 
@@ -42,6 +43,7 @@ const FIELD_LABEL: Record<string, string> = {
   watched_keywords: "關注關鍵字", resume_text: "履歷",
   track: "追蹤", job_offer: "標記錄取", job_reject: "標記未錄取",
   job_reset: "重設狀態", untrack: "取消追蹤", interview_note: "面試紀錄",
+  interview_prep: "面試準備",
 };
 
 function fmtValue(v: string | number | string[] | null): string {
@@ -218,6 +220,40 @@ function NegotiateCard({ payload }: { payload: { code: string; company?: string;
       </Group>
       {err && <Text size="xs" c="danger.6">{err}</Text>}
       {result && <NegotiationView data={result} />}
+    </Paper>
+  );
+}
+
+function InterviewPrepCard({ payload }: { payload: { code: string; company?: string; title?: string } }) {
+  const [result, setResult] = useState<InterviewPrep | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [deep, setDeep] = useState(false);
+
+  const run = async () => {
+    setErr(null); setBusy(true);
+    try {
+      const r = await interviewPrep(payload.code, deep);
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(b.detail ?? "產生失敗"); return; }
+      setResult(b as InterviewPrep);
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Paper bg="dark.6" radius="md" px="md" py="sm" maw="92%">
+      <Group justify="space-between" wrap="nowrap" mb={result ? "sm" : 0}>
+        <Text size="sm"><b>面試準備</b> {payload.company ?? ""}{payload.title ? ` · ${payload.title}` : ""}</Text>
+        {!result && (
+          <Group gap="xs" wrap="nowrap">
+            <Switch checked={deep} onChange={(e) => setDeep(e.currentTarget.checked)} size="xs" label="深度" />
+            <Button size="compact-xs" loading={busy} onClick={run}>產生</Button>
+          </Group>
+        )}
+      </Group>
+      {err && <Text size="xs" c="danger.6">{err}</Text>}
+      {result && <InterviewPrepView data={result} />}
     </Paper>
   );
 }
@@ -493,7 +529,9 @@ export default function ChatPage() {
                     ? <TailorCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
                     : s.field === "negotiate"
                       ? <NegotiateCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
-                      : <SuggestionCard key={j} s={s} />
+                      : s.field === "interview_prep"
+                        ? <InterviewPrepCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
+                        : <SuggestionCard key={j} s={s} />
                 )}
                 {m.remembered?.map((f, j) => (
                   <Badge key={j} variant="light" color="grape" leftSection={<IconBrain size={12} />}>

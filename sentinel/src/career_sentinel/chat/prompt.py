@@ -56,7 +56,8 @@ _CONTRACT = """
   {"field": "untrack", "op": "set", "payload": {"code": "abc12", "company": "台積電"}},
   {"field": "tailor", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}},
   {"field": "negotiate", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}},
-  {"field": "interview_note", "op": "set", "payload": {"code": "abc12", "when": "2026-07-10 14:00 一面", "content": "問了系統設計與過往專案"}}
+  {"field": "interview_note", "op": "set", "payload": {"code": "abc12", "when": "2026-07-10 14:00 一面", "content": "問了系統設計與過往專案"}},
+  {"field": "interview_prep", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}}
 ]}</suggestions>
 規則：
 - 允許的 field/op：target_title/set、expected_salary/set（value 為整數**月薪**；
@@ -84,6 +85,10 @@ _CONTRACT = """
 - 面試紀錄（interview_note/set）：使用者描述某職缺的面試（時間、問了什麼、心得）時，提議
   {"field": "interview_note", "op": "set", "payload": {"code": "...", "when": "...", "content": "..."}}.
   payload.code 必來自 get_pipeline/search_jobs 的實際結果、不得杜撰；只提議，按下確認才記。
+- 面試準備（interview_prep/run）：使用者面試前想準備某職缺（想知道可能考題、怎麼準備）時，提議
+  {"field": "interview_prep", "op": "run", "payload": {"code": "...", "company": "...", "title": "..."}}.
+  需使用者已上傳履歷；payload.code 必來自 get_pipeline/search_jobs 的實際結果、不得杜撰。
+  這是**提議**，會等使用者按下才實際生成（花 LLM 錢；深度模式還會網搜）——你不要自行寫面試題或聲稱已完成，只丟提議卡。
 - 沒有要更新時不要輸出 <suggestions> 區塊。
 - <suggestions> 之後不要再有任何文字。
 """
