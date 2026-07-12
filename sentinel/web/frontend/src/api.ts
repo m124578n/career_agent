@@ -187,6 +187,16 @@ export interface InterviewNote {
   content: string;
 }
 
+export interface InterviewPrep {
+  likely_questions: string[];
+  gap_watchouts: string[];
+  talking_points: string[];
+  prep_checklist: string[];
+  sources: ResearchSource[];
+  deep: boolean;
+  prepared_at: string;
+}
+
 export interface TrackedCard {
   code: string;
   found: boolean;
@@ -196,6 +206,7 @@ export interface TrackedCard {
   tailor: TailoredApplication | null;
   offer: OfferDetail | null;
   interviews: InterviewNote[];
+  interview_prep: InterviewPrep | null;
 }
 
 export async function getTrackedJob(code: string): Promise<Response> {
@@ -219,6 +230,14 @@ export async function setInterviews(code: string, notes: InterviewNote[]): Promi
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ notes }),
+  });
+}
+
+export async function interviewPrep(code: string, deep: boolean): Promise<Response> {
+  return fetch(`/api/tracked/${encodeURIComponent(code)}/interview-prep`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deep }),
   });
 }
 

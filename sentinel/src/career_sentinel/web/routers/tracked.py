@@ -6,8 +6,8 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ... import store
-from ...models import InterviewNote, OfferDetail
+from ... import interview_prep, jobfetch, store
+from ...models import InterviewNote, MatchResult, OfferDetail
 from ..deps import get_db_path
 
 router = APIRouter()
@@ -30,6 +30,10 @@ class _InterviewKeyReq(BaseModel):
 
 class _InterviewsReq(BaseModel):
     notes: list[InterviewNote]
+
+
+class _InterviewPrepReq(BaseModel):
+    deep: bool = False
 
 
 @router.post("/api/tracked")
@@ -55,13 +59,14 @@ def tracked_get(code: str, db_path: str = Depends(get_db_path)) -> dict:
     tj = store.get_tracked_job(store.connect(db_path), code)
     if tj is None:
         return {"code": code, "found": False, "state": "", "match_score": None,
-                "match": None, "tailor": None, "offer": None, "interviews": []}
+                "match": None, "tailor": None, "offer": None, "interviews": [], "interview_prep": None}
     return {
         "code": tj.code, "found": True, "state": tj.state, "match_score": tj.match_score,
         "match": json.loads(tj.match_json) if tj.match_json else None,
         "tailor": json.loads(tj.tailor_json) if tj.tailor_json else None,
         "offer": json.loads(tj.offer_json) if tj.offer_json else None,
         "interviews": json.loads(tj.interviews_json) if tj.interviews_json else [],
+        "interview_prep": json.loads(tj.interview_prep_json) if tj.interview_prep_json else None,
     }
 
 
@@ -101,6 +106,36 @@ def set_interviews_ep(code: str, req: _InterviewsReq, db_path: str = Depends(get
         raise HTTPException(status_code=400, detail="缺少職缺代碼")
     store.set_interviews(store.connect(db_path), code, req.notes)
     return {"status": "ok", "count": len(req.notes)}
+
+
+@router.post("/api/tracked/{code}/interview-prep")
+def interview_prep_ep(code: str, req: _InterviewPrepReq, db_path: str = Depends(get_db_path)) -> dict:
+    if not code.strip():
+        raise HTTPException(status_code=400, detail="缺少職缺代碼")
+    conn = store.connect(db_path)
+    resume = store.load_resume(conn)
+    if not resume.resume_text.strip():
+        raise HTTPException(status_code=400, detail="請先上傳履歷")
+    try:
+        jd = jobfetch.fetch_job_detail(code)
+    except Exception:
+        raise HTTPException(status_code=502, detail="抓取職缺失敗，請確認職缺代碼")
+    tj = store.get_tracked_job(conn, code)
+    gaps: list[str] = []
+    if tj is not None and tj.match_json:
+        try:
+            gaps = MatchResult.model_validate_json(tj.match_json).gaps
+        except Exception:
+            gaps = []
+    prefs = store.load_preferences(conn)
+    try:
+        prep = interview_prep.prepare_interview(jd, resume.resume_text, gaps, prefs.target_title, deep=req.deep)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=500, detail="產生面試準備失敗，請重試")
+    store.set_interview_prep(conn, code, prep)
+    return prep.model_dump()
 
 
 @router.post("/api/interviews/dismiss")
