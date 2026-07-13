@@ -18,6 +18,10 @@ const NAV = [
 export function GatedLayout() {
   // 行動版：navbar 預設收起，靠 header 的 Burger 開關
   const [opened, { toggle, close }] = useDisclosure(false);
+  const { data: quota } = useQuery({ queryKey: ["quota"], queryFn: api.quota });
+  const nav = quota?.is_admin
+    ? [...NAV, { to: "/admin", label: "營運數據", tag: "06" }]
+    : NAV;
 
   return (
     <AppShell
@@ -60,7 +64,7 @@ export function GatedLayout() {
         </Stack>
 
         <Stack gap={4}>
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <NavLink
               key={item.to}
               component={RouterNavLink}

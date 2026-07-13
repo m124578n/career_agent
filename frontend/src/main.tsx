@@ -22,6 +22,7 @@ const JobList = lazy(() => import("./pages/JobList").then((m) => ({ default: m.J
 const Applications = lazy(() => import("./pages/Applications").then((m) => ({ default: m.Applications })));
 const Landing = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const AdminStats = lazy(() => import("./pages/AdminStats").then((m) => ({ default: m.AdminStats })));
 
 function PageFallback() {
   return (
@@ -64,6 +65,7 @@ const app = (
             <Route path="/resume" element={<ResumeSetup />} />
             <Route path="/jobs" element={<JobList />} />
             <Route path="/applications" element={<Applications />} />
+            <Route path="/admin" element={<AdminStats />} />
           </Route>
         </Routes>
       </Suspense>

@@ -12,6 +12,19 @@ import type {
   UsageSummary,
 } from "../types";
 
+export interface DailyActive { day: string; users: number }
+export interface AdminStats {
+  total_users: number;
+  active_7d: number;
+  active_30d: number;
+  total_searches: number;
+  total_analyzed: number;
+  total_applications: number;
+  tokens: number;
+  llm_calls: number;
+  daily_active: DailyActive[];
+}
+
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 const TOKEN_KEY = "jobtracker.token";
 
@@ -117,4 +130,5 @@ export const api = {
   usage: () => request<UsageSummary>("/usage"),
   globalUsage: () => request<UsageSummary>("/usage/global"),
   quota: () => request<QuotaInfo>("/usage/quota"),
+  adminStats: () => request<AdminStats>("/usage/admin-stats"),
 };
