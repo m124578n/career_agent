@@ -112,16 +112,19 @@ export function JobList() {
   useEffect(() => {
     localStorage.setItem(SORT_KEY, sortMode);
   }, [sortMode]);
-  // 還原的選中搜尋若已被刪除（不在歷史列表），清掉避免空白／404
+  // 還原的選中搜尋若已被刪除（不在歷史列表），清掉避免空白／404。
+  // 僅在 searches 已落定（非重抓中）時判斷：否則剛 createSearch 後、searches 重抓
+  // 尚未回來的空窗，會把剛設好的 selectedId 誤清，導致新搜尋的候選不顯示。
   useEffect(() => {
     if (
       selectedId &&
       searchesQ.data &&
+      !searchesQ.isFetching &&
       !searchesQ.data.some((s) => s.search_id === selectedId)
     ) {
       setSelectedId(null);
     }
-  }, [selectedId, searchesQ.data]);
+  }, [selectedId, searchesQ.data, searchesQ.isFetching]);
   // 非同步分析從「有 pending」變「全部結束」時，token 才落定 → 刷一次用量
   const hadPending = useRef(false);
   useEffect(() => {
