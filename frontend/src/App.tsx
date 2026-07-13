@@ -5,6 +5,7 @@ import { Link, Outlet, NavLink as RouterNavLink } from "react-router-dom";
 import { api } from "./api/client";
 import { useAuth } from "./state/auth";
 import { Footer } from "./components/Footer";
+import { FeedbackButton } from "./components/FeedbackButton";
 
 const NAV = [
   { to: "/home", label: "總覽", tag: "00" },
@@ -91,6 +92,7 @@ export function GatedLayout() {
         </Stack>
 
         <div style={{ marginTop: "auto" }}>
+          <FeedbackButton />
           <AccountFooter />
           <Footer />
         </div>

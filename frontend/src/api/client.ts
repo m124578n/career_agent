@@ -12,6 +12,15 @@ import type {
   UsageSummary,
 } from "../types";
 
+export interface Feedback {
+  id: string;
+  user: string;
+  message: string;
+  category: string;
+  created_at: string;
+  read: boolean;
+}
+
 export interface DailyActive { day: string; users: number }
 export interface AdminStats {
   total_users: number;
@@ -131,4 +140,19 @@ export const api = {
   globalUsage: () => request<UsageSummary>("/usage/global"),
   quota: () => request<QuotaInfo>("/usage/quota"),
   adminStats: () => request<AdminStats>("/usage/admin-stats"),
+  submitFeedback: (message: string, category: string) =>
+    request<{ ok: boolean }>("/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, category }),
+    }),
+  listFeedback: () => request<Feedback[]>("/feedback"),
+  markFeedbackRead: (id: string, read: boolean) =>
+    request<{ ok: boolean }>(`/feedback/${encodeURIComponent(id)}/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ read }),
+    }),
+  deleteFeedback: (id: string) =>
+    request<{ ok: boolean }>(`/feedback/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
