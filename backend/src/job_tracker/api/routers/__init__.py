@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter
 
-from job_tracker.api.routers import applications, jobs, resumes, usage
+from job_tracker.api.routers import applications, feedback, jobs, resumes, usage
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(resumes.router)
 api_router.include_router(jobs.router)
 api_router.include_router(applications.router)
 api_router.include_router(usage.router)
+api_router.include_router(feedback.router)
