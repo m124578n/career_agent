@@ -29,7 +29,7 @@ export function AdminStats() {
     );
   }
   if (isLoading || !quota.data) return <Box p={40}><Loader /></Box>;
-  if (isError || !data) return <Box p={40}><Alert color="red">數據載入失敗。</Alert></Box>;
+  if (isError || quota.isError || !data) return <Box p={40}><Alert color="red">數據載入失敗。</Alert></Box>;
 
   const s: Stats = data;
   const maxUsers = s.daily_active.reduce((m, d) => Math.max(m, d.users), 0);
