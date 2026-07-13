@@ -129,3 +129,12 @@ class Application(BaseModel):
     updated_at: datetime = Field(default_factory=_utcnow)
     events: list[ApplicationEvent] = Field(default_factory=list)
     offer: OfferInfo | None = None
+
+
+class Feedback(BaseModel):
+    id: str = ""
+    user: str = ""
+    message: str = ""
+    category: str = "其他"
+    created_at: str = ""
+    read: bool = False

@@ -7,6 +7,7 @@ from job_tracker.config import get_settings
 from job_tracker.db import get_db
 from job_tracker.db.repositories import (
     ApplicationRepository,
+    FeedbackRepository,
     JobRepository,
     MatchRepository,
     QuotaRepository,
@@ -26,6 +27,7 @@ __all__ = [
     "get_analysis_runner",
     "ensure_quota",
     "get_database",
+    "get_feedback_repo",
 ]
 
 
@@ -55,6 +57,10 @@ def get_usage_repo() -> TokenUsageRepository:
 
 def get_database():
     return get_db()
+
+
+def get_feedback_repo() -> FeedbackRepository:
+    return FeedbackRepository(get_db())
 
 
 _runner = AsyncioRunner()

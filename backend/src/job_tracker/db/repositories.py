@@ -3,6 +3,7 @@
 文件結構：以 job_id 為 _id，存 Job 欄位；詳情存在 `detail` 子文件。
 """
 
+import uuid
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -12,6 +13,7 @@ from job_tracker.schemas import (
     Application,
     ApplicationEvent,
     ApplicationStatus,
+    Feedback,
     Job,
     JobDetail,
     JobMatch,
@@ -282,3 +284,30 @@ class ApplicationRepository:
 
     async def remove(self, user: str, job_id: str) -> None:
         await self._col.delete_one({"_id": self._id(user, job_id)})
+
+
+class FeedbackRepository:
+    """意見回饋（私密；admin 收件匣）。"""
+
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self._col = db["feedback"]
+
+    async def create(self, user: str, message: str, category: str) -> Feedback:
+        fb = Feedback(
+            id=str(uuid.uuid4()), user=user, message=message, category=category,
+            created_at=datetime.now(UTC).isoformat(), read=False,
+        )
+        doc = fb.model_dump()
+        doc["_id"] = doc.pop("id")
+        await self._col.insert_one(doc)
+        return fb
+
+    async def list(self) -> list[Feedback]:
+        cur = self._col.find({}).sort("created_at", -1)
+        return [Feedback(**{**doc, "id": doc["_id"]}) async for doc in cur]
+
+    async def mark_read(self, fid: str, read: bool) -> None:
+        await self._col.update_one({"_id": fid}, {"$set": {"read": read}})
+
+    async def delete(self, fid: str) -> None:
+        await self._col.delete_one({"_id": fid})
