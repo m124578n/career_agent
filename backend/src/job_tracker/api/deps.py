@@ -25,6 +25,7 @@ __all__ = [
     "get_usage_repo",
     "get_analysis_runner",
     "ensure_quota",
+    "get_database",
 ]
 
 
@@ -50,6 +51,10 @@ def get_application_repo() -> ApplicationRepository:
 
 def get_usage_repo() -> TokenUsageRepository:
     return TokenUsageRepository(get_db())
+
+
+def get_database():
+    return get_db()
 
 
 _runner = AsyncioRunner()
