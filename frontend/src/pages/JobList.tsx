@@ -136,8 +136,10 @@ export function JobList() {
     onSuccess: (data) => {
       setSelectedId(data.search_id);
       setPicked(new Set()); // 預設不勾選，讓使用者自己挑要分析的候選
+      // 直接把回傳的候選 seed 進 cache，立即顯示——不靠 matchesQ 重抓（新 selectedId
+      // 尚無 observer 時 invalidate 不會可靠觸發 fetch，導致候選要手動再點才出現）。
+      qc.setQueryData(["search-matches", data.search_id], data.candidates);
       qc.invalidateQueries({ queryKey: ["searches"] });
-      qc.invalidateQueries({ queryKey: ["search-matches", data.search_id] });
     },
   });
   const crawlMut = useMutation({
