@@ -1,6 +1,7 @@
 import { Alert, Box, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api, type AdminStats as Stats } from "../api/client";
+import { FeedbackInbox } from "../components/FeedbackInbox";
 
 function Tile({ label, value }: { label: string; value: number }) {
   return (
@@ -73,6 +74,8 @@ export function AdminStats() {
           </Stack>
         </div>
       </div>
+
+      <FeedbackInbox />
     </Box>
   );
 }
