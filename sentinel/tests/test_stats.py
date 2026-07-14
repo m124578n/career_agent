@@ -23,6 +23,48 @@ def test_funnel_reached_is_monotonic(tmp_path):
     assert seq == sorted(seq, reverse=True)
 
 
+def test_funnel_104_signals_dont_inflate_match_tailor(tmp_path):
+    # 104 直接投遞/面試的職缺沒經過 app 內比對/客製化，不可虛增那些階段。
+    from career_sentinel.models import Application, Interview, Snapshot
+    conn = _conn(tmp_path)
+    snap = Snapshot(
+        applications=[
+            Application(job_id="1", company="甲", title="後端", status="已讀", applied_at=""),
+            Application(job_id="2", company="乙", title="前端", status="已送出", applied_at=""),
+        ],
+        interviews=[
+            Interview(company="丙", job_title="SRE", when="2026-07-10",
+                      job_url="https://www.104.com.tw/job/interviewonly"),
+        ],
+    )
+    store.save_snapshot(conn, snap, "2026-07-10T00:00:00")
+    r = stats.compute_stats(conn)
+    counts = {f.state: f.count for f in r.funnel}
+    assert counts["interested"] == 3    # 3 筆都在管道中
+    assert counts["matched"] == 0       # 104 投遞不算比對
+    assert counts["tailored"] == 0      # 104 投遞不算客製化
+    assert counts["applied"] == 2       # 只算真實投遞紀錄；面試職缺不計入投遞
+    assert counts["interviewing"] == 1
+
+
+def test_funnel_manual_match_counts_but_104_applied_does_not(tmp_path):
+    # 同一批：有人在 app 內真的比對過 → matched 計 1；純 104 投遞 → 仍不計 matched。
+    from career_sentinel.models import Application, Snapshot
+    conn = _conn(tmp_path)
+    store.save_snapshot(
+        conn,
+        Snapshot(applications=[
+            Application(job_id="p", company="甲", title="後端", status="已讀", applied_at=""),
+        ]),
+        "2026-07-10T00:00:00",
+    )
+    store.merge_tracked_job(conn, "p", state="matched")  # 這筆使用者真的比對過
+    r = stats.compute_stats(conn)
+    counts = {f.state: f.count for f in r.funnel}
+    assert counts["matched"] == 1   # 手動比對計入
+    assert counts["applied"] == 1   # 也有 104 投遞紀錄
+
+
 def test_rejected_excluded_from_funnel(tmp_path):
     conn = _conn(tmp_path)
     store.merge_tracked_job(conn, "a", state="interested")

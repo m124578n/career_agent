@@ -68,12 +68,34 @@ def _pct(n: int, d: int) -> int | None:
     return None if d == 0 else round(100 * n / d)
 
 
+def _attained(j, tracked: dict) -> set[str]:
+    """該職缺「真實達成」的漏斗階段集合。
+
+    104 外部訊號只認列它自己：有投遞紀錄 → applied、有面試 → interviewing，
+    不會回頭灌 matched/tailored（那是 app 內選用功能，104 直接投遞的職缺沒經過）。
+    app 內手動管道（tracked_jobs.state）沿用累積：到 tailored 代表也達成 matched。
+    interested = 只要在管道中就算。這樣 104 來源的投遞不會虛增比對/客製化階段。
+    """
+    s = {"interested"}
+    if j.status:          # 有 104 投遞紀錄（pipeline 只在 applications 來源設 status）
+        s.add("applied")
+    if j.when:            # 有 104 面試
+        s.add("interviewing")
+    tj = tracked.get(j.code)
+    if tj is not None:
+        mrank = _RANK.get(tj.state, 0)
+        s.update(st for st in _FUNNEL_ORDER if _RANK[st] <= mrank)
+    return s
+
+
 def compute_stats(conn) -> StatsResult:
     jobs = pipeline.build_pipeline(conn)
-    ranks = [_RANK.get(j.state, 0) for j in jobs if j.state != "rejected"]
+    tracked = {t.code: t for t in store.load_tracked_jobs(conn) if t.code}
+
+    active = [_attained(j, tracked) for j in jobs if j.state != "rejected"]
 
     def reached(state: str) -> int:
-        return sum(1 for r in ranks if r >= _RANK[state])
+        return sum(1 for a in active if state in a)
 
     funnel = [FunnelStage(state=s, label=_LABELS[s], count=reached(s)) for s in _FUNNEL_ORDER]
     rejected_count = sum(1 for j in jobs if j.state == "rejected")
