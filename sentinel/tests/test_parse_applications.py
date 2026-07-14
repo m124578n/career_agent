@@ -18,8 +18,27 @@ def test_derive_status_replied_by_date():
     assert derive_status({"custCheckDate": "x", "custReplyDate": "2026/06/29", "hrReplyCount": 0}) == "公司已回覆"
 
 
-def test_derive_status_replied_by_count():
-    assert derive_status({"custCheckDate": "x", "custReplyDate": "", "hrReplyCount": 2}) == "公司已回覆"
+def test_hr_reply_count_is_job_level_not_personal_reply():
+    # hrReplyCount / lastCustReplyTimestamp 是「該職缺 HR 對所有應徵者的回覆」統計，
+    # 不代表回覆了「我」。104 判定回覆看的是 custReplyDate。custReplyDate 空 → 仍是已讀。
+    assert (
+        derive_status(
+            {
+                "custCheckDate": "2026/07/09 20:08:14",
+                "custReplyDate": "",
+                "hrReplyCount": 5,
+                "lastCustReplyTimestamp": 1783992272,
+            }
+        )
+        == "已讀"
+    )
+
+
+def test_derive_status_replied_needs_cust_reply_date():
+    assert (
+        derive_status({"custCheckDate": "x", "custReplyDate": "2026/06/29", "hrReplyCount": 0})
+        == "公司已回覆"
+    )
 
 
 def test_parse_applications_maps_fields():

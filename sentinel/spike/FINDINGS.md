@@ -74,8 +74,11 @@
 
 - ⚠️ **無單一 `statusDesc` 欄位——投遞狀態要「推導」**：
   - `custCheckDate` 空 → 已送出/未讀；有值 → **已讀**。
-  - `custReplyDate` 有值或 `hrReplyCount>0` → **公司已回覆**（是否邀面試/婉拒，需再對照訊息頁
+  - `custReplyDate` 有值 → **公司已回覆**（是否邀面試/婉拒，需再對照訊息頁
     `chatrooms.lastEvent` 或 `replyReminder.type`）。
+  - ⚠️ `hrReplyCount` / `lastCustReplyTimestamp` 是「該職缺 HR 對**所有**應徵者的回覆」統計
+    （職缺回覆率），**不代表回覆我**——真實資料驗證：這兩欄 >0 但 `custReplyDate` 空時 104 仍只顯示
+    「已讀」。**不可**納入 `derive_status`，否則會把只被已讀的投遞誤判成公司已回覆。
   - Phase 2 寫一個 `derive_status(item) -> str` 純函式集中此邏輯。
 
 ---

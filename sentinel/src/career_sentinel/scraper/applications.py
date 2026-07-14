@@ -6,8 +6,14 @@ APPLICATIONS_URL = "https://pda.104.com.tw/applyRecord/ajax/list?page=1&status=a
 
 
 def derive_status(item: dict) -> str:
-    """104 無單一狀態欄位，由時間戳推導。"""
-    if item.get("custReplyDate") or (item.get("hrReplyCount") or 0) > 0:
+    """104 無單一狀態欄位，由時間戳推導。
+
+    只有 custReplyDate（廠商對「我這筆應徵」的回覆日）才代表公司回覆了我。
+    hrReplyCount / lastCustReplyTimestamp 是該職缺 HR 對「所有應徵者」的回覆統計
+    （職缺回覆率），即使 >0 也不代表回覆我——104 自己也只依 custReplyDate 判定，
+    故不納入推導，否則會把只被「已讀」的投遞誤判成「公司已回覆」。
+    """
+    if item.get("custReplyDate"):
         return "公司已回覆"
     if item.get("custCheckDate"):
         return "已讀"
