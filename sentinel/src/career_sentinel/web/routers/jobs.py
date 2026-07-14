@@ -44,10 +44,16 @@ def match_job(req: _MatchReq, db_path: str = Depends(get_db_path)) -> dict:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception:
         raise HTTPException(status_code=500, detail="比對失敗，請重試")
-    return {
+    payload = {
         "title": jd.title, "company": jd.company, "salary": jd.salary,
         "score": result.score, "reasons": result.reasons, "gaps": result.gaps,
     }
+    # 按比對＝這筆進入管道「已比對」，後端統一追蹤（聊天/職缺卡皆然），避免各前端漏追蹤。
+    store.merge_tracked_job(
+        conn, code, state="matched", match_score=result.score, match_json=payload,
+        company=jd.company, title=jd.title, url=req.job_url, salary=jd.salary,
+    )
+    return payload
 
 
 @router.post("/api/tailor")
@@ -72,6 +78,11 @@ def tailor_job(req: _MatchReq, db_path: str = Depends(get_db_path)) -> dict:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception:
         raise HTTPException(status_code=500, detail="生成失敗，請重試")
+    # 客製化＝這筆進入管道「已客製化」，後端統一追蹤（聊天/職缺卡皆然），避免各前端漏追蹤。
+    store.merge_tracked_job(
+        conn, code, state="tailored", tailor_json=result.model_dump(),
+        company=jd.company, title=jd.title, url=req.job_url, salary=jd.salary,
+    )
     return result.model_dump()
 
 
