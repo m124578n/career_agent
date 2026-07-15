@@ -125,6 +125,25 @@ def chat_get(db_path: str = Depends(get_db_path)) -> dict:
     }
 
 
+class _CardResultReq(BaseModel):
+    card_id: str
+    result: dict
+
+
+@router.post("/api/chat/card-result")
+def chat_card_result(req: _CardResultReq, db_path: str = Depends(get_db_path)) -> dict:
+    cid = req.card_id.strip()
+    if not cid:
+        raise HTTPException(status_code=400, detail="缺少 card_id")
+    if len(json.dumps(req.result, ensure_ascii=False)) > 20000:
+        raise HTTPException(status_code=400, detail="結果過大")
+    conn = store.connect(db_path)
+    st = store.load_chat(conn)
+    st.card_results[cid] = req.result
+    store.save_chat(conn, st)
+    return {"ok": True}
+
+
 @router.delete("/api/chat")
 def chat_clear(db_path: str = Depends(get_db_path)) -> dict:
     store.save_chat(store.connect(db_path), ChatState())

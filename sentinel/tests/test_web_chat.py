@@ -235,6 +235,24 @@ def test_chat_get_returns_card_results(tmp_path):
     assert body["card_results"]["cid1"]["summary"] == "x"
 
 
+def test_card_result_persisted_and_returned(tmp_path):
+    c = _client(tmp_path)
+    r = c.post("/api/chat/card-result",
+               json={"card_id": "cid1", "result": {"summary": "毀譽參半"}})
+    assert r.status_code == 200 and r.json()["ok"] is True
+    body = c.get("/api/chat").json()
+    assert body["card_results"]["cid1"]["summary"] == "毀譽參半"
+
+
+def test_card_result_rejects_empty_id_and_oversize(tmp_path):
+    c = _client(tmp_path)
+    assert c.post("/api/chat/card-result",
+                  json={"card_id": "", "result": {"a": 1}}).status_code == 400
+    big = {"x": "測" * 20001}
+    assert c.post("/api/chat/card-result",
+                  json={"card_id": "cid1", "result": big}).status_code == 400
+
+
 def test_chat_pipeline_summary_best_effort(tmp_path, monkeypatch):
     # build_pipeline 爆掉時 system 仍可組（pipe_summary=""），聊天不中斷
     db = str(tmp_path / "db.sqlite")
