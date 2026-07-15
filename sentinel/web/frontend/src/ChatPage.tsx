@@ -130,7 +130,7 @@ function TailorCard({ payload, cardId, initialResult }: {
       const b = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(b.detail ?? "生成失敗"); return; }
       setResult(b as TailoredApplication);
-      if (cardId) saveCardResult(cardId, b);
+      if (cardId) saveCardResult(cardId, b).catch(() => {});
     } catch { setErr("網路錯誤，請重試"); }
     finally { setBusy(false); }
   };
@@ -218,7 +218,7 @@ function NegotiateCard({ payload, cardId, initialResult }: {
       const b = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(b.detail ?? "產生失敗"); return; }
       setResult(b as NegotiationAdvice);
-      if (cardId) saveCardResult(cardId, b);
+      if (cardId) saveCardResult(cardId, b).catch(() => {});
     } catch { setErr("網路錯誤，請重試"); }
     finally { setBusy(false); }
   };
@@ -252,7 +252,7 @@ function InterviewPrepCard({ payload, cardId, initialResult }: {
       const b = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(b.detail ?? "產生失敗"); return; }
       setResult(b as InterviewPrep);
-      if (cardId) saveCardResult(cardId, b);
+      if (cardId) saveCardResult(cardId, b).catch(() => {});
     } catch { setErr("網路錯誤，請重試"); }
     finally { setBusy(false); }
   };
@@ -290,7 +290,7 @@ function ResearchCard({ payload, cardId, initialResult }: {
       const b = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(b.detail ?? "查詢失敗"); return; }
       setResult(b as CompanyResearch);
-      if (cardId) saveCardResult(cardId, b);
+      if (cardId) saveCardResult(cardId, b).catch(() => {});
     } catch { setErr("網路錯誤，請重試"); }
     finally { setBusy(false); }
   };
