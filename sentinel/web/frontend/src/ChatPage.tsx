@@ -12,12 +12,13 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./chat-md.css";
 import {
-  applyUpdate, clearChat, deleteMemory, getChat, getResume, getSnapshot, interviewPrep, negotiateOffer,
-  openApplyPage, readSse, searchJobs, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
-  type InterviewPrep, type NegotiationAdvice, type RecommendedJob, type TailoredApplication,
+  applyUpdate, clearChat, deleteMemory, getChat, getResearch, getResume, getSnapshot, interviewPrep,
+  negotiateOffer, openApplyPage, readSse, searchJobs, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
+  type CompanyResearch, type InterviewPrep, type NegotiationAdvice, type RecommendedJob, type TailoredApplication,
 } from "./api";
 import { InterviewPrepView } from "./InterviewPrepView";
 import { NegotiationView } from "./NegotiateButton";
+import { ResearchView } from "./ResearchButton";
 import JobRow from "./JobRow";
 
 interface UiMsg {
@@ -254,6 +255,33 @@ function InterviewPrepCard({ payload }: { payload: { code: string; company?: str
       </Group>
       {err && <Text size="xs" c="danger.6">{err}</Text>}
       {result && <InterviewPrepView data={result} />}
+    </Paper>
+  );
+}
+
+function ResearchCard({ payload }: { payload: { company?: string } }) {
+  const company = payload.company ?? "";
+  const [result, setResult] = useState<CompanyResearch | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const run = async () => {
+    setErr(null); setBusy(true);
+    try {
+      const r = await getResearch(company);
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(b.detail ?? "查詢失敗"); return; }
+      setResult(b as CompanyResearch);
+    } catch { setErr("網路錯誤，請重試"); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Paper bg="dark.6" radius="md" px="md" py="sm" maw="92%">
+      <Group justify="space-between" wrap="nowrap" mb={result ? "sm" : 0}>
+        <Text size="sm"><b>查公司評價</b> {company}</Text>
+        {!result && <Button size="compact-xs" loading={busy} onClick={run}>查評價</Button>}
+      </Group>
+      {err && <Text size="xs" c="danger.6">{err}</Text>}
+      {result && <ResearchView data={result} />}
     </Paper>
   );
 }
@@ -531,7 +559,9 @@ export default function ChatPage() {
                       ? <NegotiateCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
                       : s.field === "interview_prep"
                         ? <InterviewPrepCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
-                        : <SuggestionCard key={j} s={s} />
+                        : s.field === "research"
+                          ? <ResearchCard key={j} payload={(s.payload ?? {}) as { company?: string }} />
+                          : <SuggestionCard key={j} s={s} />
                 )}
                 {m.remembered?.map((f, j) => (
                   <Badge key={j} variant="light" color="grape" leftSection={<IconBrain size={12} />}>
