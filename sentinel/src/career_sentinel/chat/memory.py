@@ -32,7 +32,9 @@ def maybe_compact(conn, state: ChatState) -> ChatState:
         return state  # 失敗跳過、下輪再試，永不丟逐字訊息
     if not new_summary.strip():
         return state
-    new_state = ChatState(summary=new_summary.strip(), messages=recent)
+    kept_ids = {s.card_id for m in recent for s in m.suggestions if s.card_id}
+    kept_results = {k: v for k, v in state.card_results.items() if k in kept_ids}
+    new_state = ChatState(summary=new_summary.strip(), messages=recent, card_results=kept_results)
     store.save_chat(conn, new_state)  # 先寫入新 summary+裁切後訊息（單一原子寫）
     return new_state
 
