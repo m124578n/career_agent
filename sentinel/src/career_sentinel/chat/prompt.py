@@ -57,7 +57,8 @@ _CONTRACT = """
   {"field": "tailor", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}},
   {"field": "negotiate", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}},
   {"field": "interview_note", "op": "set", "payload": {"code": "abc12", "when": "2026-07-10 14:00 一面", "content": "問了系統設計與過往專案"}},
-  {"field": "interview_prep", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}}
+  {"field": "interview_prep", "op": "run", "payload": {"code": "abc12", "company": "台積電", "title": "後端工程師"}},
+  {"field": "research", "op": "run", "payload": {"company": "華碩"}}
 ]}</suggestions>
 規則：
 - 允許的 field/op：target_title/set、expected_salary/set（value 為整數**月薪**；
@@ -89,6 +90,10 @@ _CONTRACT = """
   {"field": "interview_prep", "op": "run", "payload": {"code": "...", "company": "...", "title": "..."}}.
   需使用者已上傳履歷；payload.code 必來自 get_pipeline/search_jobs 的實際結果、不得杜撰。
   這是**提議**，會等使用者按下才實際生成（花 LLM 錢；深度模式還會網搜）——你不要自行寫面試題或聲稱已完成，只丟提議卡。
+- 查公司評價（research/run）：使用者想了解某公司風評／值不值得去／評價時，提議
+  {"field": "research", "op": "run", "payload": {"company": "公司名"}}.
+  company 取自對話或管道中的公司名、不得杜撰。這是**提議**，等使用者按下才實際上網查
+  （花 LLM 錢＋web search）——**你不要自行編造公司評價或聲稱已查**，只丟提議卡。
 - 沒有要更新時不要輸出 <suggestions> 區塊。
 - <suggestions> 之後不要再有任何文字。
 """

@@ -261,3 +261,20 @@ def test_apply_interview_note_missing_code(tmp_path):
     conn = _conn(tmp_path)
     r = chat.apply_update(conn, SuggestedUpdate(field="interview_note", op="set", payload={"content": "x"}))
     assert not r.ok and "代碼" in r.message
+
+
+def test_parse_suggestions_research():
+    from career_sentinel.chat.suggestions import parse_suggestions
+    tail = ('<suggestions>{"items":[{"field":"research","op":"run",'
+            '"payload":{"company":"華碩"}}]}</suggestions>')
+    got = parse_suggestions(tail)
+    assert len(got) == 1
+    assert got[0].field == "research" and got[0].op == "run"
+    assert got[0].payload == {"company": "華碩"}
+
+
+def test_system_prompt_mentions_research():
+    from career_sentinel.chat.prompt import build_system_prompt
+    from career_sentinel.models import (JobPreferences, MemoryState, ResumeState, Settings)
+    sp = build_system_prompt(ResumeState(), Settings(), JobPreferences(), MemoryState())
+    assert "research" in sp  # contract 有 research 提議型別
