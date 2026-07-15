@@ -180,11 +180,13 @@ def interview_key(iv: "Interview") -> str:
 class ChatMessage(BaseModel):
     role: str  # "user" | "assistant"
     content: str
+    suggestions: list["SuggestedUpdate"] = Field(default_factory=list)  # 該則附帶的確認卡（持久化）
 
 
 class ChatState(BaseModel):
     summary: str = ""  # 更早對話的壓縮摘要
     messages: list[ChatMessage] = Field(default_factory=list)
+    card_results: dict[str, dict] = Field(default_factory=dict)  # card_id -> run 卡生成結果
 
 
 class JobPreferences(BaseModel):
@@ -275,6 +277,7 @@ class SuggestedUpdate(BaseModel):
     old: str | None = None  # replace_snippet 專用
     new: str | None = None  # replace_snippet 專用
     payload: dict | None = None  # 管道動作的結構化資料（code + 動作參數）
+    card_id: str = ""  # 持久化確認卡的穩定鍵（live 與重載共用；對應 ChatState.card_results）
 
 
 class ResearchSource(BaseModel):
