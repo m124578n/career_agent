@@ -272,7 +272,7 @@ export async function ackSchedule(): Promise<void> {
   await fetch("/api/schedule/ack", { method: "POST" });
 }
 
-export interface ChatMsg { role: string; content: string }
+export interface ChatMsg { role: string; content: string; suggestions?: SuggestedUpdate[] }
 export interface SuggestedUpdate {
   field: string;
   op: string;
@@ -280,9 +280,15 @@ export interface SuggestedUpdate {
   old: string | null;
   new: string | null;
   payload?: Record<string, unknown> | null;
+  card_id?: string;
 }
 export interface MemoryFact { text: string; created_at: string }
-export interface ChatHistory { summary: string; messages: ChatMsg[]; memory: MemoryFact[] }
+export interface ChatHistory {
+  summary: string;
+  messages: ChatMsg[];
+  memory: MemoryFact[];
+  card_results: Record<string, any>;
+}
 
 export async function getChat(): Promise<ChatHistory> {
   const r = await fetch("/api/chat");
@@ -302,6 +308,13 @@ export async function applyUpdate(u: SuggestedUpdate): Promise<Response> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(u),
+  });
+}
+
+export async function saveCardResult(cardId: string, result: unknown): Promise<Response> {
+  return fetch("/api/chat/card-result", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ card_id: cardId, result }),
   });
 }
 

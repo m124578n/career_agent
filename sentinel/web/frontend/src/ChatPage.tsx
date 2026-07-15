@@ -13,7 +13,7 @@ import remarkGfm from "remark-gfm";
 import "./chat-md.css";
 import {
   applyUpdate, clearChat, deleteMemory, getChat, getResearch, getResume, getSnapshot, interviewPrep,
-  negotiateOffer, openApplyPage, readSse, searchJobs, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
+  negotiateOffer, openApplyPage, readSse, saveCardResult, searchJobs, sendChat, SuggestedUpdate, tailorApplication, uploadResume,
   type CompanyResearch, type InterviewPrep, type NegotiationAdvice, type RecommendedJob, type TailoredApplication,
 } from "./api";
 import { InterviewPrepView } from "./InterviewPrepView";
@@ -110,9 +110,13 @@ function SuggestionCard({ s }: { s: SuggestedUpdate }) {
   );
 }
 
-function TailorCard({ payload }: { payload: { code: string; company?: string; title?: string } }) {
+function TailorCard({ payload, cardId, initialResult }: {
+  payload: { code: string; company?: string; title?: string };
+  cardId?: string;
+  initialResult?: TailoredApplication;
+}) {
   const url = `https://www.104.com.tw/job/${payload.code}`;
-  const [result, setResult] = useState<TailoredApplication | null>(null);
+  const [result, setResult] = useState<TailoredApplication | null>(initialResult ?? null);
   const [busy, setBusy] = useState(false);
   const [applyBusy, setApplyBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -126,6 +130,7 @@ function TailorCard({ payload }: { payload: { code: string; company?: string; ti
       const b = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(b.detail ?? "生成失敗"); return; }
       setResult(b as TailoredApplication);
+      if (cardId) saveCardResult(cardId, b);
     } catch { setErr("網路錯誤，請重試"); }
     finally { setBusy(false); }
   };
@@ -197,8 +202,12 @@ function TailorCard({ payload }: { payload: { code: string; company?: string; ti
   );
 }
 
-function NegotiateCard({ payload }: { payload: { code: string; company?: string; title?: string } }) {
-  const [result, setResult] = useState<NegotiationAdvice | null>(null);
+function NegotiateCard({ payload, cardId, initialResult }: {
+  payload: { code: string; company?: string; title?: string };
+  cardId?: string;
+  initialResult?: NegotiationAdvice;
+}) {
+  const [result, setResult] = useState<NegotiationAdvice | null>(initialResult ?? null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -209,6 +218,7 @@ function NegotiateCard({ payload }: { payload: { code: string; company?: string;
       const b = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(b.detail ?? "產生失敗"); return; }
       setResult(b as NegotiationAdvice);
+      if (cardId) saveCardResult(cardId, b);
     } catch { setErr("網路錯誤，請重試"); }
     finally { setBusy(false); }
   };
@@ -225,8 +235,12 @@ function NegotiateCard({ payload }: { payload: { code: string; company?: string;
   );
 }
 
-function InterviewPrepCard({ payload }: { payload: { code: string; company?: string; title?: string } }) {
-  const [result, setResult] = useState<InterviewPrep | null>(null);
+function InterviewPrepCard({ payload, cardId, initialResult }: {
+  payload: { code: string; company?: string; title?: string };
+  cardId?: string;
+  initialResult?: InterviewPrep;
+}) {
+  const [result, setResult] = useState<InterviewPrep | null>(initialResult ?? null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [deep, setDeep] = useState(false);
@@ -238,6 +252,7 @@ function InterviewPrepCard({ payload }: { payload: { code: string; company?: str
       const b = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(b.detail ?? "產生失敗"); return; }
       setResult(b as InterviewPrep);
+      if (cardId) saveCardResult(cardId, b);
     } catch { setErr("網路錯誤，請重試"); }
     finally { setBusy(false); }
   };
@@ -259,9 +274,13 @@ function InterviewPrepCard({ payload }: { payload: { code: string; company?: str
   );
 }
 
-function ResearchCard({ payload }: { payload: { company?: string } }) {
+function ResearchCard({ payload, cardId, initialResult }: {
+  payload: { company?: string };
+  cardId?: string;
+  initialResult?: CompanyResearch;
+}) {
   const company = payload.company ?? "";
-  const [result, setResult] = useState<CompanyResearch | null>(null);
+  const [result, setResult] = useState<CompanyResearch | null>(initialResult ?? null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const run = async () => {
@@ -271,6 +290,7 @@ function ResearchCard({ payload }: { payload: { company?: string } }) {
       const b = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(b.detail ?? "查詢失敗"); return; }
       setResult(b as CompanyResearch);
+      if (cardId) saveCardResult(cardId, b);
     } catch { setErr("網路錯誤，請重試"); }
     finally { setBusy(false); }
   };
@@ -294,6 +314,7 @@ export default function ChatPage() {
   const canMatch = !!resume.data?.has_resume;
   const trackedCodes = new Set(snap.data?.tracked_codes ?? []);
   const [msgs, setMsgs] = useState<UiMsg[]>([]);
+  const [cardResults, setCardResults] = useState<Record<string, any>>({});
   const [searches, setSearches] = useState<SearchGroup[]>(() => {
     try {
       const raw = localStorage.getItem("cs_chat_search");
@@ -364,7 +385,10 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (history.data && !loaded) {
-      setMsgs(history.data.messages.map((m) => ({ role: m.role, content: m.content })));
+      setMsgs(history.data.messages.map((m) => ({
+        role: m.role, content: m.content, suggestions: m.suggestions,
+      })));
+      setCardResults(history.data.card_results ?? {});
       setLoaded(true);
     }
   }, [history.data, loaded]);
@@ -554,13 +578,17 @@ export default function ChatPage() {
                 )}
                 {m.suggestions?.map((s, j) =>
                   s.field === "tailor"
-                    ? <TailorCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
+                    ? <TailorCard key={j} cardId={s.card_id} initialResult={cardResults[s.card_id ?? ""]}
+                        payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
                     : s.field === "negotiate"
-                      ? <NegotiateCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
+                      ? <NegotiateCard key={j} cardId={s.card_id} initialResult={cardResults[s.card_id ?? ""]}
+                          payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
                       : s.field === "interview_prep"
-                        ? <InterviewPrepCard key={j} payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
+                        ? <InterviewPrepCard key={j} cardId={s.card_id} initialResult={cardResults[s.card_id ?? ""]}
+                            payload={(s.payload ?? {}) as { code: string; company?: string; title?: string }} />
                         : s.field === "research"
-                          ? <ResearchCard key={j} payload={(s.payload ?? {}) as { company?: string }} />
+                          ? <ResearchCard key={j} cardId={s.card_id} initialResult={cardResults[s.card_id ?? ""]}
+                              payload={(s.payload ?? {}) as { company?: string }} />
                           : <SuggestionCard key={j} s={s} />
                 )}
                 {m.remembered?.map((f, j) => (
