@@ -208,6 +208,33 @@ def test_chat_injects_pipeline_summary_and_db_path(tmp_path, monkeypatch):
     assert captured["db_path"] == db           # db_path 傳進工具迴圈
 
 
+def test_chat_persists_cards_with_id(tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.delenv("FOUNDRY_API_KEY", raising=False)
+    monkeypatch.setattr(llm, "chat_stream", _fake_stream([
+        "幫你追蹤",
+        '<suggestions>{"items":[{"field":"track","op":"set",'
+        '"payload":{"code":"abc12","company":"台積電","title":"後端"}}]}</suggestions>',
+    ]))
+    c = _client(tmp_path)
+    r = c.post("/api/chat", json={"message": "追蹤台積電後端"})
+    assert r.status_code == 200
+    # SSE 的 suggestions 帶 card_id
+    sugg = dict(_events(r.text))["suggestions"]["items"]
+    assert sugg[0]["card_id"]
+    # 持久化：assistant 訊息帶 suggestions（含 card_id）
+    st = store.load_chat(store.connect(tmp_path / "db.sqlite"))
+    assert st.messages[-1].suggestions[0].field == "track"
+    assert st.messages[-1].suggestions[0].card_id == sugg[0]["card_id"]
+
+
+def test_chat_get_returns_card_results(tmp_path):
+    conn = store.connect(tmp_path / "db.sqlite")
+    store.save_chat(conn, ChatState(card_results={"cid1": {"summary": "x"}}))
+    body = _client(tmp_path).get("/api/chat").json()
+    assert body["card_results"]["cid1"]["summary"] == "x"
+
+
 def test_chat_pipeline_summary_best_effort(tmp_path, monkeypatch):
     # build_pipeline 爆掉時 system 仍可組（pipe_summary=""），聊天不中斷
     db = str(tmp_path / "db.sqlite")

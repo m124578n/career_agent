@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -79,6 +80,8 @@ def chat_send(req: _ChatReq, db_path: str = Depends(get_db_path)):
         gconn = store.connect(db_path)  # generator 可能跑在不同執行緒，sqlite 連線在此建立
         suggestions = chatmod.parse_suggestions(filt.tail())
         cards = [s for s in suggestions if s.field != "memory"]
+        for c in cards:
+            c.card_id = uuid.uuid4().hex
         remembered: list[str] = []
         forgot: list[str] = []
         for s in suggestions:
@@ -92,7 +95,7 @@ def chat_send(req: _ChatReq, db_path: str = Depends(get_db_path)):
             yield _sse("forgot", {"facts": forgot})
         st = store.load_chat(gconn)
         st.messages.append(ChatMessage(role="user", content=req.message))
-        st.messages.append(ChatMessage(role="assistant", content="".join(clean_parts)))
+        st.messages.append(ChatMessage(role="assistant", content="".join(clean_parts), suggestions=cards))
         store.save_chat(gconn, st)
         chatmod.maybe_compact(gconn, st)
         chatmod.maybe_curate_memory(gconn)
@@ -118,6 +121,7 @@ def chat_get(db_path: str = Depends(get_db_path)) -> dict:
         "summary": st.summary,
         "messages": [m.model_dump() for m in st.messages],
         "memory": [f.model_dump() for f in mem.facts],
+        "card_results": st.card_results,
     }
 
 
