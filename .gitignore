@@ -36,3 +36,6 @@ client_secret_*.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Superpowers SDD 暫存（brief/report/diff/progress ledger，不入版控）
+.superpowers/
