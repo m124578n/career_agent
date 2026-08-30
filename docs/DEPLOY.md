@@ -62,19 +62,34 @@
    | `VITE_GOOGLE_CLIENT_ID` | 與後端 `GOOGLE_CLIENT_ID` 同一個 |
 
 4. SPA 路由已用 `frontend/public/_redirects` 處理（所有路徑 → index.html）。
-5. 部署後記下前端網址，例：`https://career-agent.pages.dev`。
+5. 部署後記下前端網址，例：`https://career-agent-at2.pages.dev`。
+6. **自訂網域**（現行正式網址 `https://jobtracker.shunzz.com`）：Pages → Custom domains 加網域，Cloudflare DNS 會自動加 CNAME；狀態從 initializing 轉 active 約 1–2 分鐘。加完後**必做**下面「回填 CORS」與「Google OAuth」兩步。
 
 ---
 
 ## 3. 回填 CORS（讓前端能打後端）
 
-回到 Zeabur 後端的 `ALLOWED_ORIGINS`，填前端正式網址（可逗號分隔多個）：
+回到 Zeabur 後端的 `ALLOWED_ORIGINS`，填前端正式網址（可逗號分隔多個，**結尾不帶 `/`**）：
 
 ```
-ALLOWED_ORIGINS=https://career-agent.pages.dev
+ALLOWED_ORIGINS=https://jobtracker.shunzz.com,https://career-agent-at2.pages.dev
 ```
 
-重新部署後端即生效。
+重新部署後端即生效。驗證（應回 200，且帶 `access-control-allow-origin`）：
+
+```bash
+curl -s -o /dev/null -w "%{http_code}
+" -X OPTIONS https://career-agent.zeabur.app/api/health   -H "Origin: https://jobtracker.shunzz.com" -H "Access-Control-Request-Method: GET"
+```
+
+## 4. Google OAuth 加新 origin
+
+換／加前端網域時，Google Cloud Console → APIs & Services → Credentials → 該 OAuth Client：
+
+- **Authorized JavaScript origins** 加 `https://jobtracker.shunzz.com`
+- （本專案用 GIS token 流程，不需 redirect URI；若有設也一併加）
+
+沒加會出現 `origin_mismatch` / 登入按鈕 403。Google 端生效可能延遲數分鐘。
 
 ---
 
@@ -100,7 +115,7 @@ push 後兩邊各自自動 rebuild 部署，在 dashboard 看 build log。上線
 
 ```bash
 curl -s https://career-agent.zeabur.app/health                              # 後端活著
-curl -s -o /dev/null -w "%{http_code}" https://career-agent-at2.pages.dev/  # 前端 200
+curl -s -o /dev/null -w "%{http_code}" https://jobtracker.shunzz.com/        # 前端 200
 ```
 
 再開網站實際登入 + 跑一次診斷確認。
